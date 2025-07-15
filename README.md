@@ -4,23 +4,14 @@
 Set up the conda environment (Linux, Python 3.9):
 ```
 conda env create -f environment.yml
-conda activate explore-eqa
+conda activate para-eqa
 pip install -e .
 ```
 
-Install the latest version of [Habitat-Sim](https://github.com/facebookresearch/habitat-sim) (headless with no Bullet physics) with:
-```
-conda install habitat-sim headless -c conda-forge -c aihabitat
-```
+If `flash-attention2` fails to install, you can try the [release version](https://github.com/Dao-AILab/flash-attention/releases) that suits your environment. For example:
 
-Install [flash-attention2](https://github.com/Dao-AILab/flash-attention):
 ```
-pip install flash-attn --no-build-isolation
-```
-
-Install [faiss-gpu](https://github.com/facebookresearch/faiss)
-```
-conda install -c conda-forge faiss-gpu
+pip install /path/to/flash_attn-2.7.4.post1+cu12torch2.2cxx11abiFALSE-cp39-cp39-linux_x86_64.whl --no-build-isolation
 ```
 
 Install transformers for qwenvl
@@ -35,19 +26,48 @@ git clone https://github.com/PanQiWei/AutoGPTQ.git && cd AutoGPTQ
 pip install -vvv --no-build-isolation -e .
 ```
 
-## Dataset
-<img src="assets/data.png" alt="data" width="50%" />
+## Project Structure
 
-- Huggingface: [link](https://huggingface.co/datasets/zmling/MT-HM3D)
-- Baidu Cloud: coming soon
-- Google Drive: coming soon
+Overall structure:
 
-Download MT-HM3D, and file structure is as follow:
 ```
-MemoryEQA
-└─ data
-    └─ MT-HM3D
+.
+├── assets
+├── cfg
+├── CLIP
+├── data
+├── environment.yml
+├── evaluation
+├── memory_eqa.egg-info
+├── pre_download.py
+├── README.md
+├── results
+├── scripts
+├── server_wrapper
+├── setup.py
+├── src
+├── test
+├── tools
+└── yolo11x.pt
 ```
+
+`data` structure:
+
+```
+.
+├── data.png
+├── HM3D
+├── MT-HM3D
+├── Open_Sans
+├── README.md
+├── scene_init_poses_all.csv
+└── scene_init_poses.csv
+```
+
+`HM3D` is decompressed from `hm3d-train-habitat-v0.2.tar` which can be downloaded [here](https://github.com/matterport/habitat-matterport-3dresearch).
+
+`MT-HM3D` can be obtained from [here](https://huggingface.co/datasets/zmling/MT-HM3D).
+
 
 ## Inference on MT-HM3D
 ```
