@@ -1,4 +1,4 @@
-# Memory Embodied Question Answering
+# ParaEQA: Parallel and Asynchronous Embodied Question Answering
 
 ## Installation
 Set up the conda environment (Linux, Python 3.9):
@@ -8,7 +8,7 @@ conda activate para-eqa
 pip install -e .
 ```
 
-If `flash-attention2` fails to install, you can try the [release version](https://github.com/Dao-AILab/flash-attention/releases) that suits your environment. For example:
+If an error occurs when installing `flash-attention2`, you can try the [release version](https://github.com/Dao-AILab/flash-attention/releases) that suits your environment. For example:
 
 ```
 pip install /path/to/flash_attn-2.7.4.post1+cu12torch2.2cxx11abiFALSE-cp39-cp39-linux_x86_64.whl --no-build-isolation
