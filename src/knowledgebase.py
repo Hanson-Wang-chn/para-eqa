@@ -86,8 +86,8 @@ class DynamicKnowledgeBase:
                 self.add_to_knowledge_base(text, image, device)
 
     def add_to_knowledge_base(self, text=None, image=None, device='cuda'):
-        # 更新记忆
-        self.update_memory(text, image, 5, 0.5, device)
+        # 更新记忆（不得更新，否则无限递归死循环）
+        # self.update_memory(text, image, 5, 0.5, device)
 
         image_vector = text_vector = None
         if text:

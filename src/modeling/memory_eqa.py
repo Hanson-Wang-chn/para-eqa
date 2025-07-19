@@ -50,6 +50,8 @@ from ultralytics import YOLO
 
 import matplotlib.pyplot as plt
 
+import cv2
+
 class MemoryEQA():
     def __init__(self, cfg, gpu_id):
         self.cfg = cfg
@@ -225,6 +227,15 @@ class MemoryEQA():
 
     def run(self, question_data, question_ind):
         meta, agent, agent_state, tsdf_planner, episode_data_dir = self.prepare_data(question_data, question_ind)
+        
+        
+        # 1. 新建可视化文件夹
+        current_file_dir = os.path.dirname(os.path.abspath(__file__))
+        # 项目根目录是 run_memory_eqa.py 的上三级目录 (src -> runs -> para-eqa)
+        project_root = os.path.abspath(os.path.join(current_file_dir, "..", ".."))
+        vis_dir = os.path.join(project_root, "visual")
+        os.makedirs(vis_dir, exist_ok=True)
+
 
         result = {
             "meta": meta,
@@ -278,20 +289,55 @@ class MemoryEQA():
             obs = self.simulator.get_sensor_observations()
             rgb = obs["color_sensor"]
             depth = obs["depth_sensor"]
+            
+            
+            # 2. 获取传感器观测并保存原始图片
+            # 保存 RGB、Depth、RGBD
+            save_rgbd(rgb, depth, os.path.join(vis_dir, f"{cnt_step:03d}_rgbd.png"))
+            # 同时保存单独的 RGB/Depth 图
+            Image.fromarray(rgb).save(os.path.join(vis_dir, f"{cnt_step:03d}_rgb.png"))
+            depth_im = (depth.astype(np.float32)/depth.max()*255).astype(np.uint8)
+            Image.fromarray(depth_im).save(os.path.join(vis_dir, f"{cnt_step:03d}_depth.png"))
+            
 
             rgb_im = Image.fromarray(rgb, mode="RGBA").convert("RGB")
+            
+            
+            # 3. 送给 VLM 前保存输入图
+            rgb_im.save(os.path.join(vis_dir, f"{cnt_step:03d}_vlm_input.png"))
+            
 
             room = self.vlm.get_response(rgb_im, "What room are you most likely to be in at the moment? Answer with a phrase", [], device=self.device)
 
             objects = self.detector(rgb_im)[0]
-            objs_info = []
+            
+            # 保存 YOLO 输入图
+            rgb_im.save(os.path.join(vis_dir, f"{cnt_step:03d}_yolo_input.png"))
+            
+            # 在图上画出所有检测框并保存
+            yolo_vis = np.array(rgb_im)
             for box in objects.boxes:
+                cls = objects.names[box.cls.item()]
+                xy = box.xyxy[0].cpu().numpy().astype(int)
+                x1, y1, x2, y2 = xy
+                cv2.rectangle(yolo_vis, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(yolo_vis, cls, (x1, y1 - 5),cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                Image.fromarray(yolo_vis).save(os.path.join(vis_dir, f"{cnt_step:03d}_yolo_boxes.png"))
+            
+            
+            objs_info = []
+            for idx, box in enumerate(objects.boxes):
                 cls = objects.names[box.cls.item()]
                 box = box.xyxy[0].cpu()
                 # 裁剪目标区域进行描述
                 x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
                 obj_im = rgb_im.crop((x1, y1, x2, y2))
+                
+                # 保存每个目标的裁剪图
+                obj_im.save(os.path.join(vis_dir, f"{cnt_step:03d}_obj_{idx}_{cls}.png"))
+                
                 obj_caption = self.vlm.get_response(obj_im, self.prompt_caption, [], device=self.device)
+                
                 # 中心点转换世界坐标
                 x, y = (x1 + x2) / 2, (y1 + y2) / 2
                 world_pos = pixel2world(x, y, depth[int(y), int(x)], cam_pose)
@@ -509,33 +555,33 @@ def run_on_gpu(gpu_id, gpu_index, gpu_count, cfg_file):
     main(cfg, gpu_id, gpu_index, gpu_count)
 
 
-if __name__ == "__main__":
-    import argparse
-    import os
-    import logging
-    from multiprocessing import Process, set_start_method
+# if __name__ == "__main__":
+#     import argparse
+#     import os
+#     import logging
+#     from multiprocessing import Process, set_start_method
 
-    # 设置多进程启动方式为 spawn
-    set_start_method("spawn", force=True)
+#     # 设置多进程启动方式为 spawn
+#     set_start_method("spawn", force=True)
 
-    # Parse arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-cfg", "--cfg_file", help="cfg file path", default="cfg/vlm_exp_ov.yaml", type=str)
-    parser.add_argument("-gpus", "--gpu_ids", help="Comma-separated GPU IDs to use (e.g., '0,1,2')", type=str, default="0")
-    args = parser.parse_args()
+#     # Parse arguments
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("-cfg", "--cfg_file", help="cfg file path", default="cfg/vlm_exp_ov.yaml", type=str)
+#     parser.add_argument("-gpus", "--gpu_ids", help="Comma-separated GPU IDs to use (e.g., '0,1,2')", type=str, default="0")
+#     args = parser.parse_args()
 
-    # Get list of GPUs
-    gpu_ids = [int(gpu_id) for gpu_id in args.gpu_ids.split(",")]
-    gpu_count = len(gpu_ids)  # 计算 GPU 数量
+#     # Get list of GPUs
+#     gpu_ids = [int(gpu_id) for gpu_id in args.gpu_ids.split(",")]
+#     gpu_count = len(gpu_ids)  # 计算 GPU 数量
 
-    # Launch processes for each GPU
-    processes = []
-    for gpu_id in gpu_ids:
-        gpu_index = gpu_ids.index(gpu_id)
-        p = Process(target=run_on_gpu, args=(gpu_id, gpu_index, gpu_count, args.cfg_file))
-        p.start()
-        processes.append(p)
+#     # Launch processes for each GPU
+#     processes = []
+#     for gpu_id in gpu_ids:
+#         gpu_index = gpu_ids.index(gpu_id)
+#         p = Process(target=run_on_gpu, args=(gpu_id, gpu_index, gpu_count, args.cfg_file))
+#         p.start()
+#         processes.append(p)
 
-    # Wait for all processes to finish
-    for p in processes:
-        p.join()
+#     # Wait for all processes to finish
+#     for p in processes:
+#         p.join()

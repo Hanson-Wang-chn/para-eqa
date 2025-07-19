@@ -9,6 +9,7 @@ from src.request_api import RequestAPI
 
 class VLM:
     def __init__(self, cfg, device="cuda"):
+        
         start_time = time.time()
         # self.model = load(cfg.model_id, hf_token=cfg.hf_token)
         model_id = cfg.model_name_or_path.split("/")[-1]

@@ -12,6 +12,8 @@ import argparse
 from tqdm import tqdm
 from src.modeling.memory_eqa import MemoryEQA
 
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
 np.set_printoptions(precision=3)
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"  # disable warning
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

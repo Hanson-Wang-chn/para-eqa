@@ -15,7 +15,8 @@ save_freq: 20
 vlm:
   device: 'cuda'
   # model_name_or_path: Qwen/Qwen2-VL-7B-Instruct
-  model_name_or_path: Qwen/Qwen2-VL-2B-Instruct
+  # model_name_or_path: Qwen/Qwen2-VL-2B-Instruct
+  model_name_or_path: GPT-4o
 
 rag:
   use_rag: true

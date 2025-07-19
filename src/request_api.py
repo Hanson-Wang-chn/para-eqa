@@ -7,11 +7,24 @@ import PIL
 import logging
 from io import BytesIO
 import time
+import os
+import openai
+import httpx
 
 class RequestAPI:
     def __init__(self):
-        self.base_url = 'api.deerapi.com'
-        self.authorization = 'sk-lrenmYBYEOQH0rqv9rlMmoTaELkvZni1afswhr6be3tTN44S'
+        # 从环境变量获取API密钥，如果没有则使用默认值
+        self.api_key = os.environ.get('OPENAI_API_KEY', 'sk-your-default-key')        
+        
+        # 初始化OpenAI客户端，显式设置代理
+        proxies = {
+            "http://": "socks5://127.0.0.1:7897",
+            "https://": "socks5://127.0.0.1:7897"
+        } if os.environ.get('ALL_PROXY') else None
+        self.client = openai.OpenAI(
+            api_key=self.api_key,
+            http_client=httpx.Client(proxies=proxies) if proxies else None
+        )
 
     def convert_file_to_base64(self, image_path):
         with open(image_path, "rb") as image_file:
@@ -87,21 +100,28 @@ class RequestAPI:
                     raise e
 
     def requests_api(self, image, prompt, kb):
-        conn = http.client.HTTPSConnection(self.base_url)
         messages = self.prepare_data(image, prompt, kb)
-        payload = json.dumps({
-            "model": "gpt-4o",
-            "stream": False,
-            "messages": messages,
-                "max_tokens": 400
-            })
-        headers = {
-            'Authorization': self.authorization,
-            'Content-Type': 'application/json'
-        }
-        conn.request("POST", "/v1/chat/completions", payload, headers)
-        res = conn.getresponse()
-        data = json.loads(res.read().decode("utf-8"))
+        
+        # 使用OpenAI官方客户端发送请求
+        response = self.client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": msg["role"], "content": msg["content"]} for msg in messages],
+            max_tokens=400
+        )
+        
+        # 提取响应内容
+        return [response.choices[0].message.content]
 
-        return [data["choices"][0]["message"]["content"]]
-    
+
+if __name__ == "__main__":
+    # 简单测试API是否可用
+    api = RequestAPI()
+    try:
+        result = api.client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": "hello"}],
+            max_tokens=10
+        )
+        print("API调用成功，返回内容：", result.choices[0].message.content)
+    except Exception as e:
+        print("API调用失败：", e)
