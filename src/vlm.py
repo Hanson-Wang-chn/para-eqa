@@ -10,17 +10,14 @@ from src.request_api import RequestAPI
 class VLM:
     def __init__(self, cfg, device="cuda"):
         
-        start_time = time.time()
-        # self.model = load(cfg.model_id, hf_token=cfg.hf_token)
-        model_id = cfg.model_name_or_path.split("/")[-1]
-        
-        # print("\n\n\n")
-        # print(cfg.model_name_or_path)
-        # print("\n\n\n")
-        
+        # default
+        start_time = time.time() 
+               
+        model_id = cfg.model_name_or_path.split("/")[-1]       
         self.model = None
         self.processor = None
-        logging.info(f"Loading VLM model {model_id}")
+        
+        logging.info(f"Loading default VLM model {model_id}")        
         
         if model_id in ["Qwen2-VL-2B-Instruct", "Qwen2-VL-72B-Instruct", "Qwen2-VL-7B-Instruct", "Qwen2-VL-72B-Instruct-GPTQ-Int4", "Qwen2-VL-72B-Instruct-GPTQ-Int8"]:
             self.model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -30,14 +27,52 @@ class VLM:
                 device_map=device,
             )
             self.processor = AutoProcessor.from_pretrained(cfg.model_name_or_path)
-
-        elif model_id in ["GPT-4o"]:
-            self.model = RequestAPI()
-            
+        
+        elif model_id in ["gpt-4o", "gpt-4.1"]:
+            self.model = RequestAPI(model_id=model_id)           
+        
         else:
             raise ValueError(f"Unknown model_id: {model_id}")
-
-        logging.info(f"Loaded VLM in {time.time() - start_time:.3f}s")
+        
+        logging.info(f"Loaded default VLM in {time.time() - start_time:.3f}s")
+        
+        
+        # api force
+        start_time = time.time()
+        
+        model_id_api = cfg.model_name_or_path_api_force
+        self.model_api = None
+        
+        logging.info(f"Loading API VLM model {model_id_api}")
+        
+        if model_id_api in ["gpt-4o", "gpt-4.1"]:
+            self.model_api = RequestAPI(model_id=model_id_api)
+        else:
+            raise ValueError(f"Unknown model_id_api: {model_id_api}")
+        
+        logging.info(f"Loaded API VLM in {time.time() - start_time:.3f}s")
+        
+        
+        # local force
+        start_time = time.time()
+        
+        model_id_local = cfg.model_name_or_path_local_force.split("/")[-1]
+        self.model_local = None
+        self.processor_local = None
+        
+        logging.info(f"Loading local VLM model {model_id}")
+        
+        if model_id_local in ["Qwen2-VL-2B-Instruct", "Qwen2-VL-72B-Instruct", "Qwen2-VL-7B-Instruct", "Qwen2-VL-72B-Instruct-GPTQ-Int4", "Qwen2-VL-72B-Instruct-GPTQ-Int8"]:
+            self.model_local = Qwen2VLForConditionalGeneration.from_pretrained(
+                cfg.model_name_or_path_local_force,
+                torch_dtype="auto",
+                attn_implementation="flash_attention_2",
+                device_map=device,
+            )
+            self.processor_local = AutoProcessor.from_pretrained(cfg.model_name_or_path_local_force)
+        else:
+            raise ValueError(f"Unknown model_id_local: {model_id_local}")
+        
 
     def generate(self, prompt, image, T=0.4, max_tokens=512):
         prompt_builder = self.model.get_prompt_builder()
@@ -53,13 +88,24 @@ class VLM:
         )
         return generated_text
 
-    def get_response(self, image=None, prompt=None, kb=None, device="cuda"):
-        if isinstance(self.model, RequestAPI):
-            return self.get_response_api(image, prompt, kb)
-        return self.get_response_local(image, prompt, kb, device)
+    def get_response(self, image=None, prompt=None, kb=None, device="cuda", target=None):
+        if not target:
+            if isinstance(self.model, RequestAPI):
+                return self.get_response_api(image, prompt, kb)
+            return self.get_response_local(image, prompt, kb, device)
+        elif target == "api":
+            return self.get_response_api_force(image, prompt, kb)
+        elif target == "local":
+            return self.get_response_local_force(image, prompt, kb, device)
+        else:
+            raise ValueError(f"Unknown target: {target}")
+            
 
     def get_response_api(self, image, prompt, kb):
         return self.model.request_with_retry(image, prompt, kb)
+    
+    def get_response_api_force(self, image=None, prompt=None, kb=None):
+        return self.model_api.request_with_retry(image, prompt, kb)
 
     def get_response_local(self, image=None, prompt=None, kb=None, device="cuda"):
         # 创建对话信息
@@ -113,6 +159,62 @@ class VLM:
             out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
         ]
         output_text = self.processor.batch_decode(
+            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )
+        return output_text
+    
+    def get_response_local_force(self, image=None, prompt=None, kb=None, device="cuda"):
+        # 创建对话信息
+        message = {
+                "role": "user",
+                "content": [],
+        }
+        # 添加知识库信息
+        context = []
+        for item in kb:
+            message["content"].append({
+                    "type": "image",
+                    "image": item['image'],
+                })
+            message["content"].append({
+                    "type": "text",
+                    "text": item['text'],
+                })
+
+        # 添加图像和提示信息
+        if image is not None:
+            message["content"].append({
+                "type": "image",
+                "image": image,
+            })
+        if prompt is not None:
+            message["content"].append({
+                "type": "text",
+                "text": prompt,
+            })
+        messages = [message]
+
+        # Preparation for inference
+        text = self.processor_local.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        
+        image_inputs, video_inputs = process_vision_info(messages)
+        inputs = self.processor_local(
+            text=[text],
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            return_tensors="pt",
+        )
+        inputs = inputs.to(device)
+
+        # Inference: Generation of the output
+        generated_ids = self.model_local.generate(**inputs, max_new_tokens=128)
+        generated_ids_trimmed = [
+            out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        output_text = self.processor_local.batch_decode(
             generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )
         return output_text

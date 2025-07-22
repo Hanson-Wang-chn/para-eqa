@@ -294,10 +294,10 @@ class MemoryEQA():
             # 2. 获取传感器观测并保存原始图片
             # 保存 RGB、Depth、RGBD
             save_rgbd(rgb, depth, os.path.join(vis_dir, f"{cnt_step:03d}_rgbd.png"))
-            # 同时保存单独的 RGB/Depth 图
-            Image.fromarray(rgb).save(os.path.join(vis_dir, f"{cnt_step:03d}_rgb.png"))
-            depth_im = (depth.astype(np.float32)/depth.max()*255).astype(np.uint8)
-            Image.fromarray(depth_im).save(os.path.join(vis_dir, f"{cnt_step:03d}_depth.png"))
+            # # 同时保存单独的 RGB/Depth 图
+            # Image.fromarray(rgb).save(os.path.join(vis_dir, f"{cnt_step:03d}_rgb.png"))
+            # depth_im = (depth.astype(np.float32)/depth.max()*255).astype(np.uint8)
+            # Image.fromarray(depth_im).save(os.path.join(vis_dir, f"{cnt_step:03d}_depth.png"))
             
 
             rgb_im = Image.fromarray(rgb, mode="RGBA").convert("RGB")
@@ -312,8 +312,7 @@ class MemoryEQA():
             objects = self.detector(rgb_im)[0]
             
             # 保存 YOLO 输入图
-            rgb_im.save(os.path.join(vis_dir, f"{cnt_step:03d}_yolo_input.png"))
-            
+            rgb_im.save(os.path.join(vis_dir, f"{cnt_step:03d}_yolo_input.png"))            
             # 在图上画出所有检测框并保存
             yolo_vis = np.array(rgb_im)
             for box in objects.boxes:
@@ -336,7 +335,8 @@ class MemoryEQA():
                 # 保存每个目标的裁剪图
                 obj_im.save(os.path.join(vis_dir, f"{cnt_step:03d}_obj_{idx}_{cls}.png"))
                 
-                obj_caption = self.vlm.get_response(obj_im, self.prompt_caption, [], device=self.device)
+                # caption: f"Describe this image."
+                obj_caption = self.vlm.get_response(obj_im, self.prompt_caption, [], device=self.device, target="local")
                 
                 # 中心点转换世界坐标
                 x, y = (x1 + x2) / 2, (y1 + y2) / 2
@@ -529,30 +529,30 @@ class MemoryEQA():
         return result
 
 
-def run_on_gpu(gpu_id, gpu_index, gpu_count, cfg_file):
-    from omegaconf import OmegaConf
-    """在指定 GPU 上运行 main(cfg)，并传递 GPU 信息"""
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)  # 设置可见的 GPU
-    cfg = OmegaConf.load(cfg_file)
-    OmegaConf.resolve(cfg)
+# def run_on_gpu(gpu_id, gpu_index, gpu_count, cfg_file):
+#     from omegaconf import OmegaConf
+#     """在指定 GPU 上运行 main(cfg)，并传递 GPU 信息"""
+#     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)  # 设置可见的 GPU
+#     cfg = OmegaConf.load(cfg_file)
+#     OmegaConf.resolve(cfg)
 
-    # Set up logging
-    cfg.output_dir = os.path.join(cfg.output_parent_dir, f"{cfg.exp_name}/{cfg.exp_name}_gpu{gpu_id}")
-    if not os.path.exists(cfg.output_dir):
-        os.makedirs(cfg.output_dir, exist_ok=True)  # recursive
-    logging_path = os.path.join(cfg.output_dir, f"log_{gpu_id}.log")
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(message)s",
-        handlers=[
-            logging.FileHandler(logging_path, mode="w"),
-            logging.StreamHandler(),
-        ],
-    )
+#     # Set up logging
+#     cfg.output_dir = os.path.join(cfg.output_parent_dir, f"{cfg.exp_name}/{cfg.exp_name}_gpu{gpu_id}")
+#     if not os.path.exists(cfg.output_dir):
+#         os.makedirs(cfg.output_dir, exist_ok=True)  # recursive
+#     logging_path = os.path.join(cfg.output_dir, f"log_{gpu_id}.log")
+#     logging.basicConfig(
+#         level=logging.INFO,
+#         format="%(message)s",
+#         handlers=[
+#             logging.FileHandler(logging_path, mode="w"),
+#             logging.StreamHandler(),
+#         ],
+#     )
 
-    # 将 GPU 信息传递给 main 函数
-    logging.info(f"***** Running {cfg.exp_name} on GPU {gpu_id}/{gpu_count} *****")
-    main(cfg, gpu_id, gpu_index, gpu_count)
+#     # 将 GPU 信息传递给 main 函数
+#     logging.info(f"***** Running {cfg.exp_name} on GPU {gpu_id}/{gpu_count} *****")
+#     main(cfg, gpu_id, gpu_index, gpu_count)
 
 
 # if __name__ == "__main__":

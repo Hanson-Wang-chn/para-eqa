@@ -14,9 +14,9 @@ save_freq: 20
 # Question answering
 vlm:
   device: 'cuda'
-  # model_name_or_path: Qwen/Qwen2-VL-7B-Instruct
-  # model_name_or_path: Qwen/Qwen2-VL-2B-Instruct
-  model_name_or_path: GPT-4o
+  model_name_or_path: gpt-4.1
+  model_name_or_path_api_force: gpt-4.1
+  model_name_or_path_local_force: Qwen/Qwen2-VL-2B-Instruct
 
 rag:
   use_rag: true

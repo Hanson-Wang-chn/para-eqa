@@ -12,9 +12,9 @@ import openai
 import httpx
 
 class RequestAPI:
-    def __init__(self):
-        # 从环境变量获取API密钥，如果没有则使用默认值
-        self.api_key = os.environ.get('OPENAI_API_KEY', 'sk-your-default-key')        
+    def __init__(self, model_id="gpt-4o"):
+        self.api_key = os.environ.get('OPENAI_API_KEY', 'sk-your-default-key')
+        self.model_id = model_id
         
         # 初始化OpenAI客户端，显式设置代理
         proxies = {
@@ -104,7 +104,7 @@ class RequestAPI:
         
         # 使用OpenAI官方客户端发送请求
         response = self.client.chat.completions.create(
-            model="gpt-4o",
+            model=self.model_id,
             messages=[{"role": msg["role"], "content": msg["content"]} for msg in messages],
             max_tokens=400
         )
