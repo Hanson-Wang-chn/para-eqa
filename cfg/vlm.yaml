@@ -1,2 +1,0 @@
-device: 'auto'
-model_name_or_path: /home/zml/model/Qwen2-VL-72B-Instruct-GPTQ-Int4

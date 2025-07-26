@@ -1,1 +1,0 @@
-python server_wrapper/vlm_flask.py --cfg 'cfg/vlm.yaml'
