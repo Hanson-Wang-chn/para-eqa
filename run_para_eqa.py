@@ -86,7 +86,7 @@ def display_stats(config):
                 status_counts[status] += 1
 
     # 清屏并显示统计信息
-    os.system('cls' if os.name == 'nt' else 'clear')
+    # os.system('cls' if os.name == 'nt' else 'clear')
     print("="*50)
     print("ParaEQA System Monitor")
     print("="*50)
@@ -181,7 +181,7 @@ if __name__ == "__main__":
             all_done = display_stats(config)
             if all_done:
                 logging.info("\nAll tasks completed. System is idle.")
-            time.sleep(1)
+            time.sleep(20)
     except KeyboardInterrupt:
         logging.info("\nShutdown signal received. Terminating all services...")
         for p in processes:

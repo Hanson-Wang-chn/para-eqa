@@ -140,11 +140,11 @@ def run(config: dict):
                         "status": "pending",  # 所有问题的初始状态
                         "cost_estimate": -1.0, # 待Updater更新
                         "reward_estimate": -1.0, # 待Updater更新
-                        # 将依赖列表存储为JSON字符串，以兼容Redis Hash
-                        "dependency": json.dumps(question_data.get("dependency", [])),
-                        "answer": "", # 最终答案
-                        "plan": "", # 执行计划
+                        "dependency": [],
+                        "dependency": json.dumps([]),
+                        "answer": "",
                     }
+                    logging.info(f"[{os.getpid()}] Question metadata: {json.dumps(metadata, indent=2, ensure_ascii=False)}")
                     
                     # 2. 将元数据存入 Redis Hash
                     redis_conn.hset(f"{KEY_PREFIXES['question']}{q_id}", mapping=metadata)

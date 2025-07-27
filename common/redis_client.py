@@ -11,16 +11,46 @@ KEY_PREFIXES = {
 }
 
 # 用于分布式锁的 Key
+"""
+updater:
+- Question Pool 相关
+- Updater 更新 Buffer 和 DAG 前加锁
+- Selector 从 Question Pool 选问题时加锁
+
+memory:
+- 读写faiss向量数据库前加锁
+
+selector:
+- Selector 选问题时加锁，防止多个 Selector 选中同一个问题
+- 本项目只考虑一个selector，所以未使用该锁
+"""
+
 LOCK_KEYS = {
+    "updater": "lock:updater",
+    "memory": "lock:memory",
     "selector": "lock:selector"
 }
+
+# 尝试获取 updater 锁，非阻塞，如果锁被占用则直接跳过
+# with redis_conn.lock(LOCK_KEYS['updater'], blocking=False) as lock:
+#     if not lock:
+#         print(f"[{os.getpid()}] UPDATER: Another update is already in progress. Skipping.")
+#         continue
+    
+#     # --- 成功获取锁，进入临界区 ---
+#     try:
+#         # 执行核心更新逻辑
+#         update_dag_and_estimates(redis_conn)
+#     except Exception as e:
+#         print(f"[{os.getpid()}] ERROR in Updater logic: {e}")
+#     # --- 临界区结束，锁自动释放 ---
 
 # 统计信息
 STATS_KEYS = {
     "parser":   "stats:parser",
     "finishing": "stats:finishing",
     "answering": "stats:answering",
-    "planner":  "stats:planner",
+    "planner":  "stats:planner"
     # ...以后有更多service可以继续加
 }
 

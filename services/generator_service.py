@@ -26,17 +26,17 @@ def run(config: dict):
     
     # 硬编码的问题列表
     initial_questions = [
-        {"description": "How many floors are there in the house?", "dependency": []},
-        {"description": "Is the balcony on the second floor?", "dependency": []},
-        {"description": "What is the color of the vase in the balcony?", "dependency": []},
-        {"description": "Is the light turned on in the living room?", "dependency": []},
-        {"description": "Is there any milk on the table in the dining room?", "dependency": []}
+        {"description": "How many floors are there in the house?"},
+        {"description": "Is the balcony on the second floor?"},
+        {"description": "What is the color of the vase in the balcony?"},
+        {"description": "Is the light turned on in the living room?"},
+        {"description": "Is there any milk on the table in the dining room?"}
     ]
     
     followup_questions = [
-        {"description": "Where can you find a cell phone?", "dependency": []},
-        {"description": "How may cushions are there on the sofa in the living room?", "dependency": []},
-        {"description": "Is there obvious dirt in my house?", "dependency": []}
+        {"description": "Where can you find a cell phone?"},
+        {"description": "How may cushions are there on the sofa in the living room?"},
+        {"description": "Is there obvious dirt in my house?"}
     ]
     
     # 连接 Redis
@@ -57,27 +57,27 @@ def run(config: dict):
         total_sent += 1
         logging.info(f"[{os.getpid()}] 已发送初始问题 {total_sent}/{len(initial_questions)}: '{question['description']}'")
     
-    # 设置后续问题的间隔时间（3分钟）
-    followup_interval = 180  # 3分钟 = 180秒
+    # # 设置后续问题的间隔时间（3分钟）
+    # followup_interval = 180  # 3分钟 = 180秒
     
-    try:
-        # 循环发送后续问题
-        for i, question in enumerate(followup_questions):
-            # 等待指定的间隔时间
-            logging.info(f"[{os.getpid()}] 等待 {followup_interval} 秒后发送后续问题...")
-            time.sleep(followup_interval)
+    # try:
+    #     # 循环发送后续问题
+    #     for i, question in enumerate(followup_questions):
+    #         # 等待指定的间隔时间
+    #         logging.info(f"[{os.getpid()}] 等待 {followup_interval} 秒后发送后续问题...")
+    #         time.sleep(followup_interval)
             
-            # 发送问题到 new_questions 流
-            redis_conn.xadd(stream_name, {"data": json.dumps(question)})
-            logging.info(f"[{os.getpid()}] 已发送后续问题 {i+1}/{len(followup_questions)}: '{question['description']}'")
+    #         # 发送问题到 new_questions 流
+    #         redis_conn.xadd(stream_name, {"data": json.dumps(question)})
+    #         logging.info(f"[{os.getpid()}] 已发送后续问题 {i+1}/{len(followup_questions)}: '{question['description']}'")
         
-        logging.info(f"[{os.getpid()}] 所有问题已发送完毕，共 {len(initial_questions) + len(followup_questions)} 个问题")
+    #     logging.info(f"[{os.getpid()}] 所有问题已发送完毕，共 {len(initial_questions) + len(followup_questions)} 个问题")
         
-        # 保持进程运行，直到被终止
-        while True:
-            time.sleep(3600)  # 睡眠1小时，保持进程活跃
+    #     # 保持进程运行，直到被终止
+    #     while True:
+    #         time.sleep(3600)  # 睡眠1小时，保持进程活跃
             
-    except KeyboardInterrupt:
-        logging.info(f"[{os.getpid()}] Generator service received shutdown signal")
-    except Exception as e:
-        logging.error(f"[{os.getpid()}] Generator service encountered an error: {e}")
+    # except KeyboardInterrupt:
+    #     logging.info(f"[{os.getpid()}] Generator service received shutdown signal")
+    # except Exception as e:
+    #     logging.error(f"[{os.getpid()}] Generator service encountered an error: {e}")
