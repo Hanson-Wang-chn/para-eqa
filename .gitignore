@@ -1,0 +1,13 @@
+# data/
+nohup.out
+*.pyc
+results/
+__pychache__/
+*.egg-info/
+vlm/
+prismatic-vlms/
+.vscode
+.idea
+.DS_Store
+yolo11x.pt
+visual/

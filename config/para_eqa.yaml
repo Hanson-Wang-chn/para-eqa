@@ -1,0 +1,143 @@
+# General
+seed: 42
+exp_name: ParaEQA
+output_parent_dir: results
+question_data_path: ./data/MT-HM3D/MT-HM3D-filtered-new.csv
+init_pose_data_path: ./data/scene_init_poses_all.csv
+scene_data_path: ./data/HM3D
+save_obs: true
+save_freq: 20
+
+# Parallel
+parallel:
+  use_parallel: true
+  enable_preempt: true
+  num_init_questions: 5
+  num_followup_questions: 3
+
+# Redis
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+
+# Services
+generator:
+  interval_seconds: 60  # 每隔多少秒发送一批问题
+  batch_size: 1         # 每批发送多少个问题
+  shuffle: false        # 是否随机打乱问题顺序
+
+selector_service:
+  poll_interval_seconds: 5
+
+stopping_service:
+  poll_interval_seconds: 15
+
+# Memory
+memory:
+  faiss_index_path: "data/memory/faiss_index.bin"
+  text_map_path: "data/memory/text_mapping.json"
+  embedding_model: "paraphrase-MiniLM-L6-v2"
+
+# Question Answering
+vlm:
+  device: 'cuda'
+  model_openai: gpt-4.1
+  model_local: Qwen/Qwen2-VL-2B-Instruct
+
+rag:
+  use_rag: true
+  text: 'openai/clip-vit-large-patch14'
+  visual: 'openai/clip-vit-large-patch14'
+  dim: 1536
+  max_retrieval_num: 5
+
+# Prompts
+prompt:
+  parser: |
+    You are an AI assistant tasked with parsing natural language questions into structured data for an Embodied Question Answering (EQA) system in a multi-story residential environment. Your goal is to extract key information from a question and represent it in a JSON object containing the following fields: `urgency` and `scope_type`.
+
+    - **urgency**: A float value between 0 and 1 indicating the urgency of the question. Safety-related questions have higher urgency (e.g., 0.9), functionality-related questions have medium urgency (e.g., 0.5), and general information questions have lower urgency (e.g., 0.2).
+    - **scope_type**: An enum value indicating the scope of exploration needed. Use "local" for questions that require a single observation (e.g., checking the state of a specific object in a room) and "global" for questions that require exploring the entire environment (e.g., checking all windows across multiple floors).
+
+    Here are some examples to guide you:
+
+    <Example 1>
+    - **Question**: "Is the window in the master bedroom on the second floor open?"
+    - **Structured Output**:
+    ```json
+    {
+        "urgency": 0.2,
+        "scope_type": "local"
+    }
+    ```
+
+    <Example 2>
+    - **Question**: "Is the Wi-Fi router in the living room turned on?"
+    - **Structured Output**:
+    ```json
+    {
+        "urgency": 0.4,
+        "scope_type": "local"
+    }
+    ```
+
+    <Example 3>
+    - **Question**: "I can't find my cell phone. Where can you find it?"
+    - **Structured Output**:
+    ```json
+    {
+        "urgency": 0.6,
+        "scope_type": "global"
+    }
+    ```
+
+    <Example 4>
+    - **Question**: "Is there any fire risk in my house?"
+    - **Structured Output**:
+    ```json
+    {
+        "urgency": 0.9,
+        "scope_type": "global"
+    }
+    ```
+
+    Now, please parse the following question: {original_question}
+
+    Please directly provide the structured output in JSON format and DO NOT include any additional text or explanations.
+  
+  updater: |
+    You are an AI assistant responsible for generating a dependency graph for a set of structured questions in an Embodied Question Answering (EQA) system within a multi-story residential environment. Your task is to analyze relationships between questions and represent their dependencies in a JSON format, considering spatial, informational, and logical dependencies.
+
+    You will be given a target question and a list of other questions. For each question in the list, you must examine carefully if it has any dependencies with the target question. That means, the target question is the precondition for the other question to be answered, or the other question is the precondition for the target question to be answered. 
+
+    There are mainly three types of dependencies:
+    - **Spatial dependencies**: Must locate a larger space before exploring a smaller space or object (e.g., "second floor" -> "master bedroom").
+    - **Informational dependencies**: Requires another question’s answer as input (e.g., "Is the kitchen clean?" -> "Are all dishes in the sink washed?").
+    - **Logical dependencies**: Involves a cause-effect or conditional relationship (e.g., "Is the garage door closed?" -> "If the garage door is closed, is the light off?").
+    All of these types of dependencies should be checked carefully, while other possible dependencies should also be considered.
+
+    You should first think step by step about the dependencies between the target question and the other questions, and then provide the dependencies in a strict JSON format:
+    ```json
+    [
+        {"id_1": "id_2"},
+        {"id_3": "id_4"},
+        {"id_5": "id_5"},
+        ...
+    ]
+    ```
+    where the key (id_1, id_3, id_5, ...) represents a question that is dependent on the question represented by the value (id_2, id_4, id_5, ...). The target question must be represented by either the key or the value. You should list ALL dependencies.
+
+    Here are some examples to guide you:
+
+    <Example 1>
+
+    <Example 2>
+
+    <Example 3>
+
+    Now, please analyze the following target question and the list of other questions, and provide the dependencies in JSON format. 
+
+    Target question: {target_question}
+
+    List of other questions: {other_questions}

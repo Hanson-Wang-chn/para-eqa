@@ -1,0 +1,83 @@
+import os
+import json
+import time
+import logging
+from common.redis_client import get_redis_connection, STREAMS
+
+def run(config: dict):
+    """
+    Generator Service 的主运行函数。
+    负责按照配置的规则向系统发送问题。
+    """
+    # 设置日志
+    parent_dir = config.get("output_parent_dir", "results")
+    logs_dir = os.path.join(parent_dir, "generator_logs")
+    if not os.path.exists(logs_dir):
+        os.makedirs(logs_dir, exist_ok=True)
+    logging_path = os.path.join(logs_dir, "generator.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        handlers=[
+            logging.FileHandler(logging_path, mode="w"),
+            logging.StreamHandler(),
+        ],
+    )
+    
+    # 硬编码的问题列表
+    initial_questions = [
+        {"description": "How many floors are there in the house?", "dependency": []},
+        {"description": "Is the balcony on the second floor?", "dependency": []},
+        {"description": "What is the color of the vase in the balcony?", "dependency": []},
+        {"description": "Is the light turned on in the living room?", "dependency": []},
+        {"description": "Is there any milk on the table in the dining room?", "dependency": []}
+    ]
+    
+    followup_questions = [
+        {"description": "Where can you find a cell phone?", "dependency": []},
+        {"description": "How may cushions are there on the sofa in the living room?", "dependency": []},
+        {"description": "Is there obvious dirt in my house?", "dependency": []}
+    ]
+    
+    # 连接 Redis
+    redis_conn = get_redis_connection(config)
+    stream_name = STREAMS["new_questions"]
+    
+    logging.info(f"[{os.getpid()}] Generator service started.")
+    logging.info(f"[{os.getpid()}] Will send {len(initial_questions)} initial questions immediately.")
+    logging.info(f"[{os.getpid()}] Will send {len(followup_questions)} follow-up questions every 3 minutes.")
+    
+    # 初始化计数器
+    total_sent = 0
+    
+    # 发送所有初始问题
+    for question in initial_questions:
+        # 发送问题到 new_questions 流
+        redis_conn.xadd(stream_name, {"data": json.dumps(question)})
+        total_sent += 1
+        logging.info(f"[{os.getpid()}] 已发送初始问题 {total_sent}/{len(initial_questions)}: '{question['description']}'")
+    
+    # 设置后续问题的间隔时间（3分钟）
+    followup_interval = 180  # 3分钟 = 180秒
+    
+    try:
+        # 循环发送后续问题
+        for i, question in enumerate(followup_questions):
+            # 等待指定的间隔时间
+            logging.info(f"[{os.getpid()}] 等待 {followup_interval} 秒后发送后续问题...")
+            time.sleep(followup_interval)
+            
+            # 发送问题到 new_questions 流
+            redis_conn.xadd(stream_name, {"data": json.dumps(question)})
+            logging.info(f"[{os.getpid()}] 已发送后续问题 {i+1}/{len(followup_questions)}: '{question['description']}'")
+        
+        logging.info(f"[{os.getpid()}] 所有问题已发送完毕，共 {len(initial_questions) + len(followup_questions)} 个问题")
+        
+        # 保持进程运行，直到被终止
+        while True:
+            time.sleep(3600)  # 睡眠1小时，保持进程活跃
+            
+    except KeyboardInterrupt:
+        logging.info(f"[{os.getpid()}] Generator service received shutdown signal")
+    except Exception as e:
+        logging.error(f"[{os.getpid()}] Generator service encountered an error: {e}")

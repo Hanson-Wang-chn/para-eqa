@@ -1,0 +1,1 @@
+# ParaEQA: Parallel and Asynchronous Embodied Question Answering
