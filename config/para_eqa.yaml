@@ -35,9 +35,12 @@ stopping_service:
 
 # Memory
 memory:
-  faiss_index_path: "data/memory/faiss_index.bin"
-  text_map_path: "data/memory/text_mapping.json"
-  embedding_model: "paraphrase-MiniLM-L6-v2"
+  device: 'cuda'
+  use_rag: true
+  dim: 1536
+  max_retrieval_num: 5
+  replace_memory: true  # 是否替换相似的记忆
+  lambda_sim: 0.5
 
 # Question Answering
 vlm:

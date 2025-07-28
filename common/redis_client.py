@@ -17,9 +17,6 @@ updater:
 - Updater 更新 Buffer 和 DAG 前加锁
 - Selector 从 Question Pool 选问题时加锁
 
-memory:
-- 读写faiss向量数据库前加锁
-
 selector:
 - Selector 选问题时加锁，防止多个 Selector 选中同一个问题
 - 本项目只考虑一个selector，所以未使用该锁
@@ -27,7 +24,6 @@ selector:
 
 LOCK_KEYS = {
     "updater": "lock:updater",
-    "memory": "lock:memory",
     "selector": "lock:selector"
 }
 
@@ -50,15 +46,17 @@ STATS_KEYS = {
     "parser":   "stats:parser",
     "finishing": "stats:finishing",
     "answering": "stats:answering",
-    "planner":  "stats:planner"
-    # ...以后有更多service可以继续加
+    "planner":  "stats:planner",
+    "memory": "stats:memory"
 }
 
 # 用于持久化任务队列的 Stream 名称
 STREAMS = {
     "new_questions": "stream:new_questions", # New Questions -> Parser
     "parsed_questions": "stream:parsed_questions", # Parsing -> Finishing Module
-    "to_answering": "stream:to_answering" # Finishing Module -> Answering
+    "to_answering": "stream:to_answering", # Finishing Module -> Answering
+    "memory_requests": "stream:memory_requests", # Others -> Memory Module
+    "memory_responses": "stream:memory_responses" # Memory Module -> Others
 }
 
 # 用于瞬时“唤醒”信号的 Pub/Sub 频道名称

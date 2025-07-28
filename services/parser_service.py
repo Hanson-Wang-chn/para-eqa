@@ -112,10 +112,10 @@ def run(config: dict):
     while True:
         try:
             # 阻塞式地从"新问题"流中读取一条消息
-            # `block=0` 表示无限期等待
-            messages = redis_conn.xreadgroup(group_name, "parser_worker", {stream_name: '>'}, count=1, block=0)
+            messages = redis_conn.xreadgroup(group_name, "parser_worker", {stream_name: '>'}, count=1, block=None)
             
             if not messages:
+                time.sleep(0.01)
                 continue
 
             for stream, message_list in messages:

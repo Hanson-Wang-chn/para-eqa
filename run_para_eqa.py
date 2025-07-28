@@ -21,7 +21,8 @@ from multiprocessing import Process, Manager, set_start_method
 from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STATS_KEYS
 from services import (
     generator_service,
-    parser_service, 
+    parser_service,
+    memory_service,
     # updater_service, 
     # selector_service, 
     # planner_service, 
@@ -47,17 +48,10 @@ def load_config(config_file):
 
 
 def initialize_system(config):
-    """初始化系统，清空Redis并加载初始问题"""
+    """清空Redis"""
     redis_conn = get_redis_connection(config['redis'])
     logging.info("Flushing Redis DB...")
     redis_conn.flushdb()
-    
-    # 清理旧的记忆文件
-    if os.path.exists(config['memory']['faiss_index_path']):
-        os.remove(config['memory']['faiss_index_path'])
-    if os.path.exists(config['memory']['text_map_path']):
-        os.remove(config['memory']['text_map_path'])
-    os.makedirs(os.path.dirname(config['memory']['faiss_index_path']), exist_ok=True)
 
 
 def display_stats(config):
@@ -160,6 +154,7 @@ if __name__ == "__main__":
     services_to_run = {
         "Generator": generator_service.run,
         "Parser": parser_service.run,
+        "Memory": memory_service.run,
         # "Updater": updater_service.run,
         # "Selector": selector_service.run,
         # "Planner": planner_service.run,
@@ -181,7 +176,7 @@ if __name__ == "__main__":
             all_done = display_stats(config)
             if all_done:
                 logging.info("\nAll tasks completed. System is idle.")
-            time.sleep(20)
+            time.sleep(10)
     except KeyboardInterrupt:
         logging.info("\nShutdown signal received. Terminating all services...")
         for p in processes:
