@@ -22,7 +22,8 @@ from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STA
 from services import (
     generator_service,
     parser_service,
-    memory_service,
+    # question_pool_service,
+    # memory_service,
     # updater_service, 
     # selector_service, 
     # planner_service, 
@@ -154,7 +155,8 @@ if __name__ == "__main__":
     services_to_run = {
         "Generator": generator_service.run,
         "Parser": parser_service.run,
-        "Memory": memory_service.run,
+        # "QuestionPool": question_pool_service.run,
+        # "Memory": memory_service.run,
         # "Updater": updater_service.run,
         # "Selector": selector_service.run,
         # "Planner": planner_service.run,

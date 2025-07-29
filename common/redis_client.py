@@ -30,7 +30,7 @@ LOCK_KEYS = {
 # 尝试获取 updater 锁，非阻塞，如果锁被占用则直接跳过
 # with redis_conn.lock(LOCK_KEYS['updater'], blocking=False) as lock:
 #     if not lock:
-#         print(f"[{os.getpid()}] UPDATER: Another update is already in progress. Skipping.")
+#         time.sleep(0.01)
 #         continue
     
 #     # --- 成功获取锁，进入临界区 ---
@@ -54,6 +54,9 @@ STATS_KEYS = {
 STREAMS = {
     "new_questions": "stream:new_questions", # New Questions -> Parser
     "parsed_questions": "stream:parsed_questions", # Parsing -> Finishing Module
+    "finishing_to_pool": "stream:finishing_to_pool", # Finishing Module -> Question Pool
+    "stopping_to_pool": "stream:stopping_to_pool", # Stopping Module -> Question Pool
+    "pool_to_selector": "stream:pool_to_selector", # Question Pool -> Selector
     "to_answering": "stream:to_answering", # Finishing Module -> Answering
     "memory_requests": "stream:memory_requests", # Others -> Memory Module
     "memory_responses": "stream:memory_responses" # Memory Module -> Others

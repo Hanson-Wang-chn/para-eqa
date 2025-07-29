@@ -2,36 +2,10 @@ import os
 import json
 import time
 import logging
-import base64
-import io
-from PIL import Image
+
 from common.redis_client import get_redis_connection, STREAMS, STATS_KEYS
 from utils.knowledgebase import KnowledgeBase
-
-
-def decode_image(base64_string):
-    """将Base64编码的图像解码为PIL Image对象"""
-    if not base64_string:
-        return None
-    try:
-        image_data = base64.b64decode(base64_string)
-        return Image.open(io.BytesIO(image_data))
-    except Exception as e:
-        logging.error(f"图像解码错误: {e}")
-        return None
-
-
-def encode_image(image):
-    """将PIL Image对象编码为Base64字符串"""
-    if image is None:
-        return None
-    try:
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        return base64.b64encode(buffer.getvalue()).decode('utf-8')
-    except Exception as e:
-        logging.error(f"图像编码错误: {e}")
-        return None
+from utils.image_processor import decode_image, encode_image
 
 
 def process_search_request(kb, request_data):
@@ -112,8 +86,8 @@ def run(config: dict):
     )
     
     # 初始化知识库
-    device = config.get("vlm", {}).get("device", "cuda")
-    kb = KnowledgeBase(config, device=device)
+    kb = KnowledgeBase(config)
+    device = config.get("memory", {}).get("device", "cuda")
     logging.info(f"[{os.getpid()}] 知识库初始化完成，使用设备: {device}")
     
     # Redis初始化

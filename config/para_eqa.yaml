@@ -8,6 +8,7 @@ scene_data_path: ./data/HM3D
 save_obs: true
 save_freq: 20
 
+
 # Parallel
 parallel:
   use_parallel: true
@@ -15,11 +16,13 @@ parallel:
   num_init_questions: 5
   num_followup_questions: 3
 
+
 # Redis
 redis:
   host: "localhost"
   port: 6379
   db: 0
+
 
 # Services
 generator:
@@ -33,6 +36,7 @@ selector_service:
 stopping_service:
   poll_interval_seconds: 15
 
+
 # Memory
 memory:
   device: 'cuda'
@@ -42,18 +46,19 @@ memory:
   replace_memory: true  # 是否替换相似的记忆
   lambda_sim: 0.5
 
-# Question Answering
+
+# VLM
 vlm:
   device: 'cuda'
   model_openai: gpt-4.1
   model_local: Qwen/Qwen2-VL-2B-Instruct
 
-rag:
-  use_rag: true
-  text: 'openai/clip-vit-large-patch14'
-  visual: 'openai/clip-vit-large-patch14'
-  dim: 1536
-  max_retrieval_num: 5
+
+# Updater
+updater:
+  enable_cost_estimate: false
+  enable_reward_estimate: false
+
 
 # Prompts
 prompt:
@@ -109,38 +114,42 @@ prompt:
 
     Please directly provide the structured output in JSON format and DO NOT include any additional text or explanations.
   
-  updater: |
-    You are an AI assistant responsible for generating a dependency graph for a set of structured questions in an Embodied Question Answering (EQA) system within a multi-story residential environment. Your task is to analyze relationships between questions and represent their dependencies in a JSON format, considering spatial, informational, and logical dependencies.
+  updater:
+    get_cost_estimate:
+    get_reward_estimate:
+    get_dependency: |
+      You are an AI assistant responsible for generating a dependency graph for a set of structured questions in an Embodied Question Answering (EQA) system within a multi-story residential environment. Your task is to analyze relationships between questions and represent their dependencies in a JSON format, considering spatial, informational, and logical dependencies.
 
-    You will be given a target question and a list of other questions. For each question in the list, you must examine carefully if it has any dependencies with the target question. That means, the target question is the precondition for the other question to be answered, or the other question is the precondition for the target question to be answered. 
+      You will be given a target question and a list of other questions. For each question in the list, you must examine carefully if it has any dependencies with the target question. That means, the target question is the precondition for the other question to be answered, or the other question is the precondition for the target question to be answered. 
 
-    There are mainly three types of dependencies:
-    - **Spatial dependencies**: Must locate a larger space before exploring a smaller space or object (e.g., "second floor" -> "master bedroom").
-    - **Informational dependencies**: Requires another question’s answer as input (e.g., "Is the kitchen clean?" -> "Are all dishes in the sink washed?").
-    - **Logical dependencies**: Involves a cause-effect or conditional relationship (e.g., "Is the garage door closed?" -> "If the garage door is closed, is the light off?").
-    All of these types of dependencies should be checked carefully, while other possible dependencies should also be considered.
+      There are mainly three types of dependencies:
+      1. **Spatial dependencies**: Must locate a larger space before exploring a smaller space or object (e.g., "second floor" -> "master bedroom").
+      2. **Informational dependencies**: Requires another question’s answer as input (e.g., "Is the kitchen clean?" -> "Are all dishes in the sink washed?").
+      3. **Logical dependencies**: Involves a cause-effect or conditional relationship (e.g., "Is the garage door closed?" -> "If the garage door is closed, is the light off?").
+      All of these types of dependencies should be checked carefully, while other possible dependencies should also be considered.
 
-    You should first think step by step about the dependencies between the target question and the other questions, and then provide the dependencies in a strict JSON format:
-    ```json
-    [
-        {"id_1": "id_2"},
-        {"id_3": "id_4"},
-        {"id_5": "id_5"},
-        ...
-    ]
-    ```
-    where the key (id_1, id_3, id_5, ...) represents a question that is dependent on the question represented by the value (id_2, id_4, id_5, ...). The target question must be represented by either the key or the value. You should list ALL dependencies.
+      You should first think step by step about the dependencies between the target question and all other questions in the buffer, and then provide the dependencies in a strict JSON format:
 
-    Here are some examples to guide you:
+      ```json
+      {
+        "depends_on": ["id_1", "id_2", ...],
+        "required_by": ["id_3", "id_4", ...]
+      }
+      ```
+      where:
+      1. **depends_on**: the set of questions that the target question depends on. These are prerequisite questions that must be solved first before the target question can be addressed.
+      2. **required_by**: the set of questions that depend on the target question. These are questions that consider the target question as a prerequisite.
 
-    <Example 1>
+      Here are some examples to guide you:
 
-    <Example 2>
+      <Example 1>
 
-    <Example 3>
+      <Example 2>
 
-    Now, please analyze the following target question and the list of other questions, and provide the dependencies in JSON format. 
+      <Example 3>
 
-    Target question: {target_question}
+      Now, please analyze the following target question and the list of other questions, and provide the dependencies in JSON format. 
 
-    List of other questions: {other_questions}
+      Target question: {target_question}
+
+      List of other questions: {other_questions}

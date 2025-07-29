@@ -13,17 +13,7 @@ class KnowledgeBase:
     """A class for managing a knowledge base with text and image data using CLIP model."""
     
     def __init__(self, config):
-        """Initialize the knowledge base with CLIP model and FAISS index.
         
-        Args:
-            config: Configuration object containing model parameters.
-            device (str): Device to run the model on (default: 'cuda').
-            replace_memory (bool): Strategy for updating memory. If True, removes similar memories
-                                   before adding new ones. If False, always adds new ones.
-        """
-        # Load CLIP model and processor
-        self.text_embedder = self.image_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14").to(device)
-        self.preprocess = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
         kb_config = config.get("memory", {})
         
         # replace_memory (bool): Strategy for updating memory. If True, removes similar memories (most similar ones -- similarity > threshold and no more than three altogether) before adding new ones. If False, always add new ones.
@@ -37,6 +27,10 @@ class KnowledgeBase:
         
         # lambda_sim (float): Weight for combining observation and caption similarity (default: 0.5).
         self.lambda_sim = kb_config.get("lambda_sim", 0.5)
+        
+        # Load CLIP model and processor
+        self.text_embedder = self.image_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14").to(self.device)
+        self.preprocess = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
         
         # Initialize FAISS index with ID mapping for robust removal
         base_index = faiss.IndexFlatL2(self.dim)
