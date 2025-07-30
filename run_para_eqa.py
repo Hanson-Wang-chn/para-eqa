@@ -1,6 +1,6 @@
 # run_para_eqa.py
 
-# Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 6379:6379 -p 8001:8001 redis/redis-stack:latest` to start Redis.
+# Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 6379:6379 -p 8001:8001 redis/redis-stack:latest` or `docker start para-eqa-redis` to start Redis.
 
 # 1. 读取配置文件
 # 2. 启动并初始化各个微服务

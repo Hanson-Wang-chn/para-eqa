@@ -144,7 +144,6 @@ def run(config: dict):
                         "cost_estimate": -1.0, # 待Updater更新
                         "reward_estimate": -1.0, # 待Updater更新
                         "dependency": [],
-                        "dependency": json.dumps([]),
                         "answer": "",
                     }
                     logging.info(f"[{os.getpid()}] Question metadata: {json.dumps(metadata, indent=2, ensure_ascii=False)}")
