@@ -10,23 +10,6 @@ KEY_PREFIXES = {
     "question": "question:"
 }
 
-# 用于分布式锁的 Key
-"""
-updater:
-- Question Pool 相关
-- Updater 更新 Buffer 和 DAG 前加锁
-- Selector 从 Question Pool 选问题时加锁
-
-selector:
-- Selector 选问题时加锁，防止多个 Selector 选中同一个问题
-- 本项目只考虑一个selector，所以未使用该锁
-"""
-
-LOCK_KEYS = {
-    "updater": "lock:updater",
-    "selector": "lock:selector"
-}
-
 # 尝试获取 updater 锁，非阻塞，如果锁被占用则直接跳过
 # with redis_conn.lock(LOCK_KEYS['updater'], blocking=False) as lock:
 #     if not lock:
@@ -56,16 +39,11 @@ STREAMS = {
     "parsed_questions": "stream:parsed_questions", # Parsing -> Finishing Module
     "finishing_to_pool": "stream:finishing_to_pool", # Finishing Module -> Question Pool
     "stopping_to_pool": "stream:stopping_to_pool", # Stopping Module -> Question Pool
-    "pool_to_selector": "stream:pool_to_selector", # Question Pool -> Selector
+    "planner_to_pool": "stream:planner_to_pool", # Planner -> Question Pool
+    "pool_to_planner": "stream:pool_to_planner", # Question Pool -> Planner
     "to_answering": "stream:to_answering", # Finishing Module -> Answering
     "memory_requests": "stream:memory_requests", # Others -> Memory Module
     "memory_responses": "stream:memory_responses" # Memory Module -> Others
-}
-
-# 用于瞬时“唤醒”信号的 Pub/Sub 频道名称
-PUBSUB_CHANNELS = {
-    "pool_changed": "channel:pool_changed",
-    "planner_idle": "channel:planner_idle"
 }
 
 

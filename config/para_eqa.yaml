@@ -17,6 +17,15 @@ parallel:
   num_followup_questions: 3
 
 
+# Priority
+priority:
+  w_urgency: 1.0
+  w_scope: 1.0
+  w_cost: -1.0
+  w_reward: 1.0
+  w_dependency: 3.0
+
+
 # Redis
 redis:
   host: "localhost"
@@ -29,12 +38,6 @@ generator:
   interval_seconds: 60  # 每隔多少秒发送一批问题
   batch_size: 1         # 每批发送多少个问题
   shuffle: false        # 是否随机打乱问题顺序
-
-selector_service:
-  poll_interval_seconds: 5
-
-stopping_service:
-  poll_interval_seconds: 15
 
 
 # Memory

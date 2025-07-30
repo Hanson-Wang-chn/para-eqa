@@ -4,9 +4,11 @@ import os
 import json
 import time
 import logging
+import uuid
 
-from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, PUBSUB_CHANNELS
+from common.redis_client import get_redis_connection, STREAMS
 from utils.updater import Updater
+
 
 def run(config: dict):
     """
@@ -37,7 +39,8 @@ def run(config: dict):
     # 设置消费者组，用于接收请求
     finishing_stream = STREAMS["finishing_to_pool"]
     stopping_stream = STREAMS["stopping_to_pool"]
-    selector_stream = STREAMS["pool_to_selector"]
+    planner_stream_in = STREAMS["planner_to_pool"]
+    planner_stream_out = STREAMS["pool_to_planner"]
     
     # 创建消费者组
     try:
@@ -49,6 +52,11 @@ def run(config: dict):
         redis_conn.xgroup_create(stopping_stream, "pool_group", id='0', mkstream=True)
     except Exception as e:
         logging.info(f"[{os.getpid()}] Stopping consumer group already exists: {e}")
+        
+    try:
+        redis_conn.xgroup_create(planner_stream_in, "pool_group", id='0', mkstream=True)
+    except Exception as e:
+        logging.info(f"[{os.getpid()}] Planner consumer group already exists: {e}")
     
     logging.info(f"[{os.getpid()}] Question Pool service started.")
     
@@ -74,9 +82,6 @@ def run(config: dict):
                             
                             # 确认消息已处理
                             redis_conn.xack(finishing_stream, "pool_group", msg_id)
-                            
-                            # 向 Selector 发送更新后的 buffer
-                            send_buffer_to_selector(redis_conn, updater, selector_stream)
                             
                         except Exception as e:
                             logging.error(f"[{os.getpid()}] Error adding question: {e}")
@@ -107,39 +112,61 @@ def run(config: dict):
                             # 确认消息已处理
                             redis_conn.xack(stopping_stream, "pool_group", msg_id)
                             
-                            # 向 Selector 发送更新后的 buffer
-                            send_buffer_to_selector(redis_conn, updater, selector_stream)
-                            
                         except Exception as e:
                             logging.error(f"[{os.getpid()}] Error completing question: {e}")
                             # 消息处理失败，仍然确认，避免反复尝试失败的消息
                             redis_conn.xack(stopping_stream, "pool_group", msg_id)
             
+            # 3. 检查来自 Planner 的选择问题请求
+            planner_msgs = redis_conn.xreadgroup(
+                "pool_group", "pool_worker", 
+                {planner_stream_in: '>'}, 
+                count=1, block=100
+            )
+            
+            if planner_msgs:
+                for _, msg_list in planner_msgs:
+                    for msg_id, data in msg_list:
+                        planner_request = json.loads(data.get('data', '{}'))
+                        request_id = planner_request.get('request_id', str(uuid.uuid4()))
+                        logging.info(f"[{os.getpid()}] Received select question request from Planner: {request_id}")
+                        
+                        # 获取最高优先级的问题
+                        highest_priority_question = updater.highest_priority_question
+                        
+                        # 如果找到了高优先级问题
+                        if highest_priority_question:
+                            # 更新问题状态为 "in_progress"
+                            updater.buffer.set_status(highest_priority_question["id"], "in_progress")
+                            
+                            # 返回问题到Planner
+                            response = {
+                                "request_id": request_id,
+                                "status": "success",
+                                "question": highest_priority_question
+                            }
+                            redis_conn.xadd(planner_stream_out, {"data": json.dumps(response)})
+                            logging.info(f"[{os.getpid()}] Sent question {highest_priority_question['id']} to Planner")
+                        else:
+                            # 如果没有可用问题，返回空响应
+                            response = {
+                                "request_id": request_id,
+                                "status": "empty",
+                                "question": None
+                            }
+                            redis_conn.xadd(planner_stream_out, {"data": json.dumps(response)})
+                            logging.info(f"[{os.getpid()}] No available questions to send to Planner")
+                        
+                        # 确认消息已处理
+                        redis_conn.xack(planner_stream_in, "pool_group", msg_id)
+                
+                continue
+            
             # 如果没有消息，稍微休眠以减少CPU使用
-            if not finishing_msgs and not stopping_msgs:
+            if not finishing_msgs and not stopping_msgs and not planner_msgs:
                 time.sleep(0.1)
                 
         except Exception as e:
             logging.error(f"[{os.getpid()}] Unexpected error in Question Pool service: {e}")
-            time.sleep(1)  # 遇到意外错误，短暂休眠后继续
+            time.sleep(5)  # 遇到意外错误，短暂休眠后继续
 
-
-def send_buffer_to_selector(redis_conn, updater, selector_stream):
-    """
-    向 Selector 发送当前 buffer 的完整副本
-    """
-    try:
-        # 获取 buffer 中的问题和 DAG
-        buffer_data = {
-            "buffer": updater.buffer.get_buffer(),
-            "dag": updater.buffer.get_dag(),
-        }
-        
-        # 转换为 JSON 字符串并发送
-        redis_conn.xadd(selector_stream, {"data": json.dumps(buffer_data)})
-        
-        # 发布通知，告知 Selector 问题池已更新
-        # redis_conn.publish(PUBSUB_CHANNELS['pool_changed'], "updated")
-        
-    except Exception as e:
-        logging.error(f"Error sending buffer to selector: {e}")
