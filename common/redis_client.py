@@ -40,6 +40,7 @@ STREAMS = {
     "finishing_to_pool": "stream:finishing_to_pool", # Finishing Module -> Question Pool
     "stopping_to_pool": "stream:stopping_to_pool", # Stopping Module -> Question Pool
     "planner_to_pool": "stream:planner_to_pool", # Planner -> Question Pool
+    "answering_to_pool": "stream:answering_to_pool", # Answering Module -> Question Pool
     "pool_to_planner": "stream:pool_to_planner", # Question Pool -> Planner
     "to_answering": "stream:to_answering", # Finishing Module -> Answering
     "memory_requests": "stream:memory_requests", # Others -> Memory Module

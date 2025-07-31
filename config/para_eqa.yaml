@@ -43,6 +43,13 @@ finishing:
   retrieval_num: 5
   confidence_threshold: 0.7
 
+updater:
+  enable_cost_estimate: false
+  enable_reward_estimate: false
+
+answering:
+  result_path: results/answers.json
+
 
 # Memory
 memory:
@@ -59,12 +66,6 @@ vlm:
   device: 'cuda'
   model_openai: gpt-4.1
   model_local: Qwen/Qwen2-VL-2B-Instruct
-
-
-# Updater
-updater:
-  enable_cost_estimate: false
-  enable_reward_estimate: false
 
 
 # Prompts
@@ -123,6 +124,9 @@ prompt:
   
   finishing:
     get_confidence: example prompt
+  
+  answering:
+    get_answer: example prompt
   
   updater:
     get_cost_estimate:

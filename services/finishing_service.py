@@ -11,14 +11,14 @@ from utils.vlm_openai import VLM_OpenAI
 from utils.image_processor import decode_image
 
 
-def get_confidence(question_desc, memory_items, prompt_template, model_openai="gpt-4.1"):
+def get_confidence(question_desc, memory_items, prompt_get_confidence, model_openai="gpt-4.1"):
     """
     调用大模型计算能否回答问题的置信度
     
     Args:
         question_desc (str): 问题描述
         memory_items (list): 从记忆中检索到的项目列表
-        prompt_template (str): 提示模板
+        prompt_get_confidence (str): 提示模板
         model_openai (str): 使用的OpenAI模型
         
     Returns:
@@ -38,7 +38,7 @@ def get_confidence(question_desc, memory_items, prompt_template, model_openai="g
     
     # TODO: 根据实际提示词调整正则表达
     # 构造提示
-    prompt = prompt_template.replace("{question}", question_desc).replace("{memory}", combined_memory_text)
+    prompt = prompt_get_confidence.replace("{question}", question_desc).replace("{memory}", combined_memory_text)
     
     # 调用VLM
     response = vlm.request_with_retry(image=image, prompt=prompt)[0]

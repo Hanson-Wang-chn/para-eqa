@@ -41,6 +41,7 @@ def run(config: dict):
     stopping_stream = STREAMS["stopping_to_pool"]
     planner_stream_in = STREAMS["planner_to_pool"]
     planner_stream_out = STREAMS["pool_to_planner"]
+    answering_stream = STREAMS["answering_to_pool"]
     
     # 创建消费者组
     try:
@@ -57,6 +58,11 @@ def run(config: dict):
         redis_conn.xgroup_create(planner_stream_in, "pool_group", id='0', mkstream=True)
     except Exception as e:
         logging.info(f"[{os.getpid()}] Planner consumer group already exists: {e}")
+    
+    try:
+        redis_conn.xgroup_create(answering_stream, "pool_group", id='0', mkstream=True)
+    except Exception as e:
+        logging.info(f"[{os.getpid()}] Answering consumer group already exists: {e}")
     
     logging.info(f"[{os.getpid()}] Question Pool service started.")
     
@@ -162,8 +168,51 @@ def run(config: dict):
                 
                 continue
             
+            # 4. 检查来自 Answering Module 的回答写入请求
+            answering_msgs = redis_conn.xreadgroup(
+                "pool_group", "pool_worker", 
+                {answering_stream: '>'}, 
+                count=1, block=100
+            )
+
+            if answering_msgs:
+                for _, msg_list in answering_msgs:
+                    for msg_id, data in msg_list:
+                        try:
+                            question_data = json.loads(data.get('data', '{}'))
+                            question_id = question_data.get('id')
+                            logging.info(f"[{os.getpid()}] Received answer for question: {question_id}")
+                            
+                            try:
+                                # 检查buffer中是否已有该问题
+                                existing_question = updater.buffer.get_question_by_id(question_id)
+                                
+                                # 如果存在，检查状态是否为completed
+                                if existing_question["status"] == "completed":
+                                    # 更新问题答案和状态
+                                    updater.answer_question(question_data)
+                                    logging.info(f"[{os.getpid()}] Answer added to question {question_id} and marked as answered")
+                                else:
+                                    # 状态不是completed，报错
+                                    logging.error(f"[{os.getpid()}] Question {question_id} status is {existing_question['status']}, not completed. Cannot add answer.")
+                                    
+                            except ValueError:
+                                # 问题不在buffer中，添加新问题，状态为answered
+                                question_data["status"] = "answered"
+                                updater.buffer.write_latest_questions([question_data])
+                                
+                                logging.info(f"[{os.getpid()}] New answered question {question_id} added to buffer")
+                            
+                        except Exception as e:
+                            logging.error(f"[{os.getpid()}] Error processing answer from Answering Module: {e}")
+                        
+                        # 确认消息已处理
+                        redis_conn.xack(answering_stream, "pool_group", msg_id)
+                
+                continue
+            
             # 如果没有消息，稍微休眠以减少CPU使用
-            if not finishing_msgs and not stopping_msgs and not planner_msgs:
+            if not finishing_msgs and not stopping_msgs and not planner_msgs and not answering_msgs:
                 time.sleep(0.1)
                 
         except Exception as e:

@@ -14,6 +14,14 @@ class Updater:
         self.enable_cost_estimate = updater_config.get("enable_cost_estimate", False)
         self.enable_reward_estimate = updater_config.get("enable_reward_estimate", False)
         
+        # 从配置中读取权重参数
+        priority_config = config.get("priority", {})
+        self.w_urgency = priority_config.get("w_urgency", 1.0)
+        self.w_scope = priority_config.get("w_scope", 1.0)
+        self.w_cost = priority_config.get("w_cost", -1.0)
+        self.w_reward = priority_config.get("w_reward", 1.0)
+        self.w_dependency = priority_config.get("w_dependency", 3.0)
+        
         # Set up VLM
         self.prompt_updater = config.get("prompt", {}).get("updater", {})
         model_openai = config.get("vlm", {}).get("model_openai", "gpt-4.1")
@@ -91,6 +99,14 @@ class Updater:
 
         # 更新优先级分数
         self._update_priority_scores()
+    
+    
+    def answer_question(self, question):
+        question_completed = self.buffer.get_question_by_id(question["id"])
+        if question_completed["status"] != "completed":
+            raise ValueError(f"Question {question_completed['id']} is not completed. Cannot possibly be answered.")
+        self.buffer.set_answer(question_completed["id"], question["answer"])
+        self.buffer.set_status(question_completed["id"], "answered")
     
     
     def get_highest_priority_question(self):

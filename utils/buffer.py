@@ -26,9 +26,19 @@ class Buffer:
     
     
     def set_status(self, question_id, status):
+        if status not in {"pending", "ready", "completed", "answered"}:
+            raise ValueError("Invalid status. Must be one of: 'pending', 'ready', 'completed', 'answered'.")
         for question in self.buffer:
             if question["id"] == question_id:
                 question["status"] = status
+                return
+        raise ValueError(f"Question with id {question_id} not found in buffer.")
+    
+    
+    def set_answer(self, question_id, answer):
+        for question in self.buffer:
+            if question["id"] == question_id:
+                question["answer"] = answer
                 return
         raise ValueError(f"Question with id {question_id} not found in buffer.")
     
