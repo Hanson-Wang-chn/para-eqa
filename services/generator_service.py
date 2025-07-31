@@ -1,7 +1,22 @@
+# service/generator_service.py
+
+"""
+TODO:
+阶段1：读取并处理一组问题
+- 在发送每一组的第一个问题之前，先在Redis中通过status存储该问题组的参数（由planner_service.py读取）
+    - 直接写入"scene""floor""angle""init_pts""init_rotation"等参数
+    - 使用uuid为每一个问题创建"question_id"，然后把所有的{"question_id": correct_answer}存入Redis中
+    - 按照一定的时序逻辑发送问题(包括"question_id""description"两个键值对)给parser_service.py
+
+阶段2：读取多组问题（整个数据集）
+"""
+
 import os
 import json
 import time
 import logging
+import uuid
+
 from common.redis_client import get_redis_connection, STREAMS
 
 def run(config: dict):
@@ -52,6 +67,9 @@ def run(config: dict):
     
     # 发送所有初始问题
     for question in initial_questions:
+        # 创建 Question 元数据
+        question["id"] = str(uuid.uuid4())
+        
         # 发送问题到 new_questions 流
         redis_conn.xadd(stream_name, {"data": json.dumps(question)})
         total_sent += 1

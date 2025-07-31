@@ -126,6 +126,7 @@ def run(config: dict):
                     logging.info(f"[{os.getpid()}] Parsing message {message_id}...")
                     question_data = json.loads(data['data'])
                     desc = question_data.get("description")
+                    q_id = question_data.get("id", str(uuid.uuid4()))
                     
                     if not desc:
                         logging.info(f"[{os.getpid()}] WARN: Received message without a description. Skipping.")
@@ -133,7 +134,6 @@ def run(config: dict):
                         continue
 
                     # 1. 创建完整的 Question 元数据
-                    q_id = str(uuid.uuid4())
                     urgency, scope_type = parse_question(desc, model_openai=model_openai, prompt_parser = prompt_parser)
                     metadata = {
                         "id": q_id,
