@@ -167,8 +167,61 @@ def interact_with_environment(question):
     pass
 
 
-def should_stop(question):
+def should_stop(question, images):
     """判断是否应该停止探索"""
+    request_id = str(uuid.uuid4())
+    request = {
+        "question": question,
+        "images": images,
+        "timestamp": time.time()
+    }
+    
+    # 发送请求到Stopping Module
+    redis_conn = get_redis_connection(config)  # 使用全局config
+    planner_to_stopping_stream = "stream:planner_to_stopping"  # 假设这个流已经在redis_client.py中定义
+    stopping_to_planner_stream = STREAMS["stopping_to_planner"]
+    
+    # 创建消费者组
+    try:
+        redis_conn.xgroup_create(stopping_to_planner_stream, "planner_group", id='0', mkstream=True)
+    except Exception as e:
+        logging.info(f"[{os.getpid()}] Planner response group already exists: {e}")
+    
+    # 发送请求
+    redis_conn.xadd(planner_to_stopping_stream, {"data": json.dumps(request)})
+    logging.info(f"[{os.getpid()}] 已向Stopping Module发送停止探索判断请求")
+    
+    # 等待响应
+    max_wait_time = 30  # 最长等待30秒
+    start_time = time.time()
+    
+    while time.time() - start_time < max_wait_time:
+        responses = redis_conn.xreadgroup(
+            "planner_group", "planner_worker", 
+            {stopping_to_planner_stream: '>'}, 
+            count=1, block=5000  # 5秒超时
+        )
+        
+        if responses:
+            for _, msg_list in responses:
+                for msg_id, data in msg_list:
+                    response = json.loads(data.get('data', '{}'))
+                    status = response.get('status')
+                    
+                    # 确认消息已处理
+                    redis_conn.xack(stopping_to_planner_stream, "planner_group", msg_id)
+                    
+                    if status == "stop":
+                        logging.info(f"[{os.getpid()}] Stopping Module建议停止探索，置信度: {response.get('confidence')}")
+                        return True
+                    else:
+                        logging.info(f"[{os.getpid()}] Stopping Module建议继续探索，置信度: {response.get('confidence')}")
+                        return False
+        
+        # 短暂休眠以减少CPU使用
+        time.sleep(0.1)
+    
+    logging.warning(f"[{os.getpid()}] 等待Stopping Module响应超时，默认继续探索")
     return False
 
 

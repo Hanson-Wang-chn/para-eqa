@@ -28,6 +28,7 @@ KEY_PREFIXES = {
 STATS_KEYS = {
     "parser":   "stats:parser",
     "finishing": "stats:finishing",
+    "stopping": "stats:stopping",
     "answering": "stats:answering",
     "planner":  "stats:planner",
     "memory": "stats:memory"
@@ -39,10 +40,12 @@ STREAMS = {
     "parsed_questions": "stream:parsed_questions", # Parsing -> Finishing Module
     "finishing_to_pool": "stream:finishing_to_pool", # Finishing Module -> Question Pool
     "stopping_to_pool": "stream:stopping_to_pool", # Stopping Module -> Question Pool
+    "stopping_to_planner": "stream:stopping_to_planner", # Stopping Module -> Planner
     "planner_to_pool": "stream:planner_to_pool", # Planner -> Question Pool
+    "planner_to_stopping": "stream:planner_to_stopping", # Planner -> Stopping Module
     "answering_to_pool": "stream:answering_to_pool", # Answering Module -> Question Pool
     "pool_to_planner": "stream:pool_to_planner", # Question Pool -> Planner
-    "to_answering": "stream:to_answering", # Finishing Module -> Answering
+    "to_answering": "stream:to_answering", # Finishing/Stopping Module -> Answering
     "memory_requests": "stream:memory_requests", # Others -> Memory Module
     "memory_responses": "stream:memory_responses" # Memory Module -> Others
 }

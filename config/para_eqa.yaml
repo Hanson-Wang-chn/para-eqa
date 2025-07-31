@@ -43,6 +43,10 @@ finishing:
   retrieval_num: 5
   confidence_threshold: 0.7
 
+stopping:
+  retrieval_num: 5
+  confidence_threshold: 0.7
+
 updater:
   enable_cost_estimate: false
   enable_reward_estimate: false
@@ -123,6 +127,9 @@ prompt:
     Please directly provide the structured output in JSON format and DO NOT include any additional text or explanations.
   
   finishing:
+    get_confidence: example prompt
+  
+  stopping:
     get_confidence: example prompt
   
   answering:
