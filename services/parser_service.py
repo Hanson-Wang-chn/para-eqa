@@ -149,10 +149,10 @@ def run(config: dict):
                     logging.info(f"[{os.getpid()}] Question metadata: {json.dumps(metadata, indent=2, ensure_ascii=False)}")
                     
                     # 2. 将元数据存入 Redis Hash
-                    redis_conn.hset(f"{KEY_PREFIXES['question']}{q_id}", mapping=metadata)
+                    # redis_conn.hset(f"{KEY_PREFIXES['question']}{q_id}", mapping=metadata)
                     
-                    # 3. 通知 Updater 服务，有新的问题需要处理
-                    redis_conn.xadd(STREAMS["parsed_questions"], {"data": json.dumps(metadata)})
+                    # 3. 通知 Finishing Module 服务，有新的问题需要处理
+                    redis_conn.xadd(STREAMS["parser_to_finishing"], {"data": json.dumps(metadata)})
                     
                     # 4. 更新统计信息
                     redis_conn.hincrby(STATS_KEYS["parser"], "total", 1)

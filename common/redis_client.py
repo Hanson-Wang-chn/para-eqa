@@ -10,20 +10,6 @@ KEY_PREFIXES = {
     "question": "question:"
 }
 
-# 尝试获取 updater 锁，非阻塞，如果锁被占用则直接跳过
-# with redis_conn.lock(LOCK_KEYS['updater'], blocking=False) as lock:
-#     if not lock:
-#         time.sleep(0.01)
-#         continue
-    
-#     # --- 成功获取锁，进入临界区 ---
-#     try:
-#         # 执行核心更新逻辑
-#         update_dag_and_estimates(redis_conn)
-#     except Exception as e:
-#         print(f"[{os.getpid()}] ERROR in Updater logic: {e}")
-#     # --- 临界区结束，锁自动释放 ---
-
 # 统计信息
 STATS_KEYS = {
     "parser":   "stats:parser",
@@ -34,10 +20,24 @@ STATS_KEYS = {
     "memory": "stats:memory"
 }
 
+# 用于存储一组问题的元信息字段前缀
+GROUP_INFO = {
+    "group_id": "group_id:",
+    "correct_answers": "correct_answers:",
+    "scene": "scene:",
+    "floor": "floor:",
+    "max_steps": "max_steps:",
+    "angle": "angle:",
+    "pts": "pts:",
+    "rotation": "rotation:",
+    "floor_height": "floor_height:",
+    "scene_size": "scene_size:"
+}
+
 # 用于持久化任务队列的 Stream 名称
 STREAMS = {
     "new_questions": "stream:new_questions", # New Questions -> Parser
-    "parsed_questions": "stream:parsed_questions", # Parsing -> Finishing Module
+    "parser_to_finishing": "stream:parser_to_finishing", # Parser -> Finishing Module
     "finishing_to_pool": "stream:finishing_to_pool", # Finishing Module -> Question Pool
     "stopping_to_pool": "stream:stopping_to_pool", # Stopping Module -> Question Pool
     "stopping_to_planner": "stream:stopping_to_planner", # Stopping Module -> Planner

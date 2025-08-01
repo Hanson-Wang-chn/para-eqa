@@ -87,7 +87,7 @@ def run(config: dict):
     redis_conn = get_redis_connection(config)
     
     # 流定义
-    parsed_questions_stream = STREAMS["parsed_questions"]  # 从Parser接收问题
+    parser_to_finishing_stream = STREAMS["parser_to_finishing"]  # 从Parser接收问题
     memory_requests_stream = STREAMS["memory_requests"]    # 向Memory发送请求
     memory_responses_stream = STREAMS["memory_responses"]  # 从Memory接收响应
     to_answering_stream = STREAMS["to_answering"]         # 向Answering发送问题
@@ -96,7 +96,7 @@ def run(config: dict):
     # 创建消费者组
     group_name = "finishing_group"
     try:
-        redis_conn.xgroup_create(parsed_questions_stream, group_name, id='0', mkstream=True)
+        redis_conn.xgroup_create(parser_to_finishing_stream, group_name, id='0', mkstream=True)
     except Exception as e:
         logging.info(f"[{os.getpid()}] Finishing group already exists: {e}")
     
@@ -116,7 +116,7 @@ def run(config: dict):
             # 从解析好的问题流中读取消息
             messages = redis_conn.xreadgroup(
                 group_name, "finishing_worker", 
-                {parsed_questions_stream: '>'}, 
+                {parser_to_finishing_stream: '>'}, 
                 count=1, block=None
             )
             
@@ -256,7 +256,7 @@ def run(config: dict):
                     pipe.execute()
                     
                     # 确认消息处理完毕
-                    redis_conn.xack(parsed_questions_stream, group_name, message_id)
+                    redis_conn.xack(parser_to_finishing_stream, group_name, message_id)
         
         except Exception as e:
             logging.error(f"[{os.getpid()}] Finishing service发生错误: {e}")
