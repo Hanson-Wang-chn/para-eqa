@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+import torch
 
 from common.redis_client import get_redis_connection, STREAMS, STATS_KEYS
 from utils.knowledgebase import KnowledgeBase
@@ -87,7 +88,7 @@ def run(config: dict):
     
     # 初始化知识库
     kb = KnowledgeBase(config)
-    device = config.get("memory", {}).get("device", "cuda")
+    device = config.get("memory", {}).get("device", "cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"[{os.getpid()}] 知识库初始化完成，使用设备: {device}")
     
     # Redis初始化
@@ -124,14 +125,29 @@ def run(config: dict):
                     operation = request_data.get('operation')
                     
                     logging.info(f"[{os.getpid()}] 收到请求 {request_id}, 操作类型: {operation}")
-                    
+
                     # 处理请求
                     if operation == "search":
                         result = process_search_request(kb, request_data)
                         search_count += 1
+                    
                     elif operation == "update":
                         result = process_update_request(kb, request_data)
                         update_count += 1
+                    
+                    elif operation == "clear":
+                        kb.clear_memory()
+                        
+                        result = {
+                            "status": "success",
+                            "data": []
+                        }
+                        
+                        logging.info(f"[{os.getpid()}] KnowledgeBase 已清空")
+                        
+                        search_count = 0
+                        update_count = 0
+                    
                     else:
                         result = {
                             "status": "error",
@@ -180,6 +196,12 @@ Update Request:
     "operation": "update",
     "text": "要添加的文本描述",
     "image_data": "base64编码的图像数据或null"
+}
+
+Clear Request:
+{
+    "id": "unique-request-id(uuid)", 
+    "operation": "clear"
 }
 
 Successful Response:

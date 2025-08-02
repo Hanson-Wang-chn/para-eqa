@@ -9,6 +9,8 @@ TODO:
     - 按照一定的时序逻辑发送问题(包括"question_id""description"两个键值对)给parser_service.py
 
 阶段2：读取多组问题（整个数据集）
+    - 处理完一组的问题后，把结果写入Redis中，然后向question_pool_service.py和memory_service.py发送一个"clear"请求，清空知识库和问题池
+    - 在run_para_eqa.py中，统计每一组的结果信息
 """
 
 import os

@@ -20,7 +20,7 @@ STATS_KEYS = {
     "memory": "stats:memory"
 }
 
-# 用于存储一组问题的元信息字段前缀
+# 用于存储一组问题的元信息
 GROUP_INFO = {
     "group_id": "group_id:",
     "correct_answers": "correct_answers:",
@@ -32,6 +32,11 @@ GROUP_INFO = {
     "rotation": "rotation:",
     "floor_height": "floor_height:",
     "scene_size": "scene_size:"
+}
+
+# 用于记录每一组问题的运行结果，包括组信息（总运行时间、平均步数等）和每个问题的结果（步数、是否正确等）
+RESULTS_KEYS = {
+    "group_results": "group_results:",  # 每组问题的结果
 }
 
 # 用于持久化任务队列的 Stream 名称
@@ -47,7 +52,9 @@ STREAMS = {
     "pool_to_planner": "stream:pool_to_planner", # Question Pool -> Planner
     "to_answering": "stream:to_answering", # Finishing/Stopping Module -> Answering
     "memory_requests": "stream:memory_requests", # Others -> Memory Module
-    "memory_responses": "stream:memory_responses" # Memory Module -> Others
+    "memory_responses": "stream:memory_responses", # Memory Module -> Others
+    "generator_to_memory": "stream:generator_to_memory", # Generator -> Memory Module
+    "generator_to_pool": "stream:generator_to_pool" # Generator -> Question Pool
 }
 
 

@@ -1,5 +1,7 @@
 # services/question_pool_service.py
 
+# TODO: 处理好异步逻辑。当出现新group时，清空Question Pool。
+
 import os
 import json
 import time

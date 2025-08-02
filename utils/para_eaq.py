@@ -1,5 +1,8 @@
 # utils/para_eaq.py
 
+# TODO: group_info相关问题
+# FIXME: vlm相关问题
+
 import os
 import json
 import numpy as np
@@ -15,6 +18,11 @@ from tqdm import tqdm
 import habitat_sim
 from ultralytics import YOLO
 import matplotlib.pyplot as plt
+import torch
+import uuid
+import time
+import base64
+from io import BytesIO
 
 from habitat_sim.utils.common import quat_to_coeffs, quat_from_angle_axis
 from utils.habitat import (
@@ -34,7 +42,8 @@ from utils.utils import (
 )
 from utils.vlm_openai import VLM_OpenAI
 # from utils.vlm_local import VLM_Local
-from utils.knowledgebase import KnowledgeBase
+from common.redis_client import get_redis_connection, STREAMS
+from utils.image_processor import encode_image
 
 np.set_printoptions(precision=3)
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -46,10 +55,320 @@ os.environ["HABITAT_SIM_LOG"] = (
 os.environ["MAGNUM_LOG"] = "quiet"
 
 
+def search(redis_conn, text, image=None, top_k=5):
+    """
+    向Memory Service发送搜索请求并等待响应
+    
+    Args:
+        redis_conn: Redis连接对象
+        text: 查询文本
+        image: PIL图像对象或None
+        top_k: 返回的最大结果数量
+    
+    Returns:
+        list: 知识库搜索结果列表
+    """
+    # 编码图像
+    image_data = encode_image(image) if image else None
+    
+    # 创建请求
+    request_id = str(uuid.uuid4())
+    request = {
+        "id": request_id,
+        "operation": "search",
+        "text": text,
+        "image_data": image_data,
+        "top_k": top_k
+    }
+    
+    # 定义流
+    requests_stream = STREAMS["memory_requests"]
+    responses_stream = STREAMS["memory_responses"]
+    
+    # 创建消费者组(如果不存在)
+    group_name = f"memory_client_{os.getpid()}"
+    try:
+        redis_conn.xgroup_create(responses_stream, group_name, id='0', mkstream=True)
+    except Exception as e:
+        logging.info(f"[{os.getpid()}] Memory response group already exists: {e}")
+    
+    # 发送请求
+    redis_conn.xadd(requests_stream, {"data": json.dumps(request)})
+    logging.info(f"[{os.getpid()}] 向Memory发送搜索请求: {request_id}")
+    
+    # 等待响应
+    memory_response = None
+    wait_start_time = time.time()
+    max_wait_time = 300  # 最长等待时间，单位秒
+
+    while memory_response is None and (time.time() - wait_start_time < max_wait_time):
+        try:
+            # 使用block参数高效等待
+            responses = redis_conn.xreadgroup(
+                group_name, f"client_worker_{os.getpid()}", 
+                {responses_stream: '>'}, 
+                count=20, block=100
+            )
+            
+            # 定期日志，监控长时间等待
+            if time.time() - wait_start_time > 30:
+                logging.info(f"[{os.getpid()}] 已等待Memory响应超过30秒，请求ID: {request_id}")
+                wait_start_time = time.time()  # 重置计时器，避免日志刷屏
+
+            if not responses:
+                # block超时，没有读到任何消息，继续下一次循环等待
+                continue
+            
+            for stream, message_list in responses:
+                for message_id, data in message_list:
+                    try:
+                        resp_data = json.loads(data.get('data', '{}'))
+                        resp_request_id = resp_data.get('request_id')
+
+                        # 检查是否是我们期望的响应
+                        if resp_request_id == request_id:
+                            # 是我们等待的响应
+                            memory_response = resp_data
+                            
+                            # 确认消息已处理
+                            redis_conn.xack(responses_stream, group_name, message_id)
+                            
+                            logging.info(f"[{os.getpid()}] 收到匹配的Memory响应，请求ID: {request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                            
+                            # 已找到响应，跳出循环
+                            break
+                        else:
+                            # 不是我们等待的响应，忽略它
+                            pass
+
+                    except (json.JSONDecodeError, AttributeError) as e:
+                        logging.warning(f"[{os.getpid()}] 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
+                        # 对于无法解析的消息，应该确认，防止反复处理
+                        redis_conn.xack(responses_stream, group_name, message_id)
+                        continue
+                
+                if memory_response:
+                    break  # 跳出外层for循环
+        
+        except Exception as e:
+            logging.warning(f"[{os.getpid()}] 等待Memory响应时发生错误: {e}，1秒后重试...")
+            time.sleep(1)
+    
+    # 检查响应状态
+    if not memory_response or memory_response.get('status') != 'success':
+        logging.warning(f"[{os.getpid()}] 未收到有效Memory响应或请求失败")
+        return []
+    
+    # 提取并返回搜索结果
+    return memory_response.get('data', [])
+
+
+def update(redis_conn, text, image=None):
+    """
+    向Memory Service发送更新请求并等待响应
+    
+    Args:
+        redis_conn: Redis连接对象
+        text: 要添加的文本描述
+        image: PIL图像对象或None
+    
+    Returns:
+        bool: 操作是否成功
+    """
+    # 编码图像
+    image_data = encode_image(image) if image else None
+    
+    # 创建请求
+    request_id = str(uuid.uuid4())
+    request = {
+        "id": request_id,
+        "operation": "update",
+        "text": text,
+        "image_data": image_data
+    }
+    
+    # 定义流
+    requests_stream = STREAMS["memory_requests"]
+    responses_stream = STREAMS["memory_responses"]
+    
+    # 创建消费者组(如果不存在)
+    group_name = f"memory_client_{os.getpid()}"
+    try:
+        redis_conn.xgroup_create(responses_stream, group_name, id='0', mkstream=True)
+    except Exception as e:
+        logging.info(f"[{os.getpid()}] Memory response group already exists: {e}")
+    
+    # 发送请求
+    redis_conn.xadd(requests_stream, {"data": json.dumps(request)})
+    logging.info(f"[{os.getpid()}] 向Memory发送更新请求: {request_id}")
+    
+    # 等待响应
+    memory_response = None
+    wait_start_time = time.time()
+    max_wait_time = 300  # 最长等待时间，单位秒
+
+    while memory_response is None and (time.time() - wait_start_time < max_wait_time):
+        try:
+            # 使用block参数高效等待
+            responses = redis_conn.xreadgroup(
+                group_name, f"client_worker_{os.getpid()}", 
+                {responses_stream: '>'}, 
+                count=20, block=100
+            )
+            
+            # 定期日志，监控长时间等待
+            if time.time() - wait_start_time > 30:
+                logging.info(f"[{os.getpid()}] 已等待Memory响应超过30秒，请求ID: {request_id}")
+                wait_start_time = time.time()  # 重置计时器，避免日志刷屏
+
+            if not responses:
+                # block超时，没有读到任何消息，继续下一次循环等待
+                continue
+            
+            for stream, message_list in responses:
+                for message_id, data in message_list:
+                    try:
+                        resp_data = json.loads(data.get('data', '{}'))
+                        resp_request_id = resp_data.get('request_id')
+
+                        # 检查是否是我们期望的响应
+                        if resp_request_id == request_id:
+                            # 是我们等待的响应
+                            memory_response = resp_data
+                            
+                            # 确认消息已处理
+                            redis_conn.xack(responses_stream, group_name, message_id)
+                            
+                            logging.info(f"[{os.getpid()}] 收到匹配的Memory响应，请求ID: {request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                            
+                            # 已找到响应，跳出循环
+                            break
+                        else:
+                            # 不是我们等待的响应，忽略它
+                            pass
+
+                    except (json.JSONDecodeError, AttributeError) as e:
+                        logging.warning(f"[{os.getpid()}] 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
+                        # 对于无法解析的消息，应该确认，防止反复处理
+                        redis_conn.xack(responses_stream, group_name, message_id)
+                        continue
+                
+                if memory_response:
+                    break  # 跳出外层for循环
+        
+        except Exception as e:
+            logging.warning(f"[{os.getpid()}] 等待Memory响应时发生错误: {e}，1秒后重试...")
+            time.sleep(1)
+    
+    # 检查响应状态
+    if not memory_response or memory_response.get('status') != 'success':
+        logging.warning(f"[{os.getpid()}] 未收到有效Memory响应或请求失败")
+        return False
+    
+    # 操作成功
+    return True
+
+
+def can_stop(redis_conn, question, images=None):
+    """
+    向Stopping Service发送请求，询问是否可以停止探索
+    
+    Args:
+        redis_conn: Redis连接对象
+        question: 问题对象
+        images: 图像数据列表，可选
+    
+    Returns:
+        dict: 停止服务的响应，包含status和confidence等信息
+    """
+    # 创建请求
+    request_id = str(uuid.uuid4())
+    request = {
+        "question": question,
+        "images": images or []
+    }
+    
+    # 定义流
+    planner_to_stopping_stream = STREAMS["planner_to_stopping"]
+    stopping_to_planner_stream = STREAMS["stopping_to_planner"]
+    
+    # 创建消费者组(如果不存在)
+    group_name = f"planner_client_{os.getpid()}"
+    try:
+        redis_conn.xgroup_create(stopping_to_planner_stream, group_name, id='0', mkstream=True)
+    except Exception as e:
+        logging.info(f"[{os.getpid()}] Stopping response group already exists: {e}")
+    
+    # 发送请求
+    redis_conn.xadd(planner_to_stopping_stream, {"data": json.dumps(request)})
+    logging.info(f"[{os.getpid()}] 向Stopping Service发送请求: {request_id}")
+    
+    # 等待响应
+    stopping_response = None
+    wait_start_time = time.time()
+    max_wait_time = 300  # 最长等待时间，单位秒
+
+    while stopping_response is None and (time.time() - wait_start_time < max_wait_time):
+        try:
+            # 使用block参数高效等待
+            responses = redis_conn.xreadgroup(
+                group_name, f"client_worker_{os.getpid()}", 
+                {stopping_to_planner_stream: '>'}, 
+                count=20, block=100
+            )
+            
+            # 定期日志，监控长时间等待
+            if time.time() - wait_start_time > 30:
+                logging.info(f"[{os.getpid()}] 已等待Stopping Service响应超过30秒，请求ID: {request_id}")
+                wait_start_time = time.time()  # 重置计时器，避免日志刷屏
+
+            if not responses:
+                # block超时，没有读到任何消息，继续下一次循环等待
+                continue
+            
+            for stream, message_list in responses:
+                for message_id, data in message_list:
+                    try:
+                        resp_data = json.loads(data.get('data', '{}'))
+                        
+                        # 是我们等待的响应
+                        stopping_response = resp_data
+                        
+                        # 确认消息已处理
+                        redis_conn.xack(stopping_to_planner_stream, group_name, message_id)
+                        
+                        logging.info(f"[{os.getpid()}] 收到Stopping Service响应，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                        
+                        # 已找到响应，跳出循环
+                        break
+
+                    except (json.JSONDecodeError, AttributeError) as e:
+                        logging.warning(f"[{os.getpid()}] 无法解析或处理Stopping响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
+                        # 对于无法解析的消息，应该确认，防止反复处理
+                        redis_conn.xack(stopping_to_planner_stream, group_name, message_id)
+                        continue
+                
+                if stopping_response:
+                    break  # 跳出外层for循环
+        
+        except Exception as e:
+            logging.warning(f"[{os.getpid()}] 等待Stopping响应时发生错误: {e}，1秒后重试...")
+            time.sleep(1)
+    
+    # 检查响应状态
+    if not stopping_response:
+        logging.warning(f"[{os.getpid()}] 未收到有效Stopping响应")
+        # 返回一个默认响应，表示继续探索
+        return {"status": "continue", "confidence": 0.0}
+    
+    # 返回stopping service的响应
+    return stopping_response
+
+
 class ParaEQA:
     def __init__(self, config, group_info, gpu_id):
         self.config = config
-        self.device = self.config.get("device", "cuda")
+        self.device = self.config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
 
         self.camera_tilt = self.config.get("camera_tilt_deg", -30) * np.pi / 180
         self.cam_intr = get_cam_intr(
@@ -87,10 +406,8 @@ class ParaEQA:
         model_name = self.config.get("model_name", "gpt-4.1")
         self.vlm = VLM_OpenAI(model_name)
         
-        # init memory module
-        # TODO: 替换 DynamicKnowledgeBase
-        if self.config.get("memory", {}).get("use_rag", True):
-            self.knowledge_base = DynamicKnowledgeBase(self.config.get("memory", {}), device=self.device)
+        # 连接Redis
+        self.redis_conn = get_redis_connection(config)
         
         # init detector 'yolov12{n/s/m/l/x}.pt'
         self.detector = YOLO(self.config.get("detector", "./data/yolo11x.pt"))
@@ -101,6 +418,7 @@ class ParaEQA:
 
         self.confident_threshold = ["c", "d", "e", "yes"]
 
+    
     def init_sim(self, scene):
         # Set up scene in Habitat
         try:
@@ -108,6 +426,7 @@ class ParaEQA:
         except:
             pass
         
+        # TODO: 从Redis的group_info中获取
         scene_data_path = self.config.get("scene_data_path", "./data/HM3D")
         scene_mesh_dir = os.path.join(
             scene_data_path, scene, scene[6:] + ".basis" + ".glb"
@@ -136,6 +455,7 @@ class ParaEQA:
 
         return agent, agent_state, self.simulator, pathfinder
 
+    
     def init_planner(self, tsdf_bnds, pts):
         # Initialize TSDF Planner
         tsdf_planner = TSDFPlanner(
@@ -147,12 +467,9 @@ class ParaEQA:
         )
         return tsdf_planner
 
+    
+    # TODO: 修改prepare_data函数，适应新的question_data格式，同时从Redis中读取group_info。保证修改后prepare_data函数的返回值和当前相同。
     def prepare_data(self, question_data, question_ind):
-        # TODO: 在一组内，不能清空记忆
-        if self.config.get("memory", {}).get("use_rag", True):
-            self.knowledge_base.clear()
-        kb = []
-
         # Extract question
         scene = question_data["scene"]
         floor = question_data["floor"]
@@ -221,7 +538,34 @@ class ParaEQA:
 
         return metadata, agent, agent_state, tsdf_planner, episode_data_dir
 
+
+    # 输入的question_data类似下面这样：
+    """
+    {'scene': '00797-99ML7CGPqsQ', 'floor': '0', 'question': 'Is the door color darker than the ceiling color?', 'choices': "['Yes', 'No', 'They are the same color', 'The ceiling is darker']", 'question_formatted': 'Is the door color darker than the ceiling color? A) Yes B) No C) They are the same color D) The ceiling is darker. Answer:', 'answer': 'A', 'label': 'Comparison', 'source_image': '00797-99ML7CGPqsQ_0.png'}
+    """
     def run(self, question_data, question_ind):
+        # 在开始探索之前，先询问stopping service是否可以直接回答问题
+        stopping_response = can_stop(self.redis_conn, question_data)
+        if stopping_response.get("status") == "stop":
+            # 可以直接回答问题，无需探索
+            logging.info(f"[{os.getpid()}] Stopping Service决定直接回答问题，置信度: {stopping_response.get('confidence', 0.0)}")
+            # 创建一个基本的结果对象
+            result = {
+                "meta": {
+                    "question_ind": question_ind,
+                    "org_question": question_data.get("question", ""),
+                    "answer": question_data.get("answer", ""),
+                    "scene": question_data.get("scene", ""),
+                    "floor": question_data.get("floor", ""),
+                },
+                "step": [],
+                "summary": {
+                    "explored_steps": 0,
+                },
+            }
+            return result
+        
+        # TODO: 修改prepare_data函数，适应新的question_data格式，同时从Redis中读取group_info。保证修改后prepare_data函数的返回值和当前相同。
         meta, agent, agent_state, tsdf_planner, episode_data_dir = self.prepare_data(question_data, question_ind)
 
         result = {
@@ -245,7 +589,7 @@ class ParaEQA:
 
         # Run steps
         pts_pixs = np.empty((0, 2))  # for plotting path on the image
-        smx_vlm_pred = None
+        collected_images = []  # 存储探索过程中的图像
         
         # TODO: agent.set_state() 需要衔接前一个问题
         for cnt_step in range(num_step):
@@ -280,9 +624,8 @@ class ParaEQA:
             depth = obs["depth_sensor"]
 
             rgb_im = Image.fromarray(rgb, mode="RGBA").convert("RGB")
-
-            # room = self.vlm.get_response(rgb_im, "What room are you most likely to be in at the moment? Answer with a phrase", [], device=self.device)
             
+            # "What room are you most likely to be in at the moment? Answer with a phrase"
             room = self.vlm.request_with_retry(image=rgb_im, prompt="What room are you most likely to be in at the moment? Answer with a phrase")
 
             objects = self.detector(rgb_im)[0]
@@ -294,7 +637,6 @@ class ParaEQA:
                 # 裁剪目标区域进行描述
                 x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
                 obj_im = rgb_im.crop((x1, y1, x2, y2))
-                # obj_caption = self.vlm.get_response(obj_im, self.prompt_caption, [], device=self.device)
                 # "Describe this image."
                 obj_caption = self.vlm.request_with_retry(image=obj_im, prompt=self.prompt_caption)
                 
@@ -307,7 +649,6 @@ class ParaEQA:
                 objs_info.append({"room": room, "cls": cls ,"caption": obj_caption[0], "pos": world_pos.tolist()})
 
             if self.config.get("memory", {}).get("use_rag", True):
-                # caption = self.vlm.get_response(rgb_im, self.prompt_caption, [], device=self.device)
                 # "Describe this image."
                 caption = self.vlm.request_with_retry(image=rgb_im, prompt=self.prompt_caption)
 
@@ -318,7 +659,13 @@ class ParaEQA:
                     plt.imsave(rgb_path, rgb)
                     # 构建目标信息
                     objs_str = json.dumps(objs_info)
-                    self.knowledge_base.add_to_knowledge_base(f"{step_name}: agent position is {pts}. {caption}. Objects: {objs_str}", rgb_im, device=self.device)
+                    # 向Memory添加知识
+                    update(self.redis_conn, f"{step_name}: agent position is {pts}. {caption}. Objects: {objs_str}", rgb_im)
+                    
+                    # 添加当前图像到收集列表，供stopping service使用
+                    encoded_image = encode_image(rgb_im)
+                    if encoded_image:
+                        collected_images.append(encoded_image)
 
             num_black_pixels = np.sum(
                 np.sum(rgb, axis=-1) == 0
@@ -335,27 +682,39 @@ class ParaEQA:
                     margin_w=int(self.config.get("margin_w_ratio", 0.25) * self.img_width),
                 )
 
-                # 模型判断是否有信心回答当前问题
-                # TODO: 改为使用 Stopping Module
+                # 在每一步后询问stopping service是否可以停止探索
+                stopping_response = can_stop(self.redis_conn, question_data, collected_images)
+                if stopping_response.get("status") == "stop":
+                    # 可以停止探索，结束循环
+                    logging.info(f"[{os.getpid()}] Stopping Service决定停止探索，置信度: {stopping_response.get('confidence', 0.0)}")
+                    break
+
+                # 对于过程性的探索判断，仍然保留原来的代码
                 if self.config.get("memory", {}).get("use_rag", True):
-                    kb, _ = self.knowledge_base.search(self.prompt_rel.format(question), 
-                                               rgb_im, 
-                                               top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step,
-                                               device=self.device)
+                    kb = search(
+                        self.redis_conn, 
+                        self.prompt_rel.format(question), 
+                        rgb_im, 
+                        top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
+                    )
                 
                 # "... How confident are you in answering this question from your current perspective? ..."
+                # FIXME:
                 smx_vlm_rel = self.vlm.get_response(rgb_im, self.prompt_rel.format(question), kb, device=self.device)[0].strip(".")
                 
                 logging.info(f"Rel - Prob: {smx_vlm_rel}")
 
                 logging.info(f"Prompt Pred: {self.prompt_question.format(vlm_question)}")
                 if self.config.get("memory", {}).get("use_rag", True):
-                    kb, _ = self.knowledge_base.search(self.prompt_question.format(vlm_question), 
-                                               rgb_im, 
-                                               top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step,
-                                               device=self.device)
+                    kb = search(
+                        self.redis_conn, 
+                        self.prompt_question.format(vlm_question), 
+                        rgb_im, 
+                        top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
+                    )
                 
                 # "... Answer with the option's letter from the given choices directly. ..."
+                # FIXME:
                 smx_vlm_pred = self.vlm.get_response(rgb_im, self.prompt_question.format(vlm_question), kb, device=self.device)[0].strip(".")
                 
                 logging.info(f"Pred - Prob: {smx_vlm_pred}")
@@ -364,10 +723,6 @@ class ParaEQA:
                 result["step"][cnt_step]["smx_vlm_rel"] = smx_vlm_rel[0]
                 result["step"][cnt_step]["smx_vlm_pred"] = smx_vlm_pred[0]
                 result["step"][cnt_step]["is_success"] = smx_vlm_pred[0] == answer
-
-                # 如果有信心回答，则直接获取答案
-                if smx_vlm_rel.lower() in self.confident_threshold:
-                    break
 
                 # Get frontier candidates
                 prompt_points_pix = []
@@ -390,21 +745,24 @@ class ParaEQA:
                 actual_num_prompt_points = len(prompt_points_pix)
                 if actual_num_prompt_points >= self.config.get("visual_prompt", {}).get("min_num_prompt_points", 2):
                     rgb_im_draw = draw_letters(rgb_im, 
-                                               prompt_points_pix, 
-                                               self.letters, 
-                                               self.config.get("visual_prompt", {}).get("circle_radius", 18), 
-                                               self.fnt, 
-                                               os.path.join(episode_data_dir, f"{cnt_step}_draw.png"))
+                                            prompt_points_pix, 
+                                            self.letters, 
+                                            self.config.get("visual_prompt", {}).get("circle_radius", 18), 
+                                            self.fnt, 
+                                            os.path.join(episode_data_dir, f"{cnt_step}_draw.png"))
 
                     # get VLM reasoning for exploring
                     if self.config.get("use_lsv", True):
                         if self.config.get("memory", {}).get("use_rag", True):
-                            kb, _ = self.knowledge_base.search(self.prompt_lsv.format(question), 
-                                                       rgb_im, 
-                                                       top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step,
-                                                       device=self.device)
+                            kb = search(
+                                self.redis_conn, 
+                                self.prompt_lsv.format(question), 
+                                rgb_im, 
+                                top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
+                            )
                         
                         # "... Which direction (black letters on the image) would you explore then? ..."
+                        # FIXME:
                         response = self.vlm.get_response(rgb_im_draw, self.prompt_lsv.format(question), kb, device=self.device)[0]
                         
                         lsv = np.zeros(actual_num_prompt_points)
@@ -420,12 +778,15 @@ class ParaEQA:
                     # base - use image without label
                     if self.config.get("use_gsv", True):
                         if self.config.get("memory", {}).get("use_rag", True):
-                            kb, _ = self.knowledge_base.search(self.prompt_gsv.format(question), 
-                                                       rgb_im, 
-                                                       top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step,
-                                                       device=self.device)
+                            kb = search(
+                                self.redis_conn, 
+                                self.prompt_gsv.format(question), 
+                                rgb_im, 
+                                top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
+                            )
                         
                         # "... Is there any direction shown in the image worth exploring? ..."
+                        # FIXME:
                         response = self.vlm.get_response(rgb_im, self.prompt_gsv.format(question), kb, device=self.device)[0].strip(".")
                         
                         gsv = np.zeros(2)
@@ -450,7 +811,7 @@ class ParaEQA:
                 logging.info("Skipping black image!")
 
             # Determine next point
-            if cnt_step < num_step:
+            if cnt_step < num_step - 1:  # 避免在最后一步计算下一个位置
                 pts_normal, angle, cur_angle, pts_pix, fig = tsdf_planner.find_next_pose(
                     pts=pts_normal,
                     angle=angle,
@@ -477,33 +838,15 @@ class ParaEQA:
                 quat_from_angle_axis(angle, np.array([0, 1, 0]))
             ).tolist()
 
-        # TODO: 由 Answering Module 完成
-        # Final prediction
-        if cnt_step == num_step - 1:
-            logging.info("Max step reached!")
-            if self.config.get("memory", {}).get("use_rag", True):
-                kb, _ = self.knowledge_base.search(self.prompt_question.format(vlm_question), 
-                                           rgb_im, 
-                                           top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step,
-                                           device=self.device)
-            
-            # "... Answer with the option's letter from the given choices directly. ..."
-            smx_vlm_pred = self.vlm.get_response(rgb_im, self.prompt_question.format(vlm_question), kb, device=self.device)[0].strip(".")
-            
-            logging.info(f"Pred - Prob: {smx_vlm_pred}")
-
-        if smx_vlm_pred is not None:
-            is_success = smx_vlm_pred == answer
-        else:
-            is_success = False
+        # 删除原来的最终回答部分，由stopping service处理
 
         # Episode summary
         logging.info(f"\n== Episode Summary")
         logging.info(f"Scene: {scene}, Floor: {floor}")
         logging.info(f"Question:\n{vlm_question}\nAnswer: {answer}")
-        logging.info(f"Success (max): {is_success}")
-        result["summary"]["smx_vlm_pred"] = smx_vlm_pred
-        result["summary"]["smx_vlm_pred"] = smx_vlm_pred
-        result["summary"]["is_success"] = is_success
+        logging.info(f"Explored steps: {cnt_step + 1}")
+        
+        # 记录探索的步数
+        result["summary"]["explored_steps"] = cnt_step + 1
 
         return result

@@ -116,9 +116,11 @@ visual_prompt:
 memory:
   device: 'cuda'
   use_rag: true
-  dim: 1536
+  dimension: 768
+  weight_image: 0.5
+  weight_text: 0.5
   max_retrieval_num: 5
-  replace_memory: true  # 是否替换相似的记忆
+  replace_memory: false  # 是否替换相似的记忆
   lambda_sim: 0.5
 
 
