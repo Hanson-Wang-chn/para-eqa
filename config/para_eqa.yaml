@@ -8,7 +8,6 @@ init_pose_data_path: ./data/scene_init_poses_all.csv
 save_obs: true
 save_freq: 20
 device: 'cuda'
-model_name: gpt-4.1
 detector: '/home/whs/eqa/para-eqa/data/yolo11x.pt' # 替换为实际的绝对路径
 
 
@@ -125,8 +124,9 @@ memory:
 
 # VLM
 vlm:
+  use_openrouter: true # 只有设置为 true 时，才可以使用 OpenAI 之外的模型
   device: 'cuda'
-  model_openai: gpt-4.1
+  model_api: gpt-4.1-nano
   model_local: Qwen/Qwen2-VL-2B-Instruct
 
 

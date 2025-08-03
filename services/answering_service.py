@@ -6,18 +6,18 @@ import time
 import logging
 
 from common.redis_client import get_redis_connection, STREAMS, STATS_KEYS
-from utils.vlm_openai import VLM_OpenAI
+from utils.vlm_api import VLM_API
 from utils.image_processor import decode_image
 
 
-def get_vlm_answer(question, memory_data, prompt_get_answer, model_openai="gpt-4.1"):
+def get_vlm_answer(question, memory_data, prompt_get_answer, model_api="gpt-4.1", use_openrouter=False):
     """
     根据问题和记忆数据，使用VLM生成答案
     
     Args:
         question (dict): 问题对象，包含描述等信息
         memory_data (list): 从记忆中检索到的数据
-        model_openai (str): 使用的OpenAI模型名称
+        model_api (str): 使用的OpenAI模型名称
         
     Returns:
         str: 生成的答案
@@ -36,7 +36,7 @@ def get_vlm_answer(question, memory_data, prompt_get_answer, model_openai="gpt-4
     prompt = concatinate(prompt_get_answer, question_desc, combined_memory_text)
     
     # 实例化VLM并请求回答
-    vlm = VLM_OpenAI(model_name=model_openai)
+    vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
     response = vlm.request_with_retry(image=image, prompt=prompt)[0]
     
     return response.strip()
@@ -75,7 +75,8 @@ def run(config: dict):
             json.dump([], f, ensure_ascii=False, indent=2)
 
     # VLM配置
-    model_openai = config.get("vlm", {}).get("model_openai", "gpt-4.1")
+    model_api = config.get("vlm", {}).get("model_api", "gpt-4.1")
+    use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_get_answer = config.get("prompt", {}).get("answering", {}).get("get_answer", "")
     
     # Redis初始化
@@ -124,7 +125,7 @@ def run(config: dict):
                         logging.info(f"[{os.getpid()}] 收到问题: {question_id} - '{question_desc[:40]}...'")
                         
                         # 获取答案
-                        answer = get_vlm_answer(question, memory_data, prompt_get_answer, model_openai)
+                        answer = get_vlm_answer(question, memory_data, prompt_get_answer, model_api, use_openrouter)
                         logging.info(f"[{os.getpid()}] 已生成问题 {question_id} 的答案")
                         
                         # 更新问题元数据

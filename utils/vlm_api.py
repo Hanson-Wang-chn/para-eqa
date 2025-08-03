@@ -11,9 +11,8 @@ import os
 import openai
 import httpx
 
-class VLM_OpenAI:
-    def __init__(self, model_name="gpt-4o"):
-        self.api_key = os.environ.get('OPENAI_API_KEY', 'sk-your-default-key')
+class VLM_API:
+    def __init__(self, model_name="gpt-4o", use_openrouter=False):
         self.model_name = model_name
         
         # 初始化OpenAI客户端，显式设置代理
@@ -21,10 +20,32 @@ class VLM_OpenAI:
             "http://": "socks5://127.0.0.1:7897",
             "https://": "socks5://127.0.0.1:7897"
         } if os.environ.get('ALL_PROXY') else None
-        self.client = openai.OpenAI(
-            api_key=self.api_key,
-            http_client=httpx.Client(proxies=proxies) if proxies else None
-        )
+        
+        self.api_key = None
+        self.client = None
+        
+        if not use_openrouter:
+            try:
+                self.api_key = os.environ.get('OPENAI_API_KEY')
+            except KeyError:
+                raise ValueError("OPENAI_API_KEY environment variable is not set.")
+            
+            self.client = openai.OpenAI(
+                api_key=self.api_key,
+                http_client=httpx.Client(proxies=proxies) if proxies else None
+            )
+        
+        else:
+            try:
+                self.api_key = os.environ.get('OPENROUTER_API_KEY')
+            except KeyError:
+                raise ValueError("OPENROUTER_API_KEY environment variable is not set.")
+            
+            self.client = openai.OpenAI(
+                api_key=self.api_key,
+                base_url="https://openrouter.ai/api/v1",
+                http_client=httpx.Client(proxies=proxies) if proxies else None
+            )
 
 
     def convert_file_to_base64(self, image_path):
@@ -177,15 +198,10 @@ class VLM_OpenAI:
     
     
 if __name__ == "__main__":
-    # 简单测试API是否可用
-    vlm = VLM_OpenAI()
-    try:
-        result = vlm.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": "hello"}],
-            max_tokens=10
-        )
-        print("API调用成功，返回内容：", result.choices[0].message.content)
-    except Exception as e:
-        print("API调用失败：", e)
-        
+    # 测试API调用是否正常
+    # model_name = "deepseek/deepseek-chat"
+    model_name = "openai/gpt-4.1-nano"
+    use_openrouter = True
+    vlm = VLM_API(model_name=model_name, use_openrouter=use_openrouter)
+    response = vlm.request_with_retry(image=None, prompt="Hello!")[0]
+    print(response)

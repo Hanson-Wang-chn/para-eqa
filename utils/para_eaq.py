@@ -40,7 +40,7 @@ from utils.utils import (
     display_sample,
     pixel2world
 )
-from utils.vlm_openai import VLM_OpenAI
+from utils.vlm_api import VLM_API
 # from utils.vlm_local import VLM_Local
 from common.redis_client import get_redis_connection, STREAMS
 from utils.image_processor import encode_image
@@ -403,8 +403,9 @@ class ParaEQA:
                 }
 
         # init VLM model
-        model_name = self.config.get("model_name", "gpt-4.1")
-        self.vlm = VLM_OpenAI(model_name)
+        model_name = self.config.get("vlm", {}).get("model_api", "gpt-4.1")
+        use_openrouter = self.config.get("vlm", {}).get("use_openrouter", False)
+        self.vlm = VLM_API(model_name, use_openrouter)
         
         # 连接Redis
         self.redis_conn = get_redis_connection(config)

@@ -6,7 +6,7 @@ import json
 import redis
 
 from utils.buffer import Buffer
-from vlm_openai import VLM_OpenAI
+from vlm_api import VLM_API
 from common.redis_client import GROUP_INFO
 
 
@@ -26,8 +26,9 @@ class Updater:
         
         # Set up VLM
         self.prompt_updater = config.get("prompt", {}).get("updater", {})
-        model_openai = config.get("vlm", {}).get("model_openai", "gpt-4.1")
-        self.vlm = VLM_OpenAI(model_name=model_openai)
+        model_api = config.get("vlm", {}).get("model_api", "gpt-4.1")
+        use_openrouter = self.config.get("vlm", {}).get("use_openrouter", False)
+        self.vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
         # Use: response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
         
         # Set up Buffer

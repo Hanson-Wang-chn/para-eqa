@@ -8,16 +8,16 @@ import logging
 import re
 
 from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STATS_KEYS
-from utils.vlm_openai import VLM_OpenAI
+from utils.vlm_api import VLM_API
 
 
-def parse_question(desc, model_openai="gpt-4.1", prompt_parser=None):
+def parse_question(desc, model_api="gpt-4.1", prompt_parser=None, use_openrouter=False):
     """
     解析问题描述，使用大模型提取urgency和scope_type
     
     Args:
         desc (str): 问题的自然语言描述
-        model_openai (str): 使用的OpenAI模型名称，默认为"gpt-4.1"
+        model_api (str): 使用的OpenAI模型名称，默认为"gpt-4.1"
         
     Returns:
         tuple: (urgency, scope_type)
@@ -28,7 +28,7 @@ def parse_question(desc, model_openai="gpt-4.1", prompt_parser=None):
     
     for attempt in range(max_retries):
         # 调用大模型获取回答
-        vlm = VLM_OpenAI(model_name=model_openai)
+        vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
         prompt = prompt_parser.replace("{original_question}", desc)
         response = vlm.request_with_retry(image=None, prompt=prompt)[0]
         
@@ -96,7 +96,8 @@ def run(config: dict):
     )
     
     # Set up VLM
-    model_openai = config.get("vlm", {}).get("model_openai", "gpt-4.1")
+    model_api = config.get("vlm", {}).get("model_api", "gpt-4.1")
+    use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_parser = config.get("prompt", {}).get("parser", None)
     
     # Redis Initialization
@@ -134,7 +135,7 @@ def run(config: dict):
                         continue
 
                     # 1. 创建完整的 Question 元数据
-                    urgency, scope_type = parse_question(desc, model_openai=model_openai, prompt_parser = prompt_parser)
+                    urgency, scope_type = parse_question(desc, model_api=model_api, prompt_parser=prompt_parser, use_openrouter=use_openrouter)
                     metadata = {
                         "id": q_id,
                         "description": desc,

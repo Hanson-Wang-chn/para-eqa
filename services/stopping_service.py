@@ -7,11 +7,11 @@ import time
 import logging
 
 from common.redis_client import get_redis_connection, STREAMS, STATS_KEYS
-from utils.vlm_openai import VLM_OpenAI
+from utils.vlm_api import VLM_API
 from utils.image_processor import decode_image
 
 
-def get_confidence(question_desc, memory_items, prompt_get_confidence, model_openai="gpt-4.1"):
+def get_confidence(question_desc, memory_items, prompt_get_confidence, model_api="gpt-4.1", use_openrouter=False):
     """
     调用大模型计算能否回答问题的置信度
     
@@ -19,7 +19,7 @@ def get_confidence(question_desc, memory_items, prompt_get_confidence, model_ope
         question_desc (str): 问题描述
         memory_items (list): 从记忆中检索到的项目列表
         prompt_get_confidence (str): 提示模板
-        model_openai (str): 使用的OpenAI模型
+        model_api (str): 使用的OpenAI模型
         
     Returns:
         float: 置信度，范围[0,1]
@@ -34,7 +34,7 @@ def get_confidence(question_desc, memory_items, prompt_get_confidence, model_ope
     image = decode_image(first_image_data) if first_image_data else None
     
     # 实例化VLM
-    vlm = VLM_OpenAI(model_name=model_openai)
+    vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
     
     # TODO: 根据实际提示词调整正则表达
     # 构造提示
@@ -80,7 +80,8 @@ def run(config: dict):
     confidence_threshold = stopping_config.get("confidence_threshold", 0.7)
     
     # VLM配置
-    model_openai = config.get("vlm", {}).get("model_openai", "gpt-4.1")
+    model_api = config.get("vlm", {}).get("model_api", "gpt-4.1")
+    use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_get_confidence = config.get("prompt", {}).get("stopping", {}).get("get_confidence", "")
     
     # Redis初始化
@@ -227,7 +228,8 @@ def run(config: dict):
                                 question_desc, 
                                 memory_data,
                                 prompt_get_confidence,
-                                model_openai
+                                model_api,
+                                use_openrouter
                             )
                             
                             logging.info(f"[{os.getpid()}] 问题 {question_id} 置信度: {confidence}")
