@@ -1,15 +1,26 @@
 # services/question_pool_service.py
 
-# TODO: 处理好异步逻辑。当出现新group时，清空Question Pool。
-
 import os
 import json
 import time
 import logging
 import uuid
 
-from common.redis_client import get_redis_connection, STREAMS
+from common.redis_client import get_redis_connection, STREAMS, GROUP_INFO
 from utils.updater import Updater
+
+
+def send_group_completed(redis_conn, group_id):
+    """
+    向Generator Service发送组完成消息
+    """
+    msg = {
+        "status": "group_completed",
+        "group_id": group_id
+    }
+    pool_to_generator_stream = STREAMS["pool_to_generator"]
+    redis_conn.xadd(pool_to_generator_stream, {"data": json.dumps(msg)})
+    logging.info(f"[{os.getpid()}] 已向Generator Service发送组完成消息: {group_id}")
 
 
 def run(config: dict):
@@ -194,6 +205,12 @@ def run(config: dict):
                                     # 更新问题答案和状态
                                     updater.answer_question(question_data)
                                     logging.info(f"[{os.getpid()}] Answer added to question {question_id} and marked as answered")
+
+                                    # 检查问题组是否全部完成
+                                    group_id = redis_conn.get(f"{GROUP_INFO['group_id']}{question_data.get('group_id', '')}")
+                                    if group_id and updater.is_group_completed(redis_conn, group_id):
+                                        send_group_completed(redis_conn, group_id)
+                                
                                 else:
                                     # 状态不是completed，报错
                                     logging.error(f"[{os.getpid()}] Question {question_id} status is {existing_question['status']}, not completed. Cannot add answer.")

@@ -2,7 +2,7 @@
 seed: 42
 exp_name: ParaEQA
 output_parent_dir: results
-question_data_path: ./data/MT-HM3D/MT-HM3D-filtered-new.csv
+question_data_path: ./data/benchmark
 scene_data_path: ./data/HM3D
 init_pose_data_path: ./data/scene_init_poses_all.csv
 save_obs: true
@@ -38,9 +38,8 @@ redis:
 
 # Services
 generator:
-  interval_seconds: 60  # 每隔多少秒发送一批问题
-  batch_size: 1         # 每批发送多少个问题
-  shuffle: false        # 是否随机打乱问题顺序
+  interval_seconds: 120
+  shuffle: false
 
 finishing:
   retrieval_num: 5

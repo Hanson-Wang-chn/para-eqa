@@ -3,9 +3,11 @@
 import logging
 import math
 import json
+import redis
 
 from utils.buffer import Buffer
 from vlm_openai import VLM_OpenAI
+from common.redis_client import GROUP_INFO
 
 
 class Updater:
@@ -121,6 +123,31 @@ class Updater:
             self._update_priority_scores()
         
         return self.highest_priority_question
+    
+    
+    def is_group_completed(self, redis_conn, group_id):
+        """
+        检查当前问题组是否已全部完成：若 self.buffer 中所有问题均为 answered 状态，
+        且问题总数与 GROUP_INFO 中 "num_questions_init" 与 "num_questions_follow_up" 之和一致，则返回 True；否则返回 False。
+        """
+        buffer_questions = self.buffer.get_buffer()
+        if not buffer_questions:
+            return False
+
+        # 检查所有问题状态
+        all_answered = all(q.get("status") == "answered" for q in buffer_questions)
+        if not all_answered:
+            return False
+
+        # 获取Redis中该组的题目数量
+        num_init = int(redis_conn.get(f"{GROUP_INFO['num_questions_init']}{group_id}") or 0)
+        num_follow_up = int(redis_conn.get(f"{GROUP_INFO['num_questions_follow_up']}{group_id}") or 0)
+        total_expected = num_init + num_follow_up
+
+        # 检查数量是否一致
+        if len(buffer_questions) == total_expected:
+            return True
+        return False
     
     
     def _calculate_priority_score(self, question):

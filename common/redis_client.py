@@ -23,12 +23,14 @@ STATS_KEYS = {
 # 用于存储一组问题的元信息
 GROUP_INFO = {
     "group_id": "group_id:",
+    "num_questions_init": "num_questions_init:",
+    "num_questions_follow_up": "num_questions_follow_up:",
     "correct_answers": "correct_answers:",
     "scene": "scene:",
     "floor": "floor:",
     "max_steps": "max_steps:",
     "angle": "angle:",
-    "pts": "pts:",
+    "pts": "pts:", # 包含x、y、z坐标
     "rotation": "rotation:",
     "floor_height": "floor_height:",
     "scene_size": "scene_size:"
@@ -54,7 +56,8 @@ STREAMS = {
     "memory_requests": "stream:memory_requests", # Others -> Memory Module
     "memory_responses": "stream:memory_responses", # Memory Module -> Others
     "generator_to_memory": "stream:generator_to_memory", # Generator -> Memory Module
-    "generator_to_pool": "stream:generator_to_pool" # Generator -> Question Pool
+    "generator_to_pool": "stream:generator_to_pool", # Generator -> Question Pool
+    "pool_to_generator": "stream:pool_to_generator" # Question Pool -> Generator
 }
 
 
