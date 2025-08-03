@@ -1,5 +1,7 @@
 # data/
 data/Open_Sans/
+data/benchmark/
+data/HM3D/
 nohup.out
 *.pyc
 results/

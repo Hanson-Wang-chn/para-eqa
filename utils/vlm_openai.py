@@ -3,7 +3,6 @@ import http
 import base64
 import http.client
 import json
-# import PIL
 from PIL import Image
 import logging
 from io import BytesIO
@@ -13,7 +12,7 @@ import openai
 import httpx
 
 class VLM_OpenAI:
-    def __init__(self, model_name="gpt-4.1"):
+    def __init__(self, model_name="gpt-4o"):
         self.api_key = os.environ.get('OPENAI_API_KEY', 'sk-your-default-key')
         self.model_name = model_name
         
@@ -53,32 +52,66 @@ class VLM_OpenAI:
     
     
     def prepare_data(self, image, prompt):    
-        base64_image = self.convert_base64(image)
-        message = [
+        content = [
             {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt
-                    },
-                    {
+                "type": "text",
+                "text": prompt
+            }
+        ]
+        
+        # 处理不同形式的图片输入
+        if image is not None:
+            if isinstance(image, list):
+                # 图片列表
+                for img in image:
+                    if img is not None:  # 跳过列表中的None值
+                        base64_image = self.convert_base64(img)
+                        if base64_image:
+                            content.append({
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{base64_image}"
+                                }
+                            })
+            else:
+                # 单张图片
+                base64_image = self.convert_base64(image)
+                if base64_image:
+                    content.append({
                         "type": "image_url",
                         "image_url": {
                             "url": f"data:image/png;base64,{base64_image}"
                         }
-                    }
-                ]
+                    })
+        
+        message = [
+            {
+                "role": "user",
+                "content": content
             }
         ]
         return message
+
+
+    def has_valid_images(self, image):
+        """检查是否有有效的图片"""
+        if image is None:
+            return False
+        elif isinstance(image, list):
+            # 检查列表中是否有非None的图片
+            return any(img is not None for img in image)
+        else:
+            # 单张图片
+            return True
 
 
     def request_with_retry(self, image, prompt, retries=10):
         def exponential_backoff(attempt):
             return min(2 ** attempt, 60)
         
-        if image is None:
+        # 判断是否有有效图片来决定调用哪个API
+        if not self.has_valid_images(image):
+            # 没有有效图片，使用纯文本API
             for attempt in range(retries):
                 try:
                     return self.requests_api_only_text(prompt)
@@ -90,8 +123,8 @@ class VLM_OpenAI:
                         continue
                     else:
                         raise e
-        
         else:
+            # 有图片，使用视觉API
             for attempt in range(retries):
                 try:
                     return self.requests_api(image, prompt)
