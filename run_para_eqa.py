@@ -1,10 +1,22 @@
 # run_para_eqa.py
 
-# Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 6379:6379 -p 8001:8001 redis/redis-stack:latest` or `docker start para-eqa-redis` to start Redis.
+"""
+TODO:
+1. Planner
+2. prompt调试
+3. 数据集
+4. 增加控制字段，对比实验
+"""
 
-# 1. 读取配置文件
-# 2. 启动并初始化各个微服务
-# 3. 收集并统计运行结果
+"""
+Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 6379:6379 -p 8001:8001 redis/redis-stack:latest` or `docker start para-eqa-redis` to start Redis.
+"""
+
+"""
+1. 读取配置文件
+2. 启动并初始化各个微服务
+3. 收集并统计运行结果
+"""
 
 import os
 import numpy as np

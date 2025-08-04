@@ -1,7 +1,4 @@
-# utils/para_eaq.py
-
-# TODO: group_info相关问题
-# FIXME: vlm相关问题
+# utils/para_eqa.py
 
 import os
 import json
@@ -23,6 +20,7 @@ import uuid
 import time
 import base64
 from io import BytesIO
+import re
 
 from habitat_sim.utils.common import quat_to_coeffs, quat_from_angle_axis
 from utils.habitat import (
@@ -41,9 +39,9 @@ from utils.utils import (
     pixel2world
 )
 from utils.vlm_api import VLM_API
-# from utils.vlm_local import VLM_Local
-from common.redis_client import get_redis_connection, STREAMS
+from common.redis_client import get_redis_connection, STREAMS, GROUP_INFO
 from utils.image_processor import encode_image
+from utils.get_current_group_id import get_current_group_id
 
 np.set_printoptions(precision=3)
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -365,8 +363,146 @@ def can_stop(redis_conn, question, images=None):
     return stopping_response
 
 
+def get_group_info(redis_conn, group_id):
+    """
+    从Redis中读取指定组的信息
+    
+    Args:
+        redis_conn: Redis连接对象
+        group_id: 组ID
+        
+    Returns:
+        dict: 组信息字典
+    """
+    group_info = {}
+    
+    # 读取基本信息（使用get命令存储的字符串值）
+    group_info["group_id"] = redis_conn.get(f"{GROUP_INFO['group_id']}{group_id}")
+    group_info["scene"] = redis_conn.get(f"{GROUP_INFO['scene']}{group_id}")
+    
+    angle = redis_conn.get(f"{GROUP_INFO['angle']}{group_id}")
+    if angle:
+        group_info["angle"] = float(angle)
+    
+    # 可选值，如果存在则读取
+    floor = redis_conn.get(f"{GROUP_INFO['floor']}{group_id}")
+    if floor:
+        group_info["floor"] = floor
+    
+    max_steps = redis_conn.get(f"{GROUP_INFO['max_steps']}{group_id}")
+    if max_steps:
+        group_info["max_steps"] = int(max_steps)
+    
+    floor_height = redis_conn.get(f"{GROUP_INFO['floor_height']}{group_id}")
+    if floor_height:
+        group_info["floor_height"] = float(floor_height)
+    
+    scene_size = redis_conn.get(f"{GROUP_INFO['scene_size']}{group_id}")
+    if scene_size:
+        group_info["scene_size"] = float(scene_size)
+    
+    # 读取坐标信息（使用hget命令存储的哈希值）
+    pts = redis_conn.hgetall(f"{GROUP_INFO['pts']}{group_id}")
+    if pts:
+        group_info["pts"] = {
+            "x": float(pts.get("x", 0)),
+            "y": float(pts.get("y", 0)),
+            "z": float(pts.get("z", 0))
+        }
+    
+    rotation_data = redis_conn.hgetall(f"{GROUP_INFO['rotation']}{group_id}")
+    if rotation_data:
+        group_info["rotation"] = {}
+        for k, v in rotation_data.items():
+            group_info["rotation"][k] = float(v)
+    
+    # 读取问题数量
+    num_questions_init = redis_conn.get(f"{GROUP_INFO['num_questions_init']}{group_id}")
+    if num_questions_init:
+        group_info["num_questions_init"] = int(num_questions_init)
+    
+    num_questions_follow_up = redis_conn.get(f"{GROUP_INFO['num_questions_follow_up']}{group_id}")
+    if num_questions_follow_up:
+        group_info["num_questions_follow_up"] = int(num_questions_follow_up)
+    
+    # 读取答案映射
+    correct_answers = redis_conn.hgetall(f"{GROUP_INFO['correct_answers']}{group_id}")
+    if correct_answers:
+        group_info["correct_answers"] = correct_answers
+    
+    return group_info
+
+
+def set_group_info(redis_conn, group_id, group_info):
+    """
+    将组信息写入Redis
+    
+    Args:
+        redis_conn: Redis连接对象
+        group_id: 组ID
+        group_info: 组信息字典
+        
+    Returns:
+        bool: 操作是否成功
+    """
+    try:
+        pipe = redis_conn.pipeline()
+        
+        # 设置基本信息
+        if "group_id" in group_info:
+            pipe.set(f"{GROUP_INFO['group_id']}{group_id}", group_info["group_id"])
+        
+        if "scene" in group_info:
+            pipe.set(f"{GROUP_INFO['scene']}{group_id}", group_info["scene"])
+        
+        if "angle" in group_info:
+            pipe.set(f"{GROUP_INFO['angle']}{group_id}", group_info["angle"])
+        
+        if "floor" in group_info:
+            pipe.set(f"{GROUP_INFO['floor']}{group_id}", group_info["floor"])
+        
+        if "max_steps" in group_info:
+            pipe.set(f"{GROUP_INFO['max_steps']}{group_id}", group_info["max_steps"])
+        
+        if "floor_height" in group_info:
+            pipe.set(f"{GROUP_INFO['floor_height']}{group_id}", group_info["floor_height"])
+        
+        if "scene_size" in group_info:
+            pipe.set(f"{GROUP_INFO['scene_size']}{group_id}", group_info["scene_size"])
+        
+        # 设置坐标信息
+        if "pts" in group_info and isinstance(group_info["pts"], dict):
+            pipe.hset(f"{GROUP_INFO['pts']}{group_id}", mapping=group_info["pts"])
+        
+        if "rotation" in group_info and isinstance(group_info["rotation"], dict):
+            pipe.hset(f"{GROUP_INFO['rotation']}{group_id}", mapping=group_info["rotation"])
+        elif "rotation" in group_info and isinstance(group_info["rotation"], list):
+            # 如果rotation是列表，转换为字典格式
+            rotation_dict = {str(i): val for i, val in enumerate(group_info["rotation"])}
+            pipe.hset(f"{GROUP_INFO['rotation']}{group_id}", mapping=rotation_dict)
+        
+        # 设置问题数量
+        if "num_questions_init" in group_info:
+            pipe.set(f"{GROUP_INFO['num_questions_init']}{group_id}", group_info["num_questions_init"])
+        
+        if "num_questions_follow_up" in group_info:
+            pipe.set(f"{GROUP_INFO['num_questions_follow_up']}{group_id}", group_info["num_questions_follow_up"])
+        
+        # 设置答案映射
+        if "correct_answers" in group_info and isinstance(group_info["correct_answers"], dict):
+            pipe.hset(f"{GROUP_INFO['correct_answers']}{group_id}", mapping=group_info["correct_answers"])
+        
+        # 执行所有命令
+        pipe.execute()
+        return True
+    
+    except Exception as e:
+        logging.error(f"[{os.getpid()}] 设置组信息时出错: {e}")
+        return False
+
+
 class ParaEQA:
-    def __init__(self, config, group_info, gpu_id):
+    def __init__(self, config):
         self.config = config
         self.device = self.config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
 
@@ -388,19 +524,6 @@ class ParaEQA:
         self.prompt_question = prompt.get("question", "")
         self.prompt_lsv = prompt.get("local_sem", "")
         self.prompt_gsv = prompt.get("global_sem", "")
-
-        # load init pose data
-        with open(self.config.get("init_pose_data_path", "./data/scene_init_poses_all.csv")) as f:
-            self.init_pose_data = {}
-            for row in csv.DictReader(f, skipinitialspace=True):
-                self.init_pose_data[row["scene_floor"]] = {
-                    "init_pts": [
-                        float(row["init_x"]),
-                        float(row["init_y"]),
-                        float(row["init_z"]),
-                    ],
-                    "init_angle": float(row["init_angle"]),
-                }
 
         # init VLM model
         model_name = self.config.get("vlm", {}).get("model_api", "gpt-4.1")
@@ -427,7 +550,6 @@ class ParaEQA:
         except:
             pass
         
-        # TODO: 从Redis的group_info中获取
         scene_data_path = self.config.get("scene_data_path", "./data/HM3D")
         scene_mesh_dir = os.path.join(
             scene_data_path, scene, scene[6:] + ".basis" + ".glb"
@@ -467,21 +589,59 @@ class ParaEQA:
             init_clearance=self.config.get("init_clearance", 0.5) * 2,
         )
         return tsdf_planner
-
     
-    # TODO: 修改prepare_data函数，适应新的question_data格式，同时从Redis中读取group_info。保证修改后prepare_data函数的返回值和当前相同。
+    
     def prepare_data(self, question_data, question_ind):
-        # Extract question
-        scene = question_data["scene"]
-        floor = question_data["floor"]
+        # 从 Redis 获取当前 group_id
+        group_id = get_current_group_id(self.redis_conn)
+        if not group_id:
+            raise ValueError("无法找到当前活跃的 group_id")
+        
+        # 从 GROUP_INFO 获取组信息
+        group_info = get_group_info(self.redis_conn, group_id)
+        
+        # 从 description 提取问题和选项
+        description = question_data.get('description', '')
+        
+        # 使用正则表达式提取问题和选项
+        match = re.match(r'(.*?)\s*A\)(.*?)\s*B\)(.*?)\s*C\)(.*?)\s*D\)(.*?)(?:\.|\s*$)', description, re.DOTALL)
+        if match:
+            question = match.group(1).strip()
+            choices = [
+                match.group(2).strip(),
+                match.group(3).strip(),
+                match.group(4).strip(),
+                match.group(5).strip()
+            ]
+        else:
+            # 如果无法匹配，报告错误
+            raise ValueError(f"无法从描述中提取问题和选项: {description}")
+        
+        # 将选项格式化为字符串列表
+        choices = str(choices)
+        
+        # 获取答案 (A、B、C、D)
+        answer = question_data.get('answer', None)
+        if answer is None:
+            raise ValueError("问题数据中未提供答案")
+        
+        # 从 GROUP_INFO 获取场景和楼层信息
+        scene = group_info.get('scene')
+        floor = group_info.get('floor', '0')  # 默认为 0
         scene_floor = scene + "_" + floor
-        question = question_data["question"]
-        choices = [c.strip("'\"") for c in question_data["choices"].strip("[]").split(", ")]
-        answer = question_data["answer"]
-
-        # TODO: init_pts需要为上一个问题结束探索的位置
-        init_pts = self.init_pose_data[scene_floor]["init_pts"]
-        init_angle = self.init_pose_data[scene_floor]["init_angle"]
+        
+        # 获取初始位置和角度
+        if 'pts' in group_info:
+            pts = [
+                float(group_info['pts'].get('x', 0)),
+                float(group_info['pts'].get('y', 0)),
+                float(group_info['pts'].get('z', 0))
+            ]
+        else:
+            # 如果没有在 GROUP_INFO 中找到，使用默认值
+            pts = self.init_pose_data[scene_floor]["init_pts"]
+        
+        angle = float(group_info.get('angle', 0))
         
         logging.info(f"\n========\nIndex: {question_ind} Scene: {scene} Floor: {floor}")
 
@@ -492,7 +652,9 @@ class ParaEQA:
         # open or close vocab
         is_open_vocab = False
         if is_open_vocab:
-            answer = choices[vlm_pred_candidates.index(answer)]
+            answer_index = vlm_pred_candidates.index(answer)
+            if 0 <= answer_index < len(choices):
+                answer = choices[answer_index]
         else:
             for token, choice in zip(vlm_pred_candidates, choices):
                 vlm_question += "\n" + token + ". " + choice
@@ -504,14 +666,11 @@ class ParaEQA:
 
         agent, agent_state, self.simulator, pathfinder = self.init_sim(scene)
         
-        pts = np.array(init_pts)
-        angle = init_angle
-
         # Floor - use pts height as floor height
         rotation = quat_to_coeffs(
             quat_from_angle_axis(angle, np.array([0, 1, 0]))
         ).tolist()
-        pts_normal = pos_habitat_to_normal(pts)
+        pts_normal = pos_habitat_to_normal(np.array(pts))
         floor_height = pts_normal[-1]
         tsdf_bnds, scene_size = get_scene_bnds(pathfinder, floor_height)
         num_step = int(math.sqrt(scene_size) * self.config.get("max_step_room_size_ratio", 3))
@@ -531,7 +690,7 @@ class ParaEQA:
             "floor": floor,
             "max_steps": num_step,
             "angle": angle,
-            "init_pts": pts.tolist(),
+            "init_pts": pts,
             "init_rotation": rotation,
             "floor_height": floor_height,
             "scene_size": scene_size,
@@ -545,6 +704,14 @@ class ParaEQA:
     {'scene': '00797-99ML7CGPqsQ', 'floor': '0', 'question': 'Is the door color darker than the ceiling color?', 'choices': "['Yes', 'No', 'They are the same color', 'The ceiling is darker']", 'question_formatted': 'Is the door color darker than the ceiling color? A) Yes B) No C) They are the same color D) The ceiling is darker. Answer:', 'answer': 'A', 'label': 'Comparison', 'source_image': '00797-99ML7CGPqsQ_0.png'}
     """
     def run(self, question_data, question_ind):
+        # 从 Redis 获取当前 group_id
+        group_id = get_current_group_id(self.redis_conn)
+        if not group_id:
+            raise ValueError("无法找到当前活跃的 group_id")
+        
+        # 从 GROUP_INFO 获取组信息
+        group_info = get_group_info(self.redis_conn, group_id)
+        
         # 在开始探索之前，先询问stopping service是否可以直接回答问题
         stopping_response = can_stop(self.redis_conn, question_data)
         if stopping_response.get("status") == "stop":
@@ -554,19 +721,21 @@ class ParaEQA:
             result = {
                 "meta": {
                     "question_ind": question_ind,
-                    "org_question": question_data.get("question", ""),
+                    "org_question": question_data.get("description", ""),
                     "answer": question_data.get("answer", ""),
-                    "scene": question_data.get("scene", ""),
-                    "floor": question_data.get("floor", ""),
+                    "scene": group_info.get("scene", ""),
+                    "floor": group_info.get("floor", ""),
                 },
                 "step": [],
                 "summary": {
                     "explored_steps": 0,
                 },
             }
+            
+            # 直接回答问题后，不需要更新GROUP_INFO
             return result
         
-        # TODO: 修改prepare_data函数，适应新的question_data格式，同时从Redis中读取group_info。保证修改后prepare_data函数的返回值和当前相同。
+        # 准备数据，开始新的探索
         meta, agent, agent_state, tsdf_planner, episode_data_dir = self.prepare_data(question_data, question_ind)
 
         result = {
@@ -592,7 +761,6 @@ class ParaEQA:
         pts_pixs = np.empty((0, 2))  # for plotting path on the image
         collected_images = []  # 存储探索过程中的图像
         
-        # TODO: agent.set_state() 需要衔接前一个问题
         for cnt_step in range(num_step):
             logging.info(f"\n== step: {cnt_step}")
 
@@ -684,6 +852,7 @@ class ParaEQA:
                 )
 
                 # 在每一步后询问stopping service是否可以停止探索
+                # 如果可以结束，会把更新后的信息存储到GROUP_INFO中
                 stopping_response = can_stop(self.redis_conn, question_data, collected_images)
                 if stopping_response.get("status") == "stop":
                     # 可以停止探索，结束循环
@@ -700,8 +869,7 @@ class ParaEQA:
                     )
                 
                 # "... How confident are you in answering this question from your current perspective? ..."
-                # FIXME:
-                smx_vlm_rel = self.vlm.get_response(rgb_im, self.prompt_rel.format(question), kb, device=self.device)[0].strip(".")
+                smx_vlm_rel = self.vlm.request_with_retry(rgb_im, self.prompt_rel.format(question), kb)[0].strip(".")
                 
                 logging.info(f"Rel - Prob: {smx_vlm_rel}")
 
@@ -715,8 +883,7 @@ class ParaEQA:
                     )
                 
                 # "... Answer with the option's letter from the given choices directly. ..."
-                # FIXME:
-                smx_vlm_pred = self.vlm.get_response(rgb_im, self.prompt_question.format(vlm_question), kb, device=self.device)[0].strip(".")
+                smx_vlm_pred = self.vlm.request_with_retry(rgb_im, self.prompt_question.format(vlm_question), kb)[0].strip(".")
                 
                 logging.info(f"Pred - Prob: {smx_vlm_pred}")
 
@@ -763,8 +930,7 @@ class ParaEQA:
                             )
                         
                         # "... Which direction (black letters on the image) would you explore then? ..."
-                        # FIXME:
-                        response = self.vlm.get_response(rgb_im_draw, self.prompt_lsv.format(question), kb, device=self.device)[0]
+                        response = self.vlm.request_with_retry(rgb_im_draw, self.prompt_lsv.format(question), kb)[0]
                         
                         lsv = np.zeros(actual_num_prompt_points)
                         for i in range(actual_num_prompt_points):
@@ -787,8 +953,7 @@ class ParaEQA:
                             )
                         
                         # "... Is there any direction shown in the image worth exploring? ..."
-                        # FIXME:
-                        response = self.vlm.get_response(rgb_im, self.prompt_gsv.format(question), kb, device=self.device)[0].strip(".")
+                        response = self.vlm.request_with_retry(rgb_im, self.prompt_gsv.format(question), kb)[0].strip(".")
                         
                         gsv = np.zeros(2)
                         if response == "Yes":
@@ -839,8 +1004,6 @@ class ParaEQA:
                 quat_from_angle_axis(angle, np.array([0, 1, 0]))
             ).tolist()
 
-        # 删除原来的最终回答部分，由stopping service处理
-
         # Episode summary
         logging.info(f"\n== Episode Summary")
         logging.info(f"Scene: {scene}, Floor: {floor}")
@@ -849,5 +1012,26 @@ class ParaEQA:
         
         # 记录探索的步数
         result["summary"]["explored_steps"] = cnt_step + 1
+        
+        # 更新 GROUP_INFO
+        updated_group_info = {
+            'group_id': group_id,
+            'scene': scene,
+            'floor': floor,
+            'angle': angle,
+            'pts': {
+                'x': float(pts[0]),
+                'y': float(pts[1]),
+                'z': float(pts[2])
+            },
+            'rotation': {str(i): float(val) for i, val in enumerate(rotation)},
+            'floor_height': float(floor_height),
+            'scene_size': float(scene_size),
+            'num_questions_init': int(group_info.get('num_questions_init', 0)),
+            'num_questions_follow_up': int(group_info.get('num_questions_follow_up', 0)),
+            'correct_answers': group_info.get('correct_answers', {})
+        }
+        
+        set_group_info(self.redis_conn, group_id, updated_group_info)
 
         return result

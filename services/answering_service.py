@@ -10,7 +10,7 @@ from utils.vlm_api import VLM_API
 from utils.image_processor import decode_image
 
 
-def get_vlm_answer(question, memory_data, prompt_get_answer, model_api="gpt-4.1", use_openrouter=False):
+def get_vlm_answer(question, kb, prompt_get_answer, model_api="gpt-4.1", use_openrouter=False):
     """
     根据问题和记忆数据，使用VLM生成答案
     
@@ -22,22 +22,14 @@ def get_vlm_answer(question, memory_data, prompt_get_answer, model_api="gpt-4.1"
     Returns:
         str: 生成的答案
     """
-    # 合并记忆文本
-    memory_texts = [item.get('text', '') for item in memory_data]
-    combined_memory_text = "\n".join(memory_texts)
-    
-    # 使用第一个图像（如果有）
-    first_image_data = memory_data[0].get('image_data') if memory_data and len(memory_data) > 0 else None
-    image = decode_image(first_image_data) if first_image_data else None
-    
     # 构建提示词
     question_desc = question.get('description', '')
-    # 伪函数
-    prompt = concatinate(prompt_get_answer, question_desc, combined_memory_text)
+    # TODO:
+    prompt = concatinate(prompt_get_answer, question_desc)
     
     # 实例化VLM并请求回答
     vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
-    response = vlm.request_with_retry(image=image, prompt=prompt)[0]
+    response = vlm.request_with_retry(image=None, prompt=prompt, kb=kb)[0]
     
     return response.strip()
 

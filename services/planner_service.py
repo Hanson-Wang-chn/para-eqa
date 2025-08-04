@@ -112,9 +112,7 @@ def run(config: dict):
     # 主循环
     while True:
         try:
-            group_info = get_group_info_from_redis()
-            para_eqa = ParaEQA(config, group_info)
-            
+            para_eqa = ParaEQA(config)
             question = select_question(redis_conn)
             result = para_eqa.run(question)
             add_result_to_redis(result, redis_conn)

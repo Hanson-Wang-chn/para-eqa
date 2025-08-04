@@ -113,6 +113,8 @@ def store_group_info(redis_conn, group_data):
     # 存储答案映射
     pipe.hset(f"{GROUP_INFO['correct_answers']}{group_id}", mapping=question_ids_to_answers)
     
+    # FIXME: 新增逻辑：把其它未使用的键清空
+    
     # 执行所有Redis命令
     pipe.execute()
     

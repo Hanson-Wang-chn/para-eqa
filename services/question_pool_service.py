@@ -8,6 +8,7 @@ import uuid
 
 from common.redis_client import get_redis_connection, STREAMS, GROUP_INFO
 from utils.updater import Updater
+from utils.get_current_group_id import get_current_group_id
 
 
 def send_group_completed(redis_conn, group_id):
@@ -207,7 +208,8 @@ def run(config: dict):
                                     logging.info(f"[{os.getpid()}] Answer added to question {question_id} and marked as answered")
 
                                     # 检查问题组是否全部完成
-                                    group_id = redis_conn.get(f"{GROUP_INFO['group_id']}{question_data.get('group_id', '')}")
+                                    # group_id = redis_conn.get(f"{GROUP_INFO['group_id']}{question_data.get('group_id', '')}")
+                                    group_id = get_current_group_id(redis_conn)
                                     if group_id and updater.is_group_completed(redis_conn, group_id):
                                         send_group_completed(redis_conn, group_id)
                                 
