@@ -1,3 +1,7 @@
+# utils/knowledgebase.py
+
+# TODO: 完成 replace_memory 的复杂逻辑
+
 import uuid
 import numpy as np
 import torch
@@ -212,8 +216,7 @@ class KnowledgeBase:
                 results.append({
                     "id": memory_data["id"],
                     "text": memory_data["text"],
-                    "image": memory_data["image"],
-                    "distance": float(distances[0][i])
+                    "image": memory_data["image"]
                 })
         
         return results

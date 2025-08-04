@@ -1,4 +1,5 @@
-import json
+# utils/vlm_api.py
+
 import http
 import base64
 import http.client
@@ -10,6 +11,7 @@ import time
 import os
 import openai
 import httpx
+
 
 class VLM_API:
     def __init__(self, model_name="gpt-4o", use_openrouter=False):
@@ -27,6 +29,8 @@ class VLM_API:
         if not use_openrouter:
             try:
                 self.api_key = os.environ.get('OPENAI_API_KEY')
+                if not self.api_key:
+                    raise ValueError("OPENAI_API_KEY environment variable is not set.")
             except KeyError:
                 raise ValueError("OPENAI_API_KEY environment variable is not set.")
             
@@ -38,6 +42,8 @@ class VLM_API:
         else:
             try:
                 self.api_key = os.environ.get('OPENROUTER_API_KEY')
+                if not self.api_key:
+                    raise ValueError("OPENROUTER_API_KEY environment variable is not set.")
             except KeyError:
                 raise ValueError("OPENROUTER_API_KEY environment variable is not set.")
             
@@ -69,49 +75,84 @@ class VLM_API:
             base64_image = self.convert_file_to_base64(image)
         elif isinstance(image, Image.Image):
             base64_image = self.convert_PIL_to_base64(image)
+        else:
+            return None
         return base64_image
     
     
-    def prepare_data(self, image, prompt):    
-        content = [
+    def prepare_data(self, image, prompt, kb):
+        # System message to define the role of KB
+        system_message = {
+            "role": "system",
+            "content": "You are an AI assistant that answers questions based on provided information. You will receive a user question along with optional images and reference materials from a knowledge base (KB). When KB materials are provided, use them as authoritative sources to inform your response. If the KB contains relevant information, prioritize it in your answer. If the KB doesn't contain relevant information for the question, you may use your general knowledge."
+        }
+        
+        # Start building user content with the prompt
+        user_content = [
             {
                 "type": "text",
                 "text": prompt
             }
         ]
         
-        # 处理不同形式的图片输入
+        # Handle image parameter (can be single image or list of images)
         if image is not None:
             if isinstance(image, list):
-                # 图片列表
+                # Image list
                 for img in image:
-                    if img is not None:  # 跳过列表中的None值
+                    if img is not None:  # Skip None values in list
                         base64_image = self.convert_base64(img)
                         if base64_image:
-                            content.append({
+                            user_content.append({
                                 "type": "image_url",
                                 "image_url": {
                                     "url": f"data:image/png;base64,{base64_image}"
                                 }
                             })
             else:
-                # 单张图片
+                # Single image
                 base64_image = self.convert_base64(image)
                 if base64_image:
-                    content.append({
+                    user_content.append({
                         "type": "image_url",
                         "image_url": {
                             "url": f"data:image/png;base64,{base64_image}"
                         }
                     })
         
-        message = [
-            {
-                "role": "user",
-                "content": content
-            }
-        ]
-        return message
+        # Handle knowledge base (KB) - add to user content if not empty
+        if kb and len(kb) > 0:
+            user_content.append({
+                "type": "text",
+                "text": "\n\nReference materials from knowledge base:"
+            })
+            
+            for i, item in enumerate(kb, 1):
+                # Add KB text description
+                if item.get('text', None):
+                    user_content.append({
+                        "type": "text",
+                        "text": f"\nReference {i}: {item['text']}"
+                    })
+                
+                # Add KB image if present
+                if item.get('image', None):
+                    # Assume item['image'] is already base64 encoded
+                    user_content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{item['image']}"
+                        }
+                    })
+        
+        # Build user message
+        user_message = {
+            "role": "user",
+            "content": user_content
+        }
+        
+        # Return both system and user messages
+        return [system_message, user_message]
 
 
     def has_valid_images(self, image):
@@ -126,12 +167,11 @@ class VLM_API:
             return True
 
 
-    def request_with_retry(self, image, prompt, retries=10):
+    def request_with_retry(self, image, prompt, kb=[], retries=10):
         def exponential_backoff(attempt):
             return min(2 ** attempt, 60)
         
-        # 判断是否有有效图片来决定调用哪个API
-        if not self.has_valid_images(image):
+        if not self.has_valid_images(image) and not kb:
             # 没有有效图片，使用纯文本API
             for attempt in range(retries):
                 try:
@@ -139,37 +179,37 @@ class VLM_API:
                 except Exception as e:
                     if attempt < retries - 1:
                         wait_time = exponential_backoff(attempt)
-                        logging.log(logging.ERROR, f"Request failed, retrying in {wait_time} seconds... {e}")
+                        logging.error(f"Request failed, retrying in {wait_time} seconds... {e}")
                         time.sleep(wait_time)
                         continue
                     else:
                         raise e
+        
         else:
-            # 有图片，使用视觉API
             for attempt in range(retries):
                 try:
-                    return self.requests_api(image, prompt)
+                    return self.requests_api(image, prompt, kb)
                 except Exception as e:
                     if attempt < retries - 1:
                         wait_time = exponential_backoff(attempt)
-                        logging.log(logging.ERROR, f"Request failed, retrying in {wait_time} seconds... {e}")
+                        logging.error(f"Request failed, retrying in {wait_time} seconds... {e}")
                         time.sleep(wait_time)
                         continue
                     else:
                         raise e
     
     
-    def requests_api(self, image, prompt):
-        message = self.prepare_data(image, prompt)
+    def requests_api(self, image, prompt, kb):
+        messages = self.prepare_data(image, prompt, kb)
         
-        # 使用OpenAI官方客户端发送请求
+        # Send request using OpenAI official client
         response = self.client.chat.completions.create(
             model=self.model_name,
-            messages=message,
+            messages=messages,
             max_tokens=1000
         )
         
-        # 提取响应内容
+        # Extract response content - keep the same return format as original
         return [response.choices[0].message.content]
     
     
@@ -205,3 +245,16 @@ if __name__ == "__main__":
     vlm = VLM_API(model_name=model_name, use_openrouter=use_openrouter)
     response = vlm.request_with_retry(image=None, prompt="Hello!")[0]
     print(response)
+
+
+"""
+kb格式：
+[
+    {
+        "id": str,
+        "text": str,
+        "image": str,  # base64编码的图片字符串
+    },
+    ...
+]
+"""

@@ -1,3 +1,5 @@
+# utils/image_processor.py
+
 from PIL import Image
 import base64
 import logging

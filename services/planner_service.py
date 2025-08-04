@@ -1,6 +1,6 @@
 # services/planner_service.py
 
-# TODO: 处理好异步逻辑。当出现新group时，清空KnowledgeBase。其他情况下，为ParaEQA提供初始化信息（初始位置为上一次结束探索的位置）。
+# TODO: 处理好异步逻辑。问题的初始化信息都在Redis中。第一个问题的初始化信息由generator提供，后续每一个问题的初始化信息由前一个问题提供。为ParaEQA提供初始化信息（初始位置为上一次结束探索的位置）。
 
 import os
 import json

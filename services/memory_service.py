@@ -138,7 +138,7 @@ def run(config: dict):
                         update_count += 1
                     
                     elif operation == "clear":
-                        kb.clear_memory()
+                        kb.clear()
                         
                         result = {
                             "status": "success",

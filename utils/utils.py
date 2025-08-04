@@ -13,6 +13,7 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 
+
 def interpolate_position_and_rotation(points, start_rot, end_rot, num_intermediate_points=10):
     # 初始化结果路径
     dense_path = []
@@ -35,49 +36,54 @@ def interpolate_position_and_rotation(points, start_rot, end_rot, num_intermedia
     dense_path.append((points[-1], end_rot))  # 添加终点及其旋转
     return dense_path
 
+
 def quaternion_to_yaw(quat):
     # 计算 yaw 角度
     w, x, y, z = quat[0], quat[1], quat[2], quat[3]
     yaw = np.arctan2(2 * (w * z + x * y), 1 - 2 * (x**2 + y**2))
     return yaw
 
+
 def pts_to_distance(pts, dst_pts):
     return np.linalg.norm(dst_pts - pts)
 
-def get_vlm_loss(image, prompt, tokens):
-    # 调用这个方法需要先启动vlm服务
-    img_byte_arr = io.BytesIO()
-    image.save(img_byte_arr, format="PNG")  # 可以指定图片格式
-    img_byte_arr.seek(0)
 
-    files = {'image': img_byte_arr}
-    data = {
-        "text": prompt,
-        "str_list": json.dumps(tokens)
-    }
+# def get_vlm_loss(image, prompt, tokens):
+#     # 调用这个方法需要先启动vlm服务
+#     img_byte_arr = io.BytesIO()
+#     image.save(img_byte_arr, format="PNG")  # 可以指定图片格式
+#     img_byte_arr.seek(0)
 
-    response = requests.post("http://127.0.0.1:5000/get_loss", files=files, data=data)
+#     files = {'image': img_byte_arr}
+#     data = {
+#         "text": prompt,
+#         "str_list": json.dumps(tokens)
+#     }
+
+#     response = requests.post("http://127.0.0.1:5000/get_loss", files=files, data=data)
     
-    result = json.loads(response.text)
-    return np.array(result['result'])
+#     result = json.loads(response.text)
+#     return np.array(result['result'])
 
-def get_vlm_response(image, prompt, kb=None):
-    # 调用这个方法需要先启动vlm服务
-    img_byte_arr = io.BytesIO()
-    image.save(img_byte_arr, format="PNG")  # 可以指定图片格式
-    img_byte_arr.seek(0)
 
-    kb = json.dumps(kb) if kb is not None else json.dumps([])
-    files = {'image': img_byte_arr}
-    data = {
-        "text": prompt,
-        "kb": kb
-    }
+# def get_vlm_response(image, prompt, kb=None):
+#     # 调用这个方法需要先启动vlm服务
+#     img_byte_arr = io.BytesIO()
+#     image.save(img_byte_arr, format="PNG")  # 可以指定图片格式
+#     img_byte_arr.seek(0)
 
-    response = requests.post("http://127.0.0.1:5000/get_response", files=files, data=data)
+#     kb = json.dumps(kb) if kb is not None else json.dumps([])
+#     files = {'image': img_byte_arr}
+#     data = {
+#         "text": prompt,
+#         "kb": kb
+#     }
 
-    result = json.loads(response.text)
-    return np.array(result['result'])
+#     response = requests.post("http://127.0.0.1:5000/get_response", files=files, data=data)
+
+#     result = json.loads(response.text)
+#     return np.array(result['result'])
+
 
 def calculate_angle(a, b):
     # 计算点积
@@ -94,10 +100,12 @@ def calculate_angle(a, b):
 
     return angle_rad, angle_deg
 
+
 def move_to_xy(pts, dst_pts):
     distance = pts_to_distance(pts, dst_pts)
     yaw, angle = calculate_angle(pts, dst_pts)
     return distance, (yaw, angle)
+
 
 def move_to_xy_with_yaw(pts, dst_pts, yaw, dst_yaw, vx=0.3):
     vector = dst_pts - pts
@@ -114,8 +122,10 @@ def move_to_xy_with_yaw(pts, dst_pts, yaw, dst_yaw, vx=0.3):
     vyaw = delta_yaw / duration
     return vx, vy, vyaw, duration
 
+
 def get_delta_yaw(yaw, dst_yaw):
     return (dst_yaw - yaw + math.pi) % (2 * math.pi) - math.pi
+
 
 def move_to_xy(pts, dst_pts, v=0.3):
     
@@ -198,6 +208,7 @@ def save_rgbd(rgb, depth, save_path="rgbd.png"):
 
     rgbd = np.concatenate((rgb, depth_image), axis=0)
     plt.imsave(save_path, rgbd)
+
 
 def pixel2world(x, y, depth, pose):
     pos = np.array([x, y, depth])

@@ -231,8 +231,10 @@ class Updater:
     
     
     def _get_new_dependency(self, all_questions, qid):
+        # TODO:
         pass
     
     
     def _merge_dependencies(self, all_questions, new_dependency, qid):
+        # TODO:
         pass
