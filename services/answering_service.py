@@ -82,9 +82,9 @@ def run(config: dict):
     try:
         redis_conn.xgroup_create(to_answering_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Answering group already exists: {e}")
+        logging.info(f"[{os.getpid()}](ANS) Answering group already exists: {e}")
     
-    logging.info(f"[{os.getpid()}] Answering service started. Waiting for questions...")
+    logging.info(f"[{os.getpid()}](ANS) Answering service started. Waiting for questions...")
     
     # 初始化统计计数器
     answered_count = 0
@@ -113,11 +113,11 @@ def run(config: dict):
                         question_id = question.get('id')
                         question_desc = question.get('description', '')
                         
-                        logging.info(f"[{os.getpid()}] 收到问题: {question_id} - '{question_desc[:40]}...'")
+                        logging.info(f"[{os.getpid()}](ANS) 收到问题: {question_id} - '{question_desc[:40]}...'")
                         
                         # 获取答案
                         answer = get_vlm_answer(question, memory_data, prompt_get_answer, model_api, use_openrouter)
-                        logging.info(f"[{os.getpid()}] 已生成问题 {question_id} 的答案")
+                        logging.info(f"[{os.getpid()}](ANS) 已生成问题 {question_id} 的答案")
                         
                         # 更新问题元数据
                         question['answer'] = answer
@@ -130,7 +130,7 @@ def run(config: dict):
                                 with open(result_path, 'r', encoding='utf-8') as f:
                                     existing_answers = json.load(f)
                             except (json.JSONDecodeError, FileNotFoundError):
-                                logging.warning(f"[{os.getpid()}] 无法读取现有答案文件，将创建新文件")
+                                logging.warning(f"[{os.getpid()}](ANS) 无法读取现有答案文件，将创建新文件")
                             
                             # 检查是否已存在相同ID的问题
                             for i, existing_answer in enumerate(existing_answers):
@@ -146,24 +146,24 @@ def run(config: dict):
                             with open(result_path, 'w', encoding='utf-8') as f:
                                 json.dump(existing_answers, f, ensure_ascii=False, indent=2)
                                 
-                            logging.info(f"[{os.getpid()}] 问题 {question_id} 的答案已保存到文件")
+                            logging.info(f"[{os.getpid()}](ANS) 问题 {question_id} 的答案已保存到文件")
                         except Exception as e:
-                            logging.error(f"[{os.getpid()}] 保存答案到文件时出错: {e}")
+                            logging.error(f"[{os.getpid()}](ANS) 保存答案到文件时出错: {e}")
                         
                         # 向Question Pool发送完成的问题
                         redis_conn.xadd(answering_to_pool_stream, {"data": json.dumps(question)})
-                        logging.info(f"[{os.getpid()}] 问题 {question_id} 的答案已发送到Question Pool")
+                        logging.info(f"[{os.getpid()}](ANS) 问题 {question_id} 的答案已发送到Question Pool")
                         
                         # 更新统计信息
                         answered_count += 1
                         redis_conn.hset(STATS_KEYS["answering"], "answered", answered_count)
                         
                     except Exception as e:
-                        logging.error(f"[{os.getpid()}] 处理问题时出错: {e}")
+                        logging.error(f"[{os.getpid()}](ANS) 处理问题时出错: {e}")
                     
                     # 确认消息处理完毕
                     redis_conn.xack(to_answering_stream, group_name, message_id)
         
         except Exception as e:
-            logging.error(f"[{os.getpid()}] Answering service发生错误: {e}")
+            logging.error(f"[{os.getpid()}](ANS) Answering service发生错误: {e}")
             time.sleep(5)  # 发生错误时等待一段时间再重试

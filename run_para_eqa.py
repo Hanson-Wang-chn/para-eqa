@@ -1,11 +1,12 @@
 # run_para_eqa.py
 
 """
-TODO:
+TODO: 总计划
 1. Planner
 2. prompt调试
-3. 数据集
-4. 增加控制字段，对比实验
+3. 结果统计
+4. 数据集
+5. 增加控制字段，对比实验
 """
 
 """
@@ -34,13 +35,12 @@ from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STA
 from services import (
     generator_service,
     parser_service,
-    # question_pool_service,
-    # memory_service,
-    # updater_service, 
-    # planner_service, 
-    # answering_service, 
-    # finishing_service, 
-    # stopping_service
+    question_pool_service,
+    memory_service, 
+    planner_service, 
+    answering_service, 
+    finishing_service, 
+    stopping_service
 )
 
 # np.set_printoptions(precision=3)
@@ -166,13 +166,12 @@ if __name__ == "__main__":
     services_to_run = {
         "Generator": generator_service.run,
         "Parser": parser_service.run,
-        # "QuestionPool": question_pool_service.run,
-        # "Memory": memory_service.run,
-        # "Updater": updater_service.run,
-        # "Planner": planner_service.run,
-        # "Answerer": answering_service.run,
-        # "Finisher": finishing_service.run,
-        # "Stopper": stopping_service.run,
+        "QuestionPool": question_pool_service.run,
+        "Memory": memory_service.run,
+        "Planner": planner_service.run,
+        "Answerer": answering_service.run,
+        "Finisher": finishing_service.run,
+        "Stopper": stopping_service.run,
     }
 
     processes = []
@@ -185,10 +184,11 @@ if __name__ == "__main__":
     
     try:
         while True:
-            all_done = display_stats(config)
-            if all_done:
-                logging.info("\nAll tasks completed. System is idle.")
-            time.sleep(10)
+            # all_done = display_stats(config)
+            # if all_done:
+            #     logging.info("\nAll tasks completed. System is idle.")
+            # time.sleep(10)
+            time.sleep(1)
     except KeyboardInterrupt:
         logging.info("\nShutdown signal received. Terminating all services...")
         for p in processes:

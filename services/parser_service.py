@@ -109,9 +109,9 @@ def run(config: dict):
     try:
         redis_conn.xgroup_create(stream_name, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Parser group '{group_name}' already exists. Continuing...")
+        logging.info(f"[{os.getpid()}](PAR) Parser group '{group_name}' already exists. Continuing...")
 
-    logging.info(f"[{os.getpid()}] Parser service started. Waiting for new questions...")
+    logging.info(f"[{os.getpid()}](PAR) Parser service started. Waiting for new questions...")
     
     while True:
         try:
@@ -124,13 +124,13 @@ def run(config: dict):
 
             for stream, message_list in messages:
                 for message_id, data in message_list:
-                    logging.info(f"[{os.getpid()}] Parsing message {message_id}...")
+                    logging.info(f"[{os.getpid()}](PAR) Parsing message {message_id}...")
                     question_data = json.loads(data['data'])
                     desc = question_data.get("description")
                     q_id = question_data.get("id", str(uuid.uuid4()))
                     
                     if not desc:
-                        logging.info(f"[{os.getpid()}] WARN: Received message without a description. Skipping.")
+                        logging.info(f"[{os.getpid()}](PAR) WARN: Received message without a description. Skipping.")
                         redis_conn.xack(stream_name, group_name, message_id)
                         continue
 
@@ -147,7 +147,7 @@ def run(config: dict):
                         "dependency": [],
                         "answer": "",
                     }
-                    logging.info(f"[{os.getpid()}] Question metadata: {json.dumps(metadata, indent=2, ensure_ascii=False)}")
+                    logging.info(f"[{os.getpid()}](PAR) Question metadata: {json.dumps(metadata, indent=2, ensure_ascii=False)}")
                     
                     # 2. 将元数据存入 Redis Hash
                     # redis_conn.hset(f"{KEY_PREFIXES['question']}{q_id}", mapping=metadata)
@@ -158,11 +158,11 @@ def run(config: dict):
                     # 4. 更新统计信息
                     redis_conn.hincrby(STATS_KEYS["parser"], "total", 1)
                     
-                    logging.info(f"[{os.getpid()}] Successfully parsed question {q_id}: '{desc[:40]}...'")
+                    logging.info(f"[{os.getpid()}](PAR) Successfully parsed question {q_id}: '{desc[:40]}...'")
 
                     # 5. 确认消息处理完毕，从pending列表中移除
                     redis_conn.xack(stream_name, group_name, message_id)
 
         except Exception as e:
-            logging.info(f"[{os.getpid()}] An error occurred in Parser service: {e}")
+            logging.info(f"[{os.getpid()}](PAR) An error occurred in Parser service: {e}")
             time.sleep(5) # 发生错误时等待一段时间再重试

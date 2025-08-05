@@ -41,12 +41,12 @@ def store_group_info(redis_conn, group_data):
     Returns:
         dict: 包含问题ID和答案的映射以及准备好的问题列表
     """
-    group_id = group_data.get('group_id')
-    scene = group_data.get('scene')
-    init_x = group_data.get('init_x')
-    init_y = group_data.get('init_y')
-    init_z = group_data.get('init_z')
-    init_angle = group_data.get('init_angle')
+    group_id = group_data.get('group_id') or ''
+    scene = group_data.get('scene') or ''
+    init_x = group_data.get('init_x') or 0.0
+    init_y = group_data.get('init_y') or 0.0
+    init_z = group_data.get('init_z') or 0.0
+    init_angle = group_data.get('init_angle') or 0.0
     # floor = group_data.get('floor', '')  # 默认为空
     
     # 计算问题数量
@@ -63,19 +63,21 @@ def store_group_info(redis_conn, group_data):
     # 处理初始问题
     for q in questions_init:
         q_id = str(uuid.uuid4())
-        question_ids_to_answers[q_id] = q.get('answer', '')
+        answer = q.get('answer')
+        question_ids_to_answers[q_id] = answer if answer is not None else ''
         processed_init_questions.append({
             "id": q_id,
-            "description": q.get('question')
+            "description": q.get('question', '') or ''
         })
     
     # 处理后续问题
     for q in questions_follow_up:
         q_id = str(uuid.uuid4())
-        question_ids_to_answers[q_id] = q.get('answer', '')
+        answer = q.get('answer')
+        question_ids_to_answers[q_id] = answer if answer is not None else ''
         processed_follow_up_questions.append({
             "id": q_id,
-            "description": q.get('question')
+            "description": q.get('question', '') or ''
         })
     
     # 将信息存入Redis
@@ -105,8 +107,8 @@ def store_group_info(redis_conn, group_data):
     # 执行所有Redis命令
     pipe.execute()
     
-    logging.info(f"[{os.getpid()}] 已存储组信息到Redis，组ID: {group_id}，场景: {scene}")
-    logging.info(f"[{os.getpid()}] 初始问题数: {num_questions_init}，后续问题数: {num_questions_follow_up}")
+    logging.info(f"[{os.getpid()}](GEN) 已存储组信息到Redis，组ID: {group_id}，场景: {scene}")
+    logging.info(f"[{os.getpid()}](GEN) 初始问题数: {num_questions_init}，后续问题数: {num_questions_follow_up}")
     
     # 返回处理后的问题组
     return {
@@ -132,7 +134,7 @@ def send_init_questions(redis_conn, questions, stream_name):
     for question in questions:
         redis_conn.xadd(stream_name, {"data": json.dumps(question)})
         total_sent += 1
-        logging.info(f"[{os.getpid()}] 已发送初始问题 {total_sent}/{len(questions)}: '{question['description'][:40]}...'")
+        logging.info(f"[{os.getpid()}](GEN) 已发送初始问题 {total_sent}/{len(questions)}: '{question['description'][:40]}...'")
     
     return total_sent
 
@@ -155,12 +157,12 @@ def send_follow_up_questions(redis_conn, questions, stream_name, interval):
     for i, question in enumerate(questions):
         # 等待指定的间隔时间
         if i > 0:  # 第一个问题不等待
-            logging.info(f"[{os.getpid()}] 等待 {interval} 秒后发送后续问题...")
+            logging.info(f"[{os.getpid()}](GEN) 等待 {interval} 秒后发送后续问题...")
             time.sleep(interval)
         
         redis_conn.xadd(stream_name, {"data": json.dumps(question)})
         total_sent += 1
-        logging.info(f"[{os.getpid()}] 已发送后续问题 {i+1}/{len(questions)}: '{question['description'][:40]}...'")
+        logging.info(f"[{os.getpid()}](GEN) 已发送后续问题 {i+1}/{len(questions)}: '{question['description'][:40]}...'")
     
     return total_sent
 
@@ -197,14 +199,14 @@ def wait_for_group_completion(redis_conn, group_id):
     Returns:
         bool: 组是否已完成
     """
-    logging.info(f"[{os.getpid()}] 等待组 {group_id} 完成确认...")
+    logging.info(f"[{os.getpid()}](GEN) 等待组 {group_id} 完成确认...")
     
     # 创建消费者组（如果不存在）
     pool_to_generator_stream = STREAMS["pool_to_generator"]
     try:
         redis_conn.xgroup_create(pool_to_generator_stream, "generator_group", id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Generator response group already exists: {e}")
+        logging.info(f"[{os.getpid()}](GEN) Generator response group already exists: {e}")
     
     while True:
         # 从流中读取消息
@@ -229,11 +231,11 @@ def wait_for_group_completion(redis_conn, group_id):
                     
                     # 检查是否是我们期望的组完成消息
                     if status == "group_completed" and response_group_id == group_id:
-                        logging.info(f"[{os.getpid()}] 收到组 {group_id} 完成确认")
+                        logging.info(f"[{os.getpid()}](GEN) 收到组 {group_id} 完成确认")
                         return True
                     
                 except (json.JSONDecodeError, Exception) as e:
-                    logging.warning(f"[{os.getpid()}] 处理消息时出错: {e}")
+                    logging.warning(f"[{os.getpid()}](GEN) 处理消息时出错: {e}")
                     # 确认消息以防止无限循环
                     redis_conn.xack(pool_to_generator_stream, "generator_group", message_id)
 
@@ -256,7 +258,7 @@ def clear_memory(redis_conn):
     
     memory_requests_stream = STREAMS["memory_requests"]
     redis_conn.xadd(memory_requests_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}] 已向Memory Service发送清空知识库请求: {request_id}")
+    logging.info(f"[{os.getpid()}](GEN) 已向Memory Service发送清空知识库请求: {request_id}")
     
     return True
 
@@ -290,19 +292,19 @@ def run(config: dict):
     redis_conn = get_redis_connection(config)
     stream_name = STREAMS["new_questions"]
     
-    logging.info(f"[{os.getpid()}] Generator service started.")
+    logging.info(f"[{os.getpid()}](GEN) Generator service started.")
     
     # 查找并处理所有YAML文件
     yaml_files = scan_question_files(question_data_path)
     
     if not yaml_files:
-        logging.error(f"[{os.getpid()}] 未找到问题文件，退出服务")
+        logging.error(f"[{os.getpid()}](GEN) 未找到问题文件，退出服务")
         return
     
     try:
         # 处理每一个yaml文件
         for file_index, file_path in enumerate(yaml_files):
-            logging.info(f"[{os.getpid()}] 处理问题文件 [{file_index+1}/{len(yaml_files)}]: {file_path}")
+            logging.info(f"[{os.getpid()}](GEN) 处理问题文件 [{file_index+1}/{len(yaml_files)}]: {file_path}")
             
             # 1. 清空知识库
             clear_memory(redis_conn)
@@ -310,10 +312,10 @@ def run(config: dict):
             # 2. 加载问题数据
             group_data = load_question_data(file_path)
             if not group_data:
-                logging.error(f"[{os.getpid()}] 无法加载问题数据，跳过此文件")
+                logging.error(f"[{os.getpid()}](GEN) 无法加载问题数据，跳过此文件")
                 continue
             
-            group_id = group_data.get('group_id')
+            group_id = group_data.get('group_id', '')
             
             # 3. 存储组信息到Redis并获取处理后的问题列表
             processed_questions = store_group_info(redis_conn, group_data)
@@ -321,8 +323,8 @@ def run(config: dict):
             init_questions = processed_questions['questions_init']
             follow_up_questions = processed_questions['questions_follow_up']
             
-            logging.info(f"[{os.getpid()}] 将立即发送 {len(init_questions)} 个初始问题")
-            logging.info(f"[{os.getpid()}] 将每隔 {interval_seconds} 秒发送 {len(follow_up_questions)} 个后续问题")
+            logging.info(f"[{os.getpid()}](GEN) 将立即发送 {len(init_questions)} 个初始问题")
+            logging.info(f"[{os.getpid()}](GEN) 将每隔 {interval_seconds} 秒发送 {len(follow_up_questions)} 个后续问题")
             
             # 4. 发送初始问题
             init_sent = send_init_questions(redis_conn, init_questions, stream_name)
@@ -330,19 +332,19 @@ def run(config: dict):
             # 5. 发送后续问题
             follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
             
-            logging.info(f"[{os.getpid()}] 组 {group_id} 的所有问题已发送完毕，共 {init_sent + follow_up_sent} 个问题")
+            logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent + follow_up_sent} 个问题")
             
             # 6. 等待组完成确认
             if file_index < len(yaml_files) - 1:  # 如果不是最后一个文件，需要等待确认
                 wait_for_group_completion(redis_conn, group_id)
         
-        logging.info(f"[{os.getpid()}] 所有问题组处理完毕，总共 {len(yaml_files)} 组")
+        logging.info(f"[{os.getpid()}](GEN) 所有问题组处理完毕，总共 {len(yaml_files)} 组")
         
         # 保持进程运行，直到被终止
         while True:
             time.sleep(3600)  # 睡眠1小时，保持进程活跃
             
     except KeyboardInterrupt:
-        logging.info(f"[{os.getpid()}] Generator service received shutdown signal")
+        logging.info(f"[{os.getpid()}](GEN) Generator service received shutdown signal")
     except Exception as e:
-        logging.error(f"[{os.getpid()}] Generator service encountered an error: {e}")
+        logging.error(f"[{os.getpid()}](GEN) Generator service encountered an error: {e}")

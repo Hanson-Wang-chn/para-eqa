@@ -1,5 +1,7 @@
 # services/memory_service.py
 
+# TODO: decode_image()使用错误，在某个地方传入的image是一个列表
+
 import os
 import json
 import time
@@ -91,7 +93,7 @@ def run(config: dict):
     # 初始化知识库
     kb = KnowledgeBase(config)
     device = config.get("memory", {}).get("device", "cuda" if torch.cuda.is_available() else "cpu")
-    logging.info(f"[{os.getpid()}] 知识库初始化完成，使用设备: {device}")
+    logging.info(f"[{os.getpid()}](MEM) 知识库初始化完成，使用设备: {device}")
     
     # Redis初始化
     redis_conn = get_redis_connection(config)
@@ -103,9 +105,9 @@ def run(config: dict):
     try:
         redis_conn.xgroup_create(requests_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Memory group '{group_name}' already exists. Continuing...")
+        logging.info(f"[{os.getpid()}](MEM) Memory group '{group_name}' already exists. Continuing...")
     
-    logging.info(f"[{os.getpid()}] Memory service started. Waiting for requests...")
+    logging.info(f"[{os.getpid()}](MEM) Memory service started. Waiting for requests...")
     
     # 初始化统计计数器
     search_count = 0
@@ -126,7 +128,7 @@ def run(config: dict):
                     request_id = request_data.get('id')
                     operation = request_data.get('operation')
                     
-                    logging.info(f"[{os.getpid()}] 收到请求 {request_id}, 操作类型: {operation}")
+                    logging.info(f"[{os.getpid()}](MEM) 收到请求 {request_id}, 操作类型: {operation}")
 
                     # 处理请求
                     if operation == "search":
@@ -145,7 +147,7 @@ def run(config: dict):
                             "data": []
                         }
                         
-                        logging.info(f"[{os.getpid()}] KnowledgeBase 已清空")
+                        logging.info(f"[{os.getpid()}](MEM) KnowledgeBase 已清空")
                         
                         search_count = 0
                         update_count = 0
@@ -170,13 +172,13 @@ def run(config: dict):
                     pipe.hset(STATS_KEYS["memory"], "total_requests", search_count + update_count)
                     pipe.execute()
                     
-                    logging.info(f"[{os.getpid()}] 请求 {request_id} 处理完成，状态: {result['status']}")
+                    logging.info(f"[{os.getpid()}](MEM) 请求 {request_id} 处理完成，状态: {result['status']}")
                     
                     # 确认消息处理完毕
                     redis_conn.xack(requests_stream, group_name, message_id)
         
         except Exception as e:
-            logging.error(f"[{os.getpid()}] Memory service发生错误: {e}")
+            logging.error(f"[{os.getpid()}](MEM) Memory service发生错误: {e}")
             time.sleep(5)  # 发生错误时等待一段时间再重试
 
 

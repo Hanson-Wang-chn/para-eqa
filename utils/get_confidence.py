@@ -22,6 +22,7 @@ def get_confidence(question_desc, kb, prompt_get_confidence, model_api="gpt-4.1"
     vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
     
     # 构造提示
+    # TODO: 这里的prompt需要优化，因为总是无法解析置信度
     prompt = prompt_get_confidence.format(question_desc)
     
     # 调用VLM

@@ -55,14 +55,14 @@ def run(config: dict):
     try:
         redis_conn.xgroup_create(parser_to_finishing_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Finishing group already exists: {e}")
+        logging.info(f"[{os.getpid()}](FIN) Finishing group already exists: {e}")
     
     try:
         redis_conn.xgroup_create(memory_responses_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Memory response group already exists: {e}")
+        logging.info(f"[{os.getpid()}](FIN) Memory response group already exists: {e}")
     
-    logging.info(f"[{os.getpid()}] Finishing service started. Waiting for parsed questions...")
+    logging.info(f"[{os.getpid()}](FIN) Finishing service started. Waiting for parsed questions...")
     
     # 初始化统计计数器
     answered_count = 0
@@ -87,7 +87,7 @@ def run(config: dict):
                     question_id = question.get('id')
                     question_desc = question.get('description', '')
                     
-                    logging.info(f"[{os.getpid()}] 收到问题: {question_id} - '{question_desc[:40]}...'")
+                    logging.info(f"[{os.getpid()}](FIN) 收到问题: {question_id} - '{question_desc[:40]}...'")
                     
                     # 1. 向Memory发送搜索请求
                     memory_request_id = str(uuid.uuid4())
@@ -100,7 +100,7 @@ def run(config: dict):
                     }
                     
                     redis_conn.xadd(memory_requests_stream, {"data": json.dumps(memory_request)})
-                    logging.info(f"[{os.getpid()}] 向Memory发送搜索请求: {memory_request_id}")
+                    logging.info(f"[{os.getpid()}](FIN) 向Memory发送搜索请求: {memory_request_id}")
                     
                     # 2. 等待Memory响应
                     memory_response = None
@@ -118,7 +118,7 @@ def run(config: dict):
                             
                             # 定期日志，监控长时间等待
                             if time.time() - wait_start_time > 30:
-                                logging.info(f"[{os.getpid()}] 已等待Memory响应超过30秒，请求ID: {memory_request_id}")
+                                logging.info(f"[{os.getpid()}](FIN) 已等待Memory响应超过30秒，请求ID: {memory_request_id}")
                                 wait_start_time = time.time() # 重置计时器，避免日志刷屏
 
                             if not responses:
@@ -139,18 +139,18 @@ def run(config: dict):
                                             # 【关键】只有在确认是目标消息后，才进行ack
                                             redis_conn.xack(memory_responses_stream, group_name, message_id)
                                             
-                                            logging.info(f"[{os.getpid()}] 收到匹配的Memory响应，请求ID: {memory_request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                                            logging.info(f"[{os.getpid()}](FIN) 收到匹配的Memory响应，请求ID: {memory_request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
                                             
                                             # 已找到响应，跳出所有循环
                                             break 
                                         else:
                                             # 不是我们等待的响应，忽略它。
                                             # 不要ack！让它留在流中给其他消费者处理。
-                                            # logging.debug(f"[{os.getpid()}] 忽略了不匹配的响应，目标为 {memory_request_id}，收到 {resp_request_id}")
+                                            # logging.debug(f"[{os.getpid()}](FIN) 忽略了不匹配的响应，目标为 {memory_request_id}，收到 {resp_request_id}")
                                             pass
 
                                     except (json.JSONDecodeError, AttributeError) as e:
-                                        logging.warning(f"[{os.getpid()}] 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。将确认此坏消息以防死循环。")
+                                        logging.warning(f"[{os.getpid()}](FIN) 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。将确认此坏消息以防死循环。")
                                         # 对于无法解析的坏消息，应该ack掉，防止它反复阻塞流
                                         redis_conn.xack(memory_responses_stream, group_name, message_id)
                                         continue
@@ -159,16 +159,16 @@ def run(config: dict):
                                     break # 跳出外层for循环
 
                         except Exception as e:
-                            logging.warning(f"[{os.getpid()}] 等待Memory响应时发生Redis错误: {e}，1秒后重试...")
+                            logging.warning(f"[{os.getpid()}](FIN) 等待Memory响应时发生Redis错误: {e}，1秒后重试...")
                             time.sleep(1)
                     
                     # 3. 处理Memory响应，计算置信度
                     if not memory_response or memory_response.get('status') != 'success':
-                        logging.warning(f"[{os.getpid()}] 未收到有效Memory响应或请求失败")
+                        logging.warning(f"[{os.getpid()}](FIN) 未收到有效Memory响应或请求失败")
                         # 默认转发到Question Pool
                         redis_conn.xadd(finishing_to_pool_stream, {"data": json.dumps(question)})
                         forwarded_count += 1
-                        logging.info(f"[{os.getpid()}] 问题 {question_id} 转发到Question Pool")
+                        logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 转发到Question Pool")
                     else:
                         # 提取记忆数据
                         memory_data = memory_response.get('data', [])
@@ -177,7 +177,7 @@ def run(config: dict):
                             # 没有相关记忆，转发到Question Pool
                             redis_conn.xadd(finishing_to_pool_stream, {"data": json.dumps(question)})
                             forwarded_count += 1
-                            logging.info(f"[{os.getpid()}] 问题 {question_id} 没有相关记忆，转发到Question Pool")
+                            logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 没有相关记忆，转发到Question Pool")
                         else:
                             # 计算置信度
                             confidence = get_confidence(
@@ -188,7 +188,7 @@ def run(config: dict):
                                 use_openrouter
                             )
                             
-                            logging.info(f"[{os.getpid()}] 问题 {question_id} 置信度: {confidence}")
+                            logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 置信度: {confidence}")
                             
                             # 根据置信度决定去向
                             if confidence > confidence_threshold:
@@ -199,12 +199,12 @@ def run(config: dict):
                                 }
                                 redis_conn.xadd(to_answering_stream, {"data": json.dumps(answering_request)})
                                 answered_count += 1
-                                logging.info(f"[{os.getpid()}] 问题 {question_id} 发送到Answering服务")
+                                logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 发送到Answering服务")
                             else:
                                 # 置信度低，发送到Question Pool
                                 redis_conn.xadd(finishing_to_pool_stream, {"data": json.dumps(question)})
                                 forwarded_count += 1
-                                logging.info(f"[{os.getpid()}] 问题 {question_id} 置信度不足，转发到Question Pool")
+                                logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 置信度不足，转发到Question Pool")
                     
                     # 更新统计信息
                     pipe = redis_conn.pipeline()
@@ -217,5 +217,5 @@ def run(config: dict):
                     redis_conn.xack(parser_to_finishing_stream, group_name, message_id)
         
         except Exception as e:
-            logging.error(f"[{os.getpid()}] Finishing service发生错误: {e}")
+            logging.error(f"[{os.getpid()}](FIN) Finishing service发生错误: {e}")
             time.sleep(5)  # 发生错误时等待一段时间再重试

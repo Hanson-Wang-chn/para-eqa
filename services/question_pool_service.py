@@ -21,7 +21,7 @@ def send_group_completed(redis_conn, group_id):
     }
     pool_to_generator_stream = STREAMS["pool_to_generator"]
     redis_conn.xadd(pool_to_generator_stream, {"data": json.dumps(msg)})
-    logging.info(f"[{os.getpid()}] 已向Generator Service发送组完成消息: {group_id}")
+    logging.info(f"[{os.getpid()}](QUE) 已向Generator Service发送组完成消息: {group_id}")
 
 
 def run(config: dict):
@@ -61,24 +61,24 @@ def run(config: dict):
     try:
         redis_conn.xgroup_create(finishing_stream, "pool_group", id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Finishing consumer group already exists: {e}")
+        logging.info(f"[{os.getpid()}](QUE) Finishing consumer group already exists: {e}")
         
     try:
         redis_conn.xgroup_create(stopping_stream, "pool_group", id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Stopping consumer group already exists: {e}")
+        logging.info(f"[{os.getpid()}](QUE) Stopping consumer group already exists: {e}")
         
     try:
         redis_conn.xgroup_create(planner_stream_in, "pool_group", id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Planner consumer group already exists: {e}")
+        logging.info(f"[{os.getpid()}](QUE) Planner consumer group already exists: {e}")
     
     try:
         redis_conn.xgroup_create(answering_stream, "pool_group", id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Answering consumer group already exists: {e}")
+        logging.info(f"[{os.getpid()}](QUE) Answering consumer group already exists: {e}")
     
-    logging.info(f"[{os.getpid()}] Question Pool service started.")
+    logging.info(f"[{os.getpid()}](QUE) Question Pool service started.")
     
     while True:
         try:
@@ -93,18 +93,18 @@ def run(config: dict):
                 for _, msg_list in finishing_msgs:
                     for msg_id, data in msg_list:
                         question_data = json.loads(data.get('data', '{}'))
-                        logging.info(f"[{os.getpid()}] Received add question request: {question_data['id']}")
+                        logging.info(f"[{os.getpid()}](QUE) Received add question request: {question_data['id']}")
                         
                         # 调用 Updater 添加问题
                         try:
                             updater.add_question(question_data)
-                            logging.info(f"[{os.getpid()}] Question {question_data['id']} added successfully")
+                            logging.info(f"[{os.getpid()}](QUE) Question {question_data['id']} added successfully")
                             
                             # 确认消息已处理
                             redis_conn.xack(finishing_stream, "pool_group", msg_id)
                             
                         except Exception as e:
-                            logging.error(f"[{os.getpid()}] Error adding question: {e}")
+                            logging.error(f"[{os.getpid()}](QUE) Error adding question: {e}")
                             # 消息处理失败，仍然确认，避免反复尝试失败的消息
                             redis_conn.xack(finishing_stream, "pool_group", msg_id)
                 
@@ -122,18 +122,18 @@ def run(config: dict):
                 for _, msg_list in stopping_msgs:
                     for msg_id, data in msg_list:
                         question_data = json.loads(data.get('data', '{}'))
-                        logging.info(f"[{os.getpid()}] Received complete question request: {question_data['id']}")
+                        logging.info(f"[{os.getpid()}](QUE) Received complete question request: {question_data['id']}")
                         
                         # 调用 Updater 标记问题已完成
                         try:
                             updater.complete_question(question_data)
-                            logging.info(f"[{os.getpid()}] Question {question_data['id']} marked as completed")
+                            logging.info(f"[{os.getpid()}](QUE) Question {question_data['id']} marked as completed")
                             
                             # 确认消息已处理
                             redis_conn.xack(stopping_stream, "pool_group", msg_id)
                             
                         except Exception as e:
-                            logging.error(f"[{os.getpid()}] Error completing question: {e}")
+                            logging.error(f"[{os.getpid()}](QUE) Error completing question: {e}")
                             # 消息处理失败，仍然确认，避免反复尝试失败的消息
                             redis_conn.xack(stopping_stream, "pool_group", msg_id)
             
@@ -149,10 +149,11 @@ def run(config: dict):
                     for msg_id, data in msg_list:
                         planner_request = json.loads(data.get('data', '{}'))
                         request_id = planner_request.get('request_id', str(uuid.uuid4()))
-                        logging.info(f"[{os.getpid()}] Received select question request from Planner: {request_id}")
+                        # FIXME: 调试结束后取消注释
+                        # logging.info(f"[{os.getpid()}](QUE) Received select question request from Planner: {request_id}")
                         
                         # 获取最高优先级的问题
-                        highest_priority_question = updater.highest_priority_question
+                        highest_priority_question = updater.get_highest_priority_question()
                         
                         # 如果找到了高优先级问题
                         if highest_priority_question:
@@ -166,7 +167,7 @@ def run(config: dict):
                                 "question": highest_priority_question
                             }
                             redis_conn.xadd(planner_stream_out, {"data": json.dumps(response)})
-                            logging.info(f"[{os.getpid()}] Sent question {highest_priority_question['id']} to Planner")
+                            logging.info(f"[{os.getpid()}](QUE) Sent question {highest_priority_question['id']} to Planner")
                         else:
                             # 如果没有可用问题，返回空响应
                             response = {
@@ -175,7 +176,8 @@ def run(config: dict):
                                 "question": None
                             }
                             redis_conn.xadd(planner_stream_out, {"data": json.dumps(response)})
-                            logging.info(f"[{os.getpid()}] No available questions to send to Planner")
+                            # FIXME: 调试结束后取消注释
+                            # logging.info(f"[{os.getpid()}](QUE) No available questions to send to Planner")
                         
                         # 确认消息已处理
                         redis_conn.xack(planner_stream_in, "pool_group", msg_id)
@@ -195,7 +197,7 @@ def run(config: dict):
                         try:
                             question_data = json.loads(data.get('data', '{}'))
                             question_id = question_data.get('id')
-                            logging.info(f"[{os.getpid()}] Received answer for question: {question_id}")
+                            logging.info(f"[{os.getpid()}](QUE) Received answer for question: {question_id}")
                             
                             try:
                                 # 检查buffer中是否已有该问题
@@ -205,7 +207,7 @@ def run(config: dict):
                                 if existing_question["status"] == "completed":
                                     # 更新问题答案和状态
                                     updater.answer_question(question_data)
-                                    logging.info(f"[{os.getpid()}] Answer added to question {question_id} and marked as answered")
+                                    logging.info(f"[{os.getpid()}](QUE) Answer added to question {question_id} and marked as answered")
 
                                     # 检查问题组是否全部完成
                                     # group_id = redis_conn.get(f"{GROUP_INFO['group_id']}{question_data.get('group_id', '')}")
@@ -215,17 +217,17 @@ def run(config: dict):
                                 
                                 else:
                                     # 状态不是completed，报错
-                                    logging.error(f"[{os.getpid()}] Question {question_id} status is {existing_question['status']}, not completed. Cannot add answer.")
+                                    logging.error(f"[{os.getpid()}](QUE) Question {question_id} status is {existing_question['status']}, not completed. Cannot add answer.")
                                     
                             except ValueError:
                                 # 问题不在buffer中，添加新问题，状态为answered
                                 question_data["status"] = "answered"
                                 updater.buffer.write_latest_questions([question_data])
                                 
-                                logging.info(f"[{os.getpid()}] New answered question {question_id} added to buffer")
+                                logging.info(f"[{os.getpid()}](QUE) New answered question {question_id} added to buffer")
                             
                         except Exception as e:
-                            logging.error(f"[{os.getpid()}] Error processing answer from Answering Module: {e}")
+                            logging.error(f"[{os.getpid()}](QUE) Error processing answer from Answering Module: {e}")
                         
                         # 确认消息已处理
                         redis_conn.xack(answering_stream, "pool_group", msg_id)
@@ -237,6 +239,6 @@ def run(config: dict):
                 time.sleep(0.1)
                 
         except Exception as e:
-            logging.error(f"[{os.getpid()}] Unexpected error in Question Pool service: {e}")
+            logging.error(f"[{os.getpid()}](QUE) Unexpected error in Question Pool service: {e}")
             time.sleep(5)  # 遇到意外错误，短暂休眠后继续
 

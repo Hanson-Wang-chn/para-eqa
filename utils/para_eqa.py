@@ -89,11 +89,11 @@ def search(redis_conn, text, image=None, top_k=5):
     try:
         redis_conn.xgroup_create(responses_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Memory response group already exists: {e}")
+        logging.info(f"[{os.getpid()}](PLA) Memory response group already exists: {e}")
     
     # 发送请求
     redis_conn.xadd(requests_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}] 向Memory发送搜索请求: {request_id}")
+    logging.info(f"[{os.getpid()}](PLA) 向Memory发送搜索请求: {request_id}")
     
     # 等待响应
     memory_response = None
@@ -111,7 +111,7 @@ def search(redis_conn, text, image=None, top_k=5):
             
             # 定期日志，监控长时间等待
             if time.time() - wait_start_time > 30:
-                logging.info(f"[{os.getpid()}] 已等待Memory响应超过30秒，请求ID: {request_id}")
+                logging.info(f"[{os.getpid()}](PLA) 已等待Memory响应超过30秒，请求ID: {request_id}")
                 wait_start_time = time.time()  # 重置计时器，避免日志刷屏
 
             if not responses:
@@ -132,7 +132,7 @@ def search(redis_conn, text, image=None, top_k=5):
                             # 确认消息已处理
                             redis_conn.xack(responses_stream, group_name, message_id)
                             
-                            logging.info(f"[{os.getpid()}] 收到匹配的Memory响应，请求ID: {request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                            logging.info(f"[{os.getpid()}](PLA) 收到匹配的Memory响应，请求ID: {request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
                             
                             # 已找到响应，跳出循环
                             break
@@ -141,7 +141,7 @@ def search(redis_conn, text, image=None, top_k=5):
                             pass
 
                     except (json.JSONDecodeError, AttributeError) as e:
-                        logging.warning(f"[{os.getpid()}] 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
+                        logging.warning(f"[{os.getpid()}](PLA) 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
                         # 对于无法解析的消息，应该确认，防止反复处理
                         redis_conn.xack(responses_stream, group_name, message_id)
                         continue
@@ -150,12 +150,12 @@ def search(redis_conn, text, image=None, top_k=5):
                     break  # 跳出外层for循环
         
         except Exception as e:
-            logging.warning(f"[{os.getpid()}] 等待Memory响应时发生错误: {e}，1秒后重试...")
+            logging.warning(f"[{os.getpid()}](PLA) 等待Memory响应时发生错误: {e}，1秒后重试...")
             time.sleep(1)
     
     # 检查响应状态
     if not memory_response or memory_response.get('status') != 'success':
-        logging.warning(f"[{os.getpid()}] 未收到有效Memory响应或请求失败")
+        logging.warning(f"[{os.getpid()}](PLA) 未收到有效Memory响应或请求失败")
         return []
     
     # 提取并返回搜索结果
@@ -195,11 +195,11 @@ def update(redis_conn, text, image=None):
     try:
         redis_conn.xgroup_create(responses_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Memory response group already exists: {e}")
+        logging.info(f"[{os.getpid()}](PLA) Memory response group already exists: {e}")
     
     # 发送请求
     redis_conn.xadd(requests_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}] 向Memory发送更新请求: {request_id}")
+    logging.info(f"[{os.getpid()}](PLA) 向Memory发送更新请求: {request_id}")
     
     # 等待响应
     memory_response = None
@@ -217,7 +217,7 @@ def update(redis_conn, text, image=None):
             
             # 定期日志，监控长时间等待
             if time.time() - wait_start_time > 30:
-                logging.info(f"[{os.getpid()}] 已等待Memory响应超过30秒，请求ID: {request_id}")
+                logging.info(f"[{os.getpid()}](PLA) 已等待Memory响应超过30秒，请求ID: {request_id}")
                 wait_start_time = time.time()  # 重置计时器，避免日志刷屏
 
             if not responses:
@@ -238,7 +238,7 @@ def update(redis_conn, text, image=None):
                             # 确认消息已处理
                             redis_conn.xack(responses_stream, group_name, message_id)
                             
-                            logging.info(f"[{os.getpid()}] 收到匹配的Memory响应，请求ID: {request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                            logging.info(f"[{os.getpid()}](PLA) 收到匹配的Memory响应，请求ID: {request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
                             
                             # 已找到响应，跳出循环
                             break
@@ -247,7 +247,7 @@ def update(redis_conn, text, image=None):
                             pass
 
                     except (json.JSONDecodeError, AttributeError) as e:
-                        logging.warning(f"[{os.getpid()}] 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
+                        logging.warning(f"[{os.getpid()}](PLA) 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
                         # 对于无法解析的消息，应该确认，防止反复处理
                         redis_conn.xack(responses_stream, group_name, message_id)
                         continue
@@ -256,19 +256,19 @@ def update(redis_conn, text, image=None):
                     break  # 跳出外层for循环
         
         except Exception as e:
-            logging.warning(f"[{os.getpid()}] 等待Memory响应时发生错误: {e}，1秒后重试...")
+            logging.warning(f"[{os.getpid()}](PLA) 等待Memory响应时发生错误: {e}，1秒后重试...")
             time.sleep(1)
     
     # 检查响应状态
     if not memory_response or memory_response.get('status') != 'success':
-        logging.warning(f"[{os.getpid()}] 未收到有效Memory响应或请求失败")
+        logging.warning(f"[{os.getpid()}](PLA) 未收到有效Memory响应或请求失败")
         return False
     
     # 操作成功
     return True
 
 
-def can_stop(redis_conn, question, images=None):
+def can_stop(redis_conn, question, rgb_im=None):
     """
     向Stopping Service发送请求，询问是否可以停止探索
     
@@ -284,7 +284,7 @@ def can_stop(redis_conn, question, images=None):
     request_id = str(uuid.uuid4())
     request = {
         "question": question,
-        "images": images or []
+        "image": rgb_im
     }
     
     # 定义流
@@ -296,11 +296,11 @@ def can_stop(redis_conn, question, images=None):
     try:
         redis_conn.xgroup_create(stopping_to_planner_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}] Stopping response group already exists: {e}")
+        logging.info(f"[{os.getpid()}](PLA) Stopping response group already exists: {e}")
     
     # 发送请求
     redis_conn.xadd(planner_to_stopping_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}] 向Stopping Service发送请求: {request_id}")
+    logging.info(f"[{os.getpid()}](PLA) 向Stopping Service发送请求: {request_id}")
     
     # 等待响应
     stopping_response = None
@@ -318,7 +318,7 @@ def can_stop(redis_conn, question, images=None):
             
             # 定期日志，监控长时间等待
             if time.time() - wait_start_time > 30:
-                logging.info(f"[{os.getpid()}] 已等待Stopping Service响应超过30秒，请求ID: {request_id}")
+                logging.info(f"[{os.getpid()}](PLA) 已等待Stopping Service响应超过30秒，请求ID: {request_id}")
                 wait_start_time = time.time()  # 重置计时器，避免日志刷屏
 
             if not responses:
@@ -336,13 +336,13 @@ def can_stop(redis_conn, question, images=None):
                         # 确认消息已处理
                         redis_conn.xack(stopping_to_planner_stream, group_name, message_id)
                         
-                        logging.info(f"[{os.getpid()}] 收到Stopping Service响应，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                        logging.info(f"[{os.getpid()}](PLA) 收到Stopping Service响应，总等待时间: {time.time() - wait_start_time:.2f}秒")
                         
                         # 已找到响应，跳出循环
                         break
 
                     except (json.JSONDecodeError, AttributeError) as e:
-                        logging.warning(f"[{os.getpid()}] 无法解析或处理Stopping响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
+                        logging.warning(f"[{os.getpid()}](PLA) 无法解析或处理Stopping响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
                         # 对于无法解析的消息，应该确认，防止反复处理
                         redis_conn.xack(stopping_to_planner_stream, group_name, message_id)
                         continue
@@ -351,12 +351,12 @@ def can_stop(redis_conn, question, images=None):
                     break  # 跳出外层for循环
         
         except Exception as e:
-            logging.warning(f"[{os.getpid()}] 等待Stopping响应时发生错误: {e}，1秒后重试...")
+            logging.warning(f"[{os.getpid()}](PLA) 等待Stopping响应时发生错误: {e}，1秒后重试...")
             time.sleep(1)
     
     # 检查响应状态
     if not stopping_response:
-        logging.warning(f"[{os.getpid()}] 未收到有效Stopping响应")
+        logging.warning(f"[{os.getpid()}](PLA) 未收到有效Stopping响应")
         # 返回一个默认响应，表示继续探索
         return {"status": "continue", "confidence": 0.0}
     
@@ -498,7 +498,7 @@ def set_group_info(redis_conn, group_id, group_info):
         return True
     
     except Exception as e:
-        logging.error(f"[{os.getpid()}] 设置组信息时出错: {e}")
+        logging.error(f"[{os.getpid()}](PLA) 设置组信息时出错: {e}")
         return False
 
 
@@ -623,7 +623,7 @@ class ParaEQA:
             raise ValueError(f"无法从描述中提取问题和选项: {description}")
         
         # 将选项格式化为字符串列表
-        choices = str(choices)
+        # choices = str(choices)
         
         # 获取答案 (A、B、C、D)
         answer = question_data.get('answer', None)
@@ -721,7 +721,7 @@ class ParaEQA:
         stopping_response = can_stop(self.redis_conn, question_data)
         if stopping_response.get("status") == "stop":
             # 可以直接回答问题，无需探索
-            logging.info(f"[{os.getpid()}] Stopping Service决定直接回答问题，置信度: {stopping_response.get('confidence', 0.0)}")
+            logging.info(f"[{os.getpid()}](PLA) Stopping Service决定直接回答问题，置信度: {stopping_response.get('confidence', 0.0)}")
             # 创建一个基本的结果对象
             result = {
                 "meta": {
@@ -764,7 +764,6 @@ class ParaEQA:
 
         # Run steps
         pts_pixs = np.empty((0, 2))  # for plotting path on the image
-        collected_images = []  # 存储探索过程中的图像
         
         for cnt_step in range(num_step):
             logging.info(f"\n== step: {cnt_step}")
@@ -835,11 +834,6 @@ class ParaEQA:
                     objs_str = json.dumps(objs_info)
                     # 向Memory添加知识
                     update(self.redis_conn, f"{step_name}: agent position is {pts}. {caption}. Objects: {objs_str}", rgb_im)
-                    
-                    # 添加当前图像到收集列表，供stopping service使用
-                    encoded_image = encode_image(rgb_im)
-                    if encoded_image:
-                        collected_images.append(encoded_image)
 
             num_black_pixels = np.sum(
                 np.sum(rgb, axis=-1) == 0
@@ -858,10 +852,10 @@ class ParaEQA:
 
                 # 在每一步后询问stopping service是否可以停止探索
                 # 如果可以结束，会把更新后的信息存储到GROUP_INFO中
-                stopping_response = can_stop(self.redis_conn, question_data, collected_images)
+                stopping_response = can_stop(self.redis_conn, question_data, rgb_im)
                 if stopping_response.get("status") == "stop":
                     # 可以停止探索，结束循环
-                    logging.info(f"[{os.getpid()}] Stopping Service决定停止探索，置信度: {stopping_response.get('confidence', 0.0)}")
+                    logging.info(f"[{os.getpid()}](PLA) Stopping Service决定停止探索，置信度: {stopping_response.get('confidence', 0.0)}")
                     break
 
                 # 对于过程性的探索判断，仍然保留原来的代码
