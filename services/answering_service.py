@@ -24,8 +24,7 @@ def get_vlm_answer(question, kb, prompt_get_answer, model_api="gpt-4.1", use_ope
     """
     # 构建提示词
     question_desc = question.get('description', '')
-    # TODO:
-    prompt = concatinate(prompt_get_answer, question_desc)
+    prompt = prompt_get_answer.format(question_desc)
     
     # 实例化VLM并请求回答
     vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)

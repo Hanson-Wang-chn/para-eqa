@@ -3,15 +3,12 @@
 import os
 import json
 import numpy as np
-import csv
 import pickle
 import logging
 import math
 import quaternion
 import cv2
-import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
-from tqdm import tqdm
 import habitat_sim
 from ultralytics import YOLO
 import matplotlib.pyplot as plt
@@ -52,6 +49,10 @@ os.environ["HABITAT_SIM_LOG"] = (
 )
 os.environ["MAGNUM_LOG"] = "quiet"
 
+
+# =========================================
+# ---------- Auxiliary Functions ----------
+# =========================================
 
 def search(redis_conn, text, image=None, top_k=5):
     """
@@ -500,6 +501,10 @@ def set_group_info(redis_conn, group_id, group_info):
         logging.error(f"[{os.getpid()}] 设置组信息时出错: {e}")
         return False
 
+
+# ===================================
+# ---------- ParaEQA Class ----------
+# ===================================
 
 class ParaEQA:
     def __init__(self, config):

@@ -12,7 +12,8 @@ from common.redis_client import GROUP_INFO
 
 class Updater:
     def __init__(self, config):
-        updater_config = config.get("updater", {})
+        self.config = config
+        updater_config = self.config.get("updater", {})
         self.enable_cost_estimate = updater_config.get("enable_cost_estimate", False)
         self.enable_reward_estimate = updater_config.get("enable_reward_estimate", False)
         
@@ -46,22 +47,23 @@ class Updater:
         
         # 先逐一计算cost和reward，然后一次性计算dependency，最后status由buffer中的calculate_status()方法生成
         original_questions = self.buffer.get_pending_and_ready_questions()
-        
         all_questions = original_questions.copy()
         all_questions.append(question)
+        
         for q in all_questions:
             q["cost_estimate"] = self._get_cost_estimate(q) if self.enable_cost_estimate else 0.0
             q["reward_estimate"] = self._get_reward_estimate(q) if self.enable_reward_estimate else 0.0
         
-        qid = question["id"]
-        new_dependency = self._get_new_dependency(all_questions, qid)
-        # new_dependency:
-        # {
-        #     "depends_on": ["id_1", "id_2", ...],
-        #     "required_by": ["id_3", "id_4", ...]
-        # }
-        
-        all_questions = self._merge_dependencies(all_questions, new_dependency, qid)
+        if len(all_questions) >= 2:
+            qid = question["id"]
+            new_dependency = self._get_new_dependency(all_questions, qid)
+            # new_dependency:
+            # {
+            #     "depends_on": ["id_1", "id_2", ...],
+            #     "required_by": ["id_3", "id_4", ...]
+            # }
+            
+            all_questions = self._merge_dependencies(all_questions, new_dependency, qid)
         
         # 将更新后的问题列表写回buffer
         self.buffer.write_latest_questions(all_questions)
@@ -199,42 +201,150 @@ class Updater:
     
     
     def _get_cost_estimate(self, question):
-        # TODO: 具体的cost计算方式
-        prompt_get_cost_estimate = self.prompt_updater.get("get_cost_estimate", "")
-        original_questions = self.buffer.get_pending_and_ready_questions()
-        # 伪函数
-        prompt = concatinate(prompt_get_cost_estimate, question, original_questions)
+        # # TODO: 具体的cost计算方式
+        # prompt_get_cost_estimate = self.prompt_updater.get("get_cost_estimate", "")
+        # original_questions = self.buffer.get_pending_and_ready_questions()
+        # # 伪函数
+        # prompt = concatinate(prompt_get_cost_estimate, question, original_questions)
         
-        response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
-        try:
-            cost_estimate = float(response)
-        except ValueError:
-            logging.info(f"Error parsing cost estimate from response: {response}")
-            cost_estimate = 0.0
-        return cost_estimate
+        # response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
+        # try:
+        #     cost_estimate = float(response)
+        # except ValueError:
+        #     logging.info(f"Error parsing cost estimate from response: {response}")
+        #     cost_estimate = 0.0
+        # return cost_estimate
+        return 0.0
     
     
     def _get_reward_estimate(self, question):
-        # TODO: 具体的reward计算方式
-        prompt_get_reward_estimate = self.prompt_updater.get("get_reward_estimate", "")
-        original_questions = self.buffer.get_pending_and_ready_questions()
-        # 伪函数
-        prompt = concatinate(prompt_get_reward_estimate, question, original_questions)
+        # # TODO: 具体的reward计算方式
+        # prompt_get_reward_estimate = self.prompt_updater.get("get_reward_estimate", "")
+        # original_questions = self.buffer.get_pending_and_ready_questions()
+        # # 伪函数
+        # prompt = concatinate(prompt_get_reward_estimate, question, original_questions)
         
-        response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
-        try:
-            reward_estimate = float(response)
-        except ValueError:
-            logging.info(f"Error parsing reward estimate from response: {response}")
-            reward_estimate = 0.0
-        return reward_estimate
+        # response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
+        # try:
+        #     reward_estimate = float(response)
+        # except ValueError:
+        #     logging.info(f"Error parsing reward estimate from response: {response}")
+        #     reward_estimate = 0.0
+        # return reward_estimate
+        return 0.0
     
     
     def _get_new_dependency(self, all_questions, qid):
-        # TODO:
-        pass
+        """
+        为目标问题生成依赖关系
+        
+        Args:
+            all_questions: 所有问题的列表
+            qid: 目标问题的ID
+            
+        Returns:
+            dict: 包含depends_on和required_by的依赖关系字典
+        """
+        # 获取prompt模板
+        prompt_get_dependency = self.prompt_updater.get("get_dependency", "")
+        if not prompt_get_dependency:
+            logging.warning("未找到依赖关系生成的提示词模板")
+            return {"depends_on": [], "required_by": []}
+        
+        # 找到目标问题
+        target_question = None
+        other_questions_data = []
+        
+        for q in all_questions:
+            if q["id"] == qid:
+                target_question = q["description"]
+            else:
+                other_questions_data.append({
+                    "id": q["id"],
+                    "description": q["description"]
+                })
+        
+        if not target_question:
+            logging.error(f"在all_questions中未找到ID为{qid}的问题")
+            return {"depends_on": [], "required_by": []}
+        
+        # 准备其他问题的格式化字符串
+        other_questions_str = json.dumps(other_questions_data, ensure_ascii=False, indent=2)
+        
+        # 填充提示词模板
+        prompt = prompt_get_dependency.format(
+            target_question=target_question,
+            other_questions=other_questions_str
+        )
+        
+        # 发送请求到VLM API
+        response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
+        
+        # 从响应中提取JSON部分
+        try:
+            # 寻找JSON格式的依赖关系
+            json_start = response.find("{")
+            json_end = response.rfind("}") + 1
+            
+            if json_start >= 0 and json_end > json_start:
+                json_str = response[json_start:json_end]
+                dependency = json.loads(json_str)
+                
+                # 确保返回格式正确
+                if not isinstance(dependency.get("depends_on", None), list) or not isinstance(dependency.get("required_by", None), list):
+                    logging.error(f"依赖关系格式错误: {dependency}")
+                    return {"depends_on": [], "required_by": []}
+                    
+                return dependency
+            else:
+                logging.error(f"无法从响应中提取JSON: {response}")
+                return {"depends_on": [], "required_by": []}
+        except Exception as e:
+            logging.error(f"解析依赖关系时出错: {e}, 响应: {response}")
+            return {"depends_on": [], "required_by": []}
     
     
     def _merge_dependencies(self, all_questions, new_dependency, qid):
-        # TODO:
-        pass
+        """
+        将新的依赖关系合并到问题列表中
+        
+        Args:
+            all_questions: 所有问题的列表
+            new_dependency: 新的依赖关系字典，包含depends_on和required_by
+            qid: 目标问题的ID
+            
+        Returns:
+            list: 更新后的问题列表
+        """
+        # 验证新依赖格式
+        if not isinstance(new_dependency, dict) or "depends_on" not in new_dependency or "required_by" not in new_dependency:
+            logging.error(f"新依赖格式错误: {new_dependency}")
+            return all_questions
+        
+        # 为目标问题设置其依赖的问题
+        target_question = None
+        for i, q in enumerate(all_questions):
+            if q["id"] == qid:
+                # 设置目标问题依赖的问题
+                all_questions[i]["dependency"] = new_dependency.get("depends_on", [])
+                target_question = q
+                break
+        
+        if not target_question:
+            logging.error(f"在all_questions中未找到ID为{qid}的问题")
+            return all_questions
+        
+        # 更新其他问题的依赖关系（将目标问题添加到需要它的问题的依赖列表中）
+        for required_by_id in new_dependency.get("required_by", []):
+            for i, q in enumerate(all_questions):
+                if q["id"] == required_by_id:
+                    # 如果依赖列表不存在，创建一个新的
+                    if "dependency" not in all_questions[i] or not isinstance(all_questions[i]["dependency"], list):
+                        all_questions[i]["dependency"] = []
+                    
+                    # 添加目标问题ID到依赖列表（如果尚未存在）
+                    if qid not in all_questions[i]["dependency"]:
+                        all_questions[i]["dependency"].append(qid)
+                    break
+        
+        return all_questions

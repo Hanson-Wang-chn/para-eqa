@@ -21,8 +21,8 @@ def get_confidence(question_desc, kb, prompt_get_confidence, model_api="gpt-4.1"
     # 实例化VLM
     vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
     
-    # TODO:
-    prompt = concatinate(question_desc, prompt_get_confidence)
+    # 构造提示
+    prompt = prompt_get_confidence.format(question_desc)
     
     # 调用VLM
     response = vlm.request_with_retry(image=None, prompt=prompt, kb=kb)[0]

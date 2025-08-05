@@ -1,7 +1,5 @@
 # services/planner_service.py
 
-# TODO: 处理好异步逻辑。问题的初始化信息都在Redis中。第一个问题的初始化信息由generator提供，后续每一个问题的初始化信息由前一个问题提供。为ParaEQA提供初始化信息（初始位置为上一次结束探索的位置）。
-
 import os
 import json
 import time
@@ -9,6 +7,7 @@ import logging
 import uuid
 
 from common.redis_client import get_redis_connection, STREAMS
+from utils.para_eqa import ParaEQA
 
 
 def select_question(redis_conn):
@@ -114,8 +113,7 @@ def run(config: dict):
         try:
             para_eqa = ParaEQA(config)
             question = select_question(redis_conn)
-            result = para_eqa.run(question)
-            add_result_to_redis(result, redis_conn)
+            para_eqa.run(question)
                 
         except Exception as e:
             logging.error(f"[{os.getpid()}] Error in Planner service: {e}")

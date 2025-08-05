@@ -1,20 +1,5 @@
 # service/generator_service.py
 
-"""
-TODO:
-阶段1：读取并处理一组问题
-- 在发送每一组的第一个问题之前，先在Redis中通过status存储该问题组的参数（由planner_service.py读取）
-    - 直接写入"scene""floor""angle""init_pts""init_rotation"等参数
-    - 使用uuid为每一个问题创建"question_id"，然后把所有的{"question_id": correct_answer}存入Redis中
-    - 按照一定的时序逻辑发送问题(包括"question_id""description"两个键值对)给parser_service.py
-
-阶段2：读取多组问题（整个数据集）
-    - 处理完一组的问题后，把结果写入Redis中，然后向question_pool_service.py和memory_service.py发送一个"clear"请求，清空知识库和问题池
-    - 在run_para_eqa.py中，统计每一组的结果信息
-"""
-
-# TODO: 当question pool中的问题数量等于GROUP_INFO中的时，开放select service，或向planner发送一条消息，允许开始选择问题
-
 import os
 import json
 import time
@@ -100,7 +85,6 @@ def store_group_info(redis_conn, group_data):
     pipe.set(f"{GROUP_INFO['group_id']}{group_id}", group_id)
     pipe.set(f"{GROUP_INFO['scene']}{group_id}", scene)
     pipe.set(f"{GROUP_INFO['angle']}{group_id}", init_angle)
-    # pipe.set(f"{GROUP_INFO['floor']}{group_id}", floor)
     
     # 存储坐标信息
     pts = {"x": init_x, "y": init_y, "z": init_z}
@@ -113,7 +97,10 @@ def store_group_info(redis_conn, group_data):
     # 存储答案映射
     pipe.hset(f"{GROUP_INFO['correct_answers']}{group_id}", mapping=question_ids_to_answers)
     
-    # FIXME: 新增逻辑：把其它未使用的键清空
+    # 清空当前组中未使用的GROUP_INFO键
+    unused_keys = ["floor", "max_steps", "rotation", "floor_height", "scene_size"]
+    for key in unused_keys:
+        pipe.delete(f"{GROUP_INFO[key]}{group_id}")
     
     # 执行所有Redis命令
     pipe.execute()

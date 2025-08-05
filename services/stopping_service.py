@@ -99,7 +99,7 @@ def run(config: dict):
                         "id": memory_request_id,
                         "operation": "search",
                         "text": question_desc,
-                        "image_data": None,
+                        "image_data": planner_images,
                         "top_k": retrieval_num
                     }
                     

@@ -194,13 +194,16 @@ prompt:
     Please directly provide the structured output in JSON format and DO NOT include any additional text or explanations.
   
   finishing:
-    get_confidence: example prompt
+    get_confidence: |
+      "Consider the question: '{}'. \nHow confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter from the given choices directly."
   
   stopping:
-    get_confidence: example prompt
+    get_confidence: |
+      "Consider the question: '{}'. \nHow confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter from the given choices directly."
   
   answering:
-    get_answer: example prompt
+    get_answer: |
+      "Consider the question: '{}'. \nAnswer with the option's letter from the given choices directly."
   
   updater:
     get_cost_estimate:
