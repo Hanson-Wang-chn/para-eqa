@@ -188,7 +188,7 @@ def run(config: dict):
                                 use_openrouter
                             )
                             
-                            logging.info(f"[{os.getpid()}](STO) 问题 {question_id} 置信度: {confidence}")
+                            logging.info(f"\n[{os.getpid()}](STO) 问题 {question_id} 置信度: {confidence}\n")
                     
                     # 4. 根据置信度决定是否停止探索
                     if confidence >= confidence_threshold:
@@ -212,12 +212,18 @@ def run(config: dict):
                         combined_memory_data = memory_data.copy()
                         
                         # 如果Planner提供了图像，将其添加到记忆数据中
-                        for i, image_data in enumerate(planner_images):
-                            combined_memory_data.append({
-                                "id": f"planner_image_{i}",
-                                "text": f"Observation from exploration #{i+1}",
-                                "image_data": image_data
-                            })
+                        # TODO: TypeError: 'NoneType' object is not iterable
+                        # for i, image_data in enumerate(planner_image):
+                        #     combined_memory_data.append({
+                        #         "id": f"planner_image_{i}",
+                        #         "text": f"Observation from exploration #{i+1}",
+                        #         "image_data": image_data
+                        #     })
+                        combined_memory_data.append({
+                            "id": "planner_image",
+                            "text": "Observation from exploration",
+                            "image_data": planner_image
+                        })
                         
                         # 4.4 向Answering服务发送回答问题的请求
                         answering_request = {
@@ -256,5 +262,5 @@ def run(config: dict):
                     redis_conn.xack(planner_to_stopping_stream, group_name, message_id)
         
         except Exception as e:
-            logging.error(f"[{os.getpid()}](STO) Stopping service发生错误: {e}")
+            logging.exception(f"[{os.getpid()}](STO) Stopping service发生错误: {e}")
             time.sleep(5)  # 发生错误时等待一段时间再重试

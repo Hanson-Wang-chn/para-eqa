@@ -775,6 +775,8 @@ class ParaEQA:
             step_name = f"step_{cnt_step}"
             logging.info(f"Current pts: {pts}")
 
+            # TODO: 执行完上面的日志后，程序有概率卡死，出现下面的错误：“GL::Context::current(): no current context”
+
             agent_state.position = pts
             agent_state.rotation = rotation
             agent.set_state(agent_state)
@@ -1006,6 +1008,7 @@ class ParaEQA:
                 quat_from_angle_axis(angle, np.array([0, 1, 0]))
             ).tolist()
 
+        # TODO: 这里answer无法正常显示（要不就别显示了）
         # Episode summary
         logging.info(f"\n== Episode Summary")
         logging.info(f"Scene: {scene}, Floor: {floor}")

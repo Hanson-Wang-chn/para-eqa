@@ -42,11 +42,11 @@ generator:
 
 finishing:
   retrieval_num: 5
-  confidence_threshold: 0.7
+  confidence_threshold: 0.5
 
 stopping:
   retrieval_num: 5
-  confidence_threshold: 0.7
+  confidence_threshold: 0.5
 
 updater:
   enable_cost_estimate: false
@@ -126,7 +126,8 @@ memory:
 vlm:
   use_openrouter: true # 只有设置为 true 时，才可以使用 OpenAI 之外的模型
   device: 'cuda'
-  model_api: qwen/qwen2.5-vl-32b-instruct
+  model_api: gpt-4.1
+  # model_api: qwen/qwen2.5-vl-32b-instruct
   model_local: Qwen/Qwen2-VL-2B-Instruct
 
 

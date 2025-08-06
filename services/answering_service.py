@@ -115,6 +115,9 @@ def run(config: dict):
                         
                         logging.info(f"[{os.getpid()}](ANS) 收到问题: {question_id} - '{question_desc[:40]}...'")
                         
+                        # TODO: 整个代码有重复生成最终回答的冗余逻辑。需要修复。
+                        # What colors are the cushions on the white sofa on the first floor? A) Blue and orange B) Red and green C) Black and gray D) Yellow and pink.
+                        
                         # 获取答案
                         answer = get_vlm_answer(question, memory_data, prompt_get_answer, model_api, use_openrouter)
                         logging.info(f"[{os.getpid()}](ANS) 已生成问题 {question_id} 的答案")

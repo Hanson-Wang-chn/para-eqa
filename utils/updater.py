@@ -84,6 +84,7 @@ class Updater:
         
         question_in_progress = self.buffer.get_question_by_id(question["id"])
         if question_in_progress["status"] != "in_progress":
+            # TODO: 运行时出现了下面的错误，需要排查。
             raise ValueError(f"Question {question_in_progress['id']} is not in progress. Cannot possibly be completed.")
         self.buffer.set_status(question_in_progress["id"], "completed")
         

@@ -43,14 +43,14 @@ from services import (
     stopping_service
 )
 
-# np.set_printoptions(precision=3)
-# os.environ["QT_QPA_PLATFORM"] = "offscreen"
-# os.environ["TRANSFORMERS_VERBOSITY"] = "error"  # disable warning
-# os.environ["TOKENIZERS_PARALLELISM"] = "false"
-# os.environ["HABITAT_SIM_LOG"] = (
-#     "quiet"  # https://aihabitat.org/docs/habitat-sim/logging.html
-# )
-# os.environ["MAGNUM_LOG"] = "quiet"
+np.set_printoptions(precision=3)
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"  # disable warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["HABITAT_SIM_LOG"] = (
+    "quiet"  # https://aihabitat.org/docs/habitat-sim/logging.html
+)
+os.environ["MAGNUM_LOG"] = "quiet"
 
 
 def load_config(config_file):

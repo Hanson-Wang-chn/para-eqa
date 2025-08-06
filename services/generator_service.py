@@ -329,10 +329,13 @@ def run(config: dict):
             # 4. 发送初始问题
             init_sent = send_init_questions(redis_conn, init_questions, stream_name)
             
+            # TODO: 基本测试完毕后需要取消注释，进行完整测试
             # 5. 发送后续问题
-            follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
+            # follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
             
-            logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent + follow_up_sent} 个问题")
+            logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent} 个问题")
+            
+            # logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent + follow_up_sent} 个问题")
             
             # 6. 等待组完成确认
             if file_index < len(yaml_files) - 1:  # 如果不是最后一个文件，需要等待确认

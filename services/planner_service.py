@@ -100,10 +100,12 @@ def run(config: dict):
     
     logging.info(f"[{os.getpid()}](PLA) Planner service started.")
     
+    # 实例化 ParaEQA
+    para_eqa = ParaEQA(config)
+    
     # 主循环
     while True:
         try:
-            para_eqa = ParaEQA(config)
             question = select_question(redis_conn)
             para_eqa.run(question, question["id"])
                 
