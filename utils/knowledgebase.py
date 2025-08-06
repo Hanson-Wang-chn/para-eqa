@@ -17,7 +17,7 @@ class KnowledgeBase:
         
         kb_config = config.get("memory", {})
         
-        # replace_memory (bool): Strategy for updating memory. If True, removes similar memories (most similar ones -- similarity > threshold and no more than three altogether) before adding new ones. If False, always add new ones.
+        # replace_memory (bool): Strategy for updating memory. If True, removes similar memories (most similar ones -- similarity >= threshold and no more than three altogether) before adding new ones. If False, always add new ones.
         self.replace_memory = kb_config.get("replace_memory", False)
         
         # dimension of embeddings
@@ -196,7 +196,7 @@ class KnowledgeBase:
         # 执行搜索
         distances, indices = self.index.search(
             np.array([query_vector], dtype=np.float32), 
-            min(top_k, len(self.data))
+            max(1, min(top_k, len(self.data)))
         )
         
         # 整理搜索结果

@@ -195,11 +195,11 @@ prompt:
   
   finishing:
     get_confidence: |
-      "Consider the question: '{}'. \nHow confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter from the given choices directly."
+      "Consider the question: '{}'. \nHow confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
   
   stopping:
     get_confidence: |
-      "Consider the question: '{}'. \nHow confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter from the given choices directly."
+      "Consider the question: '{}'. \nHow confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
   
   answering:
     get_answer: |
@@ -222,10 +222,10 @@ prompt:
       You should first think step by step about the dependencies between the target question and all other questions in the buffer, and then provide the dependencies in a strict JSON format:
 
       ```json
-      {
+      {{
         "depends_on": ["id_1", "id_2", ...],
         "required_by": ["id_3", "id_4", ...]
-      }
+      }}
       ```
       where:
       1. **depends_on**: the set of questions that the target question depends on. These are prerequisite questions that must be solved first before the target question can be addressed.

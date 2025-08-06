@@ -280,11 +280,14 @@ def can_stop(redis_conn, question, rgb_im=None):
     Returns:
         dict: 停止服务的响应，包含status和confidence等信息
     """
+    # 编码图像
+    image_data = encode_image(rgb_im) if rgb_im else None
+    
     # 创建请求
     request_id = str(uuid.uuid4())
     request = {
         "question": question,
-        "image": rgb_im
+        "image": image_data
     }
     
     # 定义流

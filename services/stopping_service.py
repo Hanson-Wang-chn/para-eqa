@@ -191,7 +191,7 @@ def run(config: dict):
                             logging.info(f"[{os.getpid()}](STO) 问题 {question_id} 置信度: {confidence}")
                     
                     # 4. 根据置信度决定是否停止探索
-                    if confidence > confidence_threshold:
+                    if confidence >= confidence_threshold:
                         # 置信度高，可以停止探索并回答问题
                         
                         # 4.1 向Planner发送停止探索的消息

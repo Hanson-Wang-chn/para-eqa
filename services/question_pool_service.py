@@ -104,7 +104,8 @@ def run(config: dict):
                             redis_conn.xack(finishing_stream, "pool_group", msg_id)
                             
                         except Exception as e:
-                            logging.error(f"[{os.getpid()}](QUE) Error adding question: {e}")
+                            # logging.error(f"[{os.getpid()}](QUE) Error adding question: {e}")
+                            logging.exception(f"[{os.getpid()}](QUE) Error adding question: {e}")
                             # 消息处理失败，仍然确认，避免反复尝试失败的消息
                             redis_conn.xack(finishing_stream, "pool_group", msg_id)
                 

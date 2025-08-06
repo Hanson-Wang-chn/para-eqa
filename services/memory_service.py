@@ -1,7 +1,5 @@
 # services/memory_service.py
 
-# TODO: decode_image()使用错误，在某个地方传入的image是一个列表
-
 import os
 import json
 import time

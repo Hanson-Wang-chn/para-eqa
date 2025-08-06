@@ -248,64 +248,65 @@ class Updater:
             dict: 包含depends_on和required_by的依赖关系字典
         """
         # TODO: 需要调整prompt和response的解析处理
-        return {"depends_on": [], "required_by": []}
-        # # 获取prompt模板
-        # prompt_get_dependency = self.prompt_updater.get("get_dependency", "")
-        # if not prompt_get_dependency:
-        #     logging.warning("未找到依赖关系生成的提示词模板")
-        #     return {"depends_on": [], "required_by": []}
+        # return {"depends_on": [], "required_by": []}
         
-        # # 找到目标问题
-        # target_question = None
-        # other_questions_data = []
+        # 获取prompt模板
+        prompt_get_dependency = self.prompt_updater.get("get_dependency", "")
+        if not prompt_get_dependency:
+            logging.warning("未找到依赖关系生成的提示词模板")
+            return {"depends_on": [], "required_by": []}
         
-        # for q in all_questions:
-        #     if q["id"] == qid:
-        #         target_question = q["description"]
-        #     else:
-        #         other_questions_data.append({
-        #             "id": q["id"],
-        #             "description": q["description"]
-        #         })
+        # 找到目标问题
+        target_question = None
+        other_questions_data = []
         
-        # if not target_question:
-        #     logging.error(f"在all_questions中未找到ID为{qid}的问题")
-        #     return {"depends_on": [], "required_by": []}
+        for q in all_questions:
+            if q["id"] == qid:
+                target_question = q["description"]
+            else:
+                other_questions_data.append({
+                    "id": q["id"],
+                    "description": q["description"]
+                })
         
-        # # 准备其他问题的格式化字符串
-        # other_questions_str = json.dumps(other_questions_data, ensure_ascii=False, indent=2)
+        if not target_question:
+            logging.error(f"在all_questions中未找到ID为{qid}的问题")
+            return {"depends_on": [], "required_by": []}
         
-        # # 填充提示词模板
-        # prompt = prompt_get_dependency.format(
-        #     target_question=target_question,
-        #     other_questions=other_questions_str
-        # )
+        # 准备其他问题的格式化字符串
+        other_questions_str = json.dumps(other_questions_data, ensure_ascii=False, indent=2)
         
-        # # 发送请求到VLM API
-        # response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
+        # 填充提示词模板
+        prompt = prompt_get_dependency.format(
+            target_question=target_question,
+            other_questions=other_questions_str
+        )
         
-        # # 从响应中提取JSON部分
-        # try:
-        #     # 寻找JSON格式的依赖关系
-        #     json_start = response.find("{")
-        #     json_end = response.rfind("}") + 1
+        # 发送请求到VLM API
+        response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
+        
+        # 从响应中提取JSON部分
+        try:
+            # 寻找JSON格式的依赖关系
+            json_start = response.find("{")
+            json_end = response.rfind("}") + 1
             
-        #     if json_start >= 0 and json_end > json_start:
-        #         json_str = response[json_start:json_end]
-        #         dependency = json.loads(json_str)
+            if json_start >= 0 and json_end > json_start:
+                json_str = response[json_start:json_end]
+                dependency = json.loads(json_str)
                 
-        #         # 确保返回格式正确
-        #         if not isinstance(dependency.get("depends_on", None), list) or not isinstance(dependency.get("required_by", None), list):
-        #             logging.error(f"依赖关系格式错误: {dependency}")
-        #             return {"depends_on": [], "required_by": []}
+                # 确保返回格式正确
+                if not isinstance(dependency.get("depends_on", None), list) or not isinstance(dependency.get("required_by", None), list):
+                    logging.error(f"依赖关系格式错误: {dependency}")
+                    return {"depends_on": [], "required_by": []}
                     
-        #         return dependency
-        #     else:
-        #         logging.error(f"无法从响应中提取JSON: {response}")
-        #         return {"depends_on": [], "required_by": []}
-        # except Exception as e:
-        #     logging.error(f"解析依赖关系时出错: {e}, 响应: {response}")
-        #     return {"depends_on": [], "required_by": []}
+                return dependency
+            else:
+                logging.error(f"无法从响应中提取JSON: {response}")
+                return {"depends_on": [], "required_by": []}
+        except Exception as e:
+            logging.error(f"解析依赖关系时出错: {e}, 响应: {response}")
+            return {"depends_on": [], "required_by": []}
     
     
     def _merge_dependencies(self, all_questions, new_dependency, qid):
