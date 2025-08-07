@@ -534,9 +534,16 @@ class ParaEQA:
         self.prompt_gsv = prompt.get("global_sem", "")
 
         # init VLM model
-        model_name = self.config.get("vlm", {}).get("model_api", "gpt-4.1")
         use_openrouter = self.config.get("vlm", {}).get("use_openrouter", False)
+        
+        model_name = self.config.get("vlm", {}).get("vlm_planner", "openai/gpt-4.1")
         self.vlm = VLM_API(model_name, use_openrouter)
+        
+        model_name_lite = self.config.get("vlm", {}).get("vlm_planner_lite", "qwen/qwen2.5-vl-72b-instruct")
+        self.vlm_lite = VLM_API(model_name_lite, use_openrouter)
+        
+        model_name_tiny = self.config.get("vlm", {}).get("vlm_planner_tiny", "qwen/qwen2.5-vl-32b-instruct")
+        self.vlm_tiny = VLM_API(model_name_tiny, use_openrouter)
         
         # 连接Redis
         self.redis_conn = get_redis_connection(config)
@@ -578,6 +585,8 @@ class ParaEQA:
         pathfinder = self.simulator.pathfinder
         pathfinder.seed(self.config.get("seed", 42))
         pathfinder.load_nav_mesh(navmesh_file)
+        
+        # TODO: 这里总是报错
         if not pathfinder.is_loaded:
             logging.error("Not loaded .navmesh file yet. Please check file path {}.".format(navmesh_file))
 
@@ -768,14 +777,13 @@ class ParaEQA:
         # Run steps
         pts_pixs = np.empty((0, 2))  # for plotting path on the image
         
+        # TODO: 日志中显示了cnt_step不递增的问题
         for cnt_step in range(num_step):
             logging.info(f"\n== step: {cnt_step}")
 
             # Save step info and set current pose
             step_name = f"step_{cnt_step}"
             logging.info(f"Current pts: {pts}")
-
-            # TODO: 执行完上面的日志后，程序有概率卡死，出现下面的错误：“GL::Context::current(): no current context”
 
             agent_state.position = pts
             agent_state.rotation = rotation
@@ -804,7 +812,7 @@ class ParaEQA:
             rgb_im = Image.fromarray(rgb, mode="RGBA").convert("RGB")
             
             # "What room are you most likely to be in at the moment? Answer with a phrase"
-            room = self.vlm.request_with_retry(image=rgb_im, prompt="What room are you most likely to be in at the moment? Answer with a phrase")
+            room = self.vlm_lite.request_with_retry(image=rgb_im, prompt="What room are you most likely to be in at the moment? Answer with a phrase")
 
             objects = self.detector(rgb_im)[0]
             objs_info = []
@@ -816,7 +824,7 @@ class ParaEQA:
                 x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
                 obj_im = rgb_im.crop((x1, y1, x2, y2))
                 # "Describe this image."
-                obj_caption = self.vlm.request_with_retry(image=obj_im, prompt=self.prompt_caption)
+                obj_caption = self.vlm_tiny.request_with_retry(image=obj_im, prompt=self.prompt_caption)
                 
                 # 中心点转换世界坐标
                 x, y = (x1 + x2) / 2, (y1 + y2) / 2
@@ -828,7 +836,7 @@ class ParaEQA:
 
             if self.config.get("memory", {}).get("use_rag", True):
                 # "Describe this image."
-                caption = self.vlm.request_with_retry(image=rgb_im, prompt=self.prompt_caption)
+                caption = self.vlm_lite.request_with_retry(image=rgb_im, prompt=self.prompt_caption)
 
             if self.config.get("save_obs", True):
                 save_rgbd(rgb, depth, os.path.join(episode_data_dir, f"{cnt_step}_rgbd.png"))
@@ -857,6 +865,7 @@ class ParaEQA:
 
                 # 在每一步后询问stopping service是否可以停止探索
                 # 如果可以结束，会把更新后的信息存储到GROUP_INFO中
+                # "... How confident are you in answering this question from your current perspective? ..."
                 stopping_response = can_stop(self.redis_conn, question_data, rgb_im)
                 if stopping_response.get("status") == "stop":
                     # 可以停止探索，结束循环
@@ -872,12 +881,8 @@ class ParaEQA:
                         top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
                     )
                 
-                # "... How confident are you in answering this question from your current perspective? ..."
-                smx_vlm_rel = self.vlm.request_with_retry(rgb_im, self.prompt_rel.format(question), kb)[0].strip(".")
-                
-                logging.info(f"Rel - Prob: {smx_vlm_rel}")
+                smx_vlm_rel = stopping_response.get('confidence', 0.0)
 
-                logging.info(f"Prompt Pred: {self.prompt_question.format(vlm_question)}")
                 if self.config.get("memory", {}).get("use_rag", True):
                     kb = search(
                         self.redis_conn, 
@@ -933,6 +938,7 @@ class ParaEQA:
                                 top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
                             )
                         
+                        # TODO: 这里没有结合全局语义和已探索的内容，最好优化
                         # "... Which direction (black letters on the image) would you explore then? ..."
                         response = self.vlm.request_with_retry(rgb_im_draw, self.prompt_lsv.format(question), kb)[0]
                         
@@ -1008,11 +1014,9 @@ class ParaEQA:
                 quat_from_angle_axis(angle, np.array([0, 1, 0]))
             ).tolist()
 
-        # TODO: 这里answer无法正常显示（要不就别显示了）
         # Episode summary
         logging.info(f"\n== Episode Summary")
         logging.info(f"Scene: {scene}, Floor: {floor}")
-        logging.info(f"Question:\n{vlm_question}\nAnswer: {answer}")
         logging.info(f"Explored steps: {cnt_step + 1}")
         
         # 记录探索的步数

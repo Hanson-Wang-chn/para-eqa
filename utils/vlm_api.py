@@ -240,7 +240,7 @@ class VLM_API:
 if __name__ == "__main__":
     # 测试API调用是否正常
     # model_name = "deepseek/deepseek-chat"
-    model_name = "openai/gpt-4.1-nano"
+    model_name = "openai/gpt-oss-120b"
     use_openrouter = True
     vlm = VLM_API(model_name=model_name, use_openrouter=use_openrouter)
     response = vlm.request_with_retry(image=None, prompt="Hello!")[0]

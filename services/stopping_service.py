@@ -36,7 +36,7 @@ def run(config: dict):
     confidence_threshold = stopping_config.get("confidence_threshold", 0.7)
     
     # VLM配置
-    model_api = config.get("vlm", {}).get("model_api", "gpt-4.1")
+    model_api = config.get("vlm", {}).get("vlm_stopping", "qwen/qwen2.5-vl-72b-instruct")
     use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_get_confidence = config.get("prompt", {}).get("stopping", {}).get("get_confidence", "")
     
@@ -211,14 +211,6 @@ def run(config: dict):
                         # 创建记忆项的副本，避免修改原始数据
                         combined_memory_data = memory_data.copy()
                         
-                        # 如果Planner提供了图像，将其添加到记忆数据中
-                        # TODO: TypeError: 'NoneType' object is not iterable
-                        # for i, image_data in enumerate(planner_image):
-                        #     combined_memory_data.append({
-                        #         "id": f"planner_image_{i}",
-                        #         "text": f"Observation from exploration #{i+1}",
-                        #         "image_data": image_data
-                        #     })
                         combined_memory_data.append({
                             "id": "planner_image",
                             "text": "Observation from exploration",

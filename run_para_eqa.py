@@ -2,12 +2,14 @@
 
 """
 TODO: 总计划
-1. Planner
+1. 为不同的模块选择不同模型，更加经济高效
 2. prompt调试
 3. 结果统计
 4. 数据集
 5. 增加控制字段，对比实验
 """
+
+# TODO: Qwen2.5-VL-72B-Instruct在回答关于单张图片的问题时，效果非常好；图片多了就不准了。
 
 """
 Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 6379:6379 -p 8001:8001 redis/redis-stack:latest` or `docker start para-eqa-redis` to start Redis.

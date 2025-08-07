@@ -11,13 +11,13 @@ from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STA
 from utils.vlm_api import VLM_API
 
 
-def parse_question(desc, model_api="gpt-4.1", prompt_parser=None, use_openrouter=False):
+def parse_question(desc, model_api="openai/gpt-oss-120b", prompt_parser=None, use_openrouter=False):
     """
     解析问题描述，使用大模型提取urgency和scope_type
     
     Args:
         desc (str): 问题的自然语言描述
-        model_api (str): 使用的OpenAI模型名称，默认为"gpt-4.1"
+        model_api (str): 使用的OpenAI模型名称
         
     Returns:
         tuple: (urgency, scope_type)
@@ -96,7 +96,7 @@ def run(config: dict):
     )
     
     # Set up VLM
-    model_api = config.get("vlm", {}).get("model_api", "gpt-4.1")
+    model_api = config.get("vlm", {}).get("vlm_parser", "openai/gpt-oss-120b")
     use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_parser = config.get("prompt", {}).get("parser", None)
     

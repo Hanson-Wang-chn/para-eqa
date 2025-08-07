@@ -5,7 +5,7 @@ from utils.vlm_api import VLM_API
 from utils.image_processor import decode_image
 
 
-def get_confidence(question_desc, kb, prompt_get_confidence, model_api="gpt-4.1", use_openrouter=False):
+def get_confidence(question_desc, kb, prompt_get_confidence, model_api="qwen/qwen2.5-vl-72b-instruct", use_openrouter=False):
     """
     调用大模型计算能否回答问题的置信度
     

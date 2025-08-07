@@ -11,6 +11,20 @@ device: 'cuda'
 detector: '/home/whs/eqa/para-eqa/data/yolo11x.pt' # 替换为实际的绝对路径
 
 
+# VLM
+vlm:
+  use_openrouter: true # 只有设置为 true 时，才可以使用 OpenAI 之外的模型
+  device: 'cuda'
+  vlm_answering: qwen/qwen2.5-vl-72b-instruct
+  vlm_finishing: qwen/qwen2.5-vl-72b-instruct
+  vlm_parser: openai/gpt-oss-120b
+  vlm_stopping: qwen/qwen2.5-vl-72b-instruct
+  vlm_updater: openai/gpt-oss-120b
+  vlm_planner: qwen/qwen2.5-vl-72b-instruct
+  vlm_planner_lite: qwen/qwen2.5-vl-72b-instruct
+  vlm_planner_tiny: qwen/qwen2.5-vl-32b-instruct
+
+
 # Parallel
 parallel:
   use_parallel: true
@@ -122,15 +136,6 @@ memory:
   lambda_sim: 0.5
 
 
-# VLM
-vlm:
-  use_openrouter: true # 只有设置为 true 时，才可以使用 OpenAI 之外的模型
-  device: 'cuda'
-  model_api: gpt-4.1
-  # model_api: qwen/qwen2.5-vl-32b-instruct
-  model_local: Qwen/Qwen2-VL-2B-Instruct
-
-
 # Prompts
 prompt:
   planner:
@@ -196,11 +201,11 @@ prompt:
   
   finishing:
     get_confidence: |
-      "Consider the question: '{}'. \nHow confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
+      "Consider the question: '{}'. \n If you are asked to answer the quesiton now, how confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
   
   stopping:
     get_confidence: |
-      "Consider the question: '{}'. \nHow confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
+      "Consider the question: '{}'. \n If you are asked to answer the quesiton now, how confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
   
   answering:
     get_answer: |
@@ -209,6 +214,7 @@ prompt:
   updater:
     get_cost_estimate:
     get_reward_estimate:
+    # TODO: 下面的提示词还没写完
     get_dependency: |
       You are an AI assistant responsible for generating a dependency graph for a set of structured questions in an Embodied Question Answering (EQA) system within a multi-story residential environment. Your task is to analyze relationships between questions and represent their dependencies in a JSON format, considering spatial, informational, and logical dependencies.
 
@@ -240,7 +246,7 @@ prompt:
 
       <Example 3>
 
-      Now, please analyze the following target question and the list of other questions, and provide the dependencies in JSON format. 
+      Now, please analyze the following target question and the list of other questions, and provide the dependencies in JSON format. NOTE that your response should only contain the JSON object. DO NOT include any additional text or explanations.
 
       Target question: {target_question}
 

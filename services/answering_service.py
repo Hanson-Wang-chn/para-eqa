@@ -10,7 +10,7 @@ from utils.vlm_api import VLM_API
 from utils.image_processor import decode_image
 
 
-def get_vlm_answer(question, kb, prompt_get_answer, model_api="gpt-4.1", use_openrouter=False):
+def get_vlm_answer(question, kb, prompt_get_answer, model_api="qwen/qwen2.5-vl-72b-instruct", use_openrouter=False):
     """
     根据问题和记忆数据，使用VLM生成答案
     
@@ -66,7 +66,7 @@ def run(config: dict):
             json.dump([], f, ensure_ascii=False, indent=2)
 
     # VLM配置
-    model_api = config.get("vlm", {}).get("model_api", "gpt-4.1")
+    model_api = config.get("vlm", {}).get("vlm_answering", "qwen/qwen2.5-vl-72b-instruct")
     use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_get_answer = config.get("prompt", {}).get("answering", {}).get("get_answer", "")
     

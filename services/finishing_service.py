@@ -36,7 +36,7 @@ def run(config: dict):
     confidence_threshold = finishing_config.get("confidence_threshold", 0.7)
     
     # VLM配置
-    model_api = config.get("vlm", {}).get("model_api", "gpt-4.1")
+    model_api = config.get("vlm", {}).get("vlm_finishing", "qwen/qwen2.5-vl-72b-instruct")
     use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_get_confidence = config.get("prompt", {}).get("finishing", {}).get("get_confidence", "")
     

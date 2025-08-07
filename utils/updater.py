@@ -28,7 +28,7 @@ class Updater:
         
         # Set up VLM
         self.prompt_updater = config.get("prompt", {}).get("updater", {})
-        model_api = config.get("vlm", {}).get("model_api", "gpt-4.1")
+        model_api = config.get("vlm", {}).get("vlm_updater", "openai/gpt-oss-120b")
         use_openrouter = self.config.get("vlm", {}).get("use_openrouter", False)
         self.vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
         # Use: response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
@@ -122,12 +122,6 @@ class Updater:
             logging.info(f"[{os.getpid()}](QUE) No pending or ready questions available.")
             return None
         
-        # TODO: 考虑是否保留该处逻辑
-        # 如果最高优先级问题的状态不是就绪，则重新计算优先级分数
-        # if self.highest_priority_question["status"] != "ready":
-        #     logging.info(f"最高优先级问题ID: {self.highest_priority_question['id']} 状态为 {self.highest_priority_question['status']}，重新计算优先级分数。")
-        #     self._update_priority_scores()
-        
         return self.highest_priority_question
     
     
@@ -204,36 +198,10 @@ class Updater:
     
     
     def _get_cost_estimate(self, question):
-        # # TODO: 具体的cost计算方式
-        # prompt_get_cost_estimate = self.prompt_updater.get("get_cost_estimate", "")
-        # original_questions = self.buffer.get_pending_and_ready_questions()
-        # # 伪函数
-        # prompt = concatinate(prompt_get_cost_estimate, question, original_questions)
-        
-        # response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
-        # try:
-        #     cost_estimate = float(response)
-        # except ValueError:
-        #     logging.info(f"Error parsing cost estimate from response: {response}")
-        #     cost_estimate = 0.0
-        # return cost_estimate
         return 0.0
     
     
     def _get_reward_estimate(self, question):
-        # # TODO: 具体的reward计算方式
-        # prompt_get_reward_estimate = self.prompt_updater.get("get_reward_estimate", "")
-        # original_questions = self.buffer.get_pending_and_ready_questions()
-        # # 伪函数
-        # prompt = concatinate(prompt_get_reward_estimate, question, original_questions)
-        
-        # response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
-        # try:
-        #     reward_estimate = float(response)
-        # except ValueError:
-        #     logging.info(f"Error parsing reward estimate from response: {response}")
-        #     reward_estimate = 0.0
-        # return reward_estimate
         return 0.0
     
     
@@ -248,8 +216,6 @@ class Updater:
         Returns:
             dict: 包含depends_on和required_by的依赖关系字典
         """
-        # TODO: 需要调整prompt和response的解析处理
-        # return {"depends_on": [], "required_by": []}
         
         # 获取prompt模板
         prompt_get_dependency = self.prompt_updater.get("get_dependency", "")
