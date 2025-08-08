@@ -90,6 +90,15 @@ class VLM_API:
     def convert_PIL_to_base64(self, image):
         if image is None:
             return None
+        
+        # 检查图片尺寸，若长或宽小于32，则缩放（适配Ollama）
+        min_size = 32
+        w, h = image.size
+        if w < min_size or h < min_size:
+            new_w = max(w, min_size)
+            new_h = max(h, min_size)
+            image = image.resize((new_w, new_h), Image.LANCZOS)
+        
         with BytesIO() as output:
             image.save(output, format="PNG")
             base64_image = base64.b64encode(output.getvalue()).decode('utf-8')
@@ -112,14 +121,14 @@ class VLM_API:
         # System message to define the role of KB
         system_message = {
             "role": "system",
-            "content": "You are an AI assistant that answers questions based on provided information. You will receive a user question along with optional images and reference materials from a knowledge base (KB). When KB materials are provided, use them as authoritative sources to inform your response. If the KB contains relevant information, prioritize it in your answer. If the KB doesn't contain relevant information for the question, you may use your general knowledge."
+            "content": "You are an AI assistant that answers questions based on provided information. You will receive a user question along with optional images and reference materials from a knowledge base (KB). When KB materials are provided, use them as authoritative sources to inform your response. If the KB contains relevant information, prioritize it in your answer."
         }
         
         # Start building user content with the prompt
         user_content = [
             {
                 "type": "text",
-                "text": prompt
+                "text": "\nUser question: \n" + prompt
             }
         ]
         

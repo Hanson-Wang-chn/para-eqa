@@ -110,5 +110,5 @@ def run(config: dict):
             para_eqa.run(question, question["id"])
                 
         except Exception as e:
-            logging.error(f"[{os.getpid()}](PLA) Error in Planner service: {e}")
+            logging.exception(f"[{os.getpid()}](PLA) Error in Planner service: {e}")
             time.sleep(5)  # 发生错误时等待一段时间再重试

@@ -907,9 +907,9 @@ class ParaEQA:
                 logging.info(f"Pred - Prob: {smx_vlm_pred}")
 
                 # save data
-                result["step"][cnt_step]["smx_vlm_rel"] = smx_vlm_rel[0]
-                result["step"][cnt_step]["smx_vlm_pred"] = smx_vlm_pred[0]
-                result["step"][cnt_step]["is_success"] = smx_vlm_pred[0] == answer
+                result["step"][cnt_step]["smx_vlm_rel"] = smx_vlm_rel
+                result["step"][cnt_step]["smx_vlm_pred"] = smx_vlm_pred
+                result["step"][cnt_step]["is_success"] = smx_vlm_pred == answer
 
                 # Get frontier candidates
                 prompt_points_pix = []

@@ -47,7 +47,7 @@ def store_group_info(redis_conn, group_data):
     init_y = group_data.get('init_y') or 0.0
     init_z = group_data.get('init_z') or 0.0
     init_angle = group_data.get('init_angle') or 0.0
-    # floor = group_data.get('floor', '')  # 默认为空
+    floor = group_data.get('floor', 0)
     
     # 计算问题数量
     questions_init = group_data.get('questions_init', [])
@@ -87,6 +87,9 @@ def store_group_info(redis_conn, group_data):
     pipe.set(f"{GROUP_INFO['group_id']}{group_id}", group_id)
     pipe.set(f"{GROUP_INFO['scene']}{group_id}", scene)
     pipe.set(f"{GROUP_INFO['angle']}{group_id}", init_angle)
+    
+    # 存储楼层信息
+    pipe.set(f"{GROUP_INFO['floor']}{group_id}", floor)
     
     # 存储坐标信息
     pts = {"x": init_x, "y": init_y, "z": init_z}
@@ -329,9 +332,8 @@ def run(config: dict):
             # 4. 发送初始问题
             init_sent = send_init_questions(redis_conn, init_questions, stream_name)
             
-            # TODO: 基本测试完毕后需要取消注释，进行完整测试
             # 5. 发送后续问题
-            # follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
+            follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
             
             logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent} 个问题")
             

@@ -10,6 +10,7 @@ TODO: 总计划
 """
 
 # TODO: Qwen2.5-VL-72B-Instruct在回答关于单张图片的问题时，效果非常好；图片多了就不准了。
+# TODO: 单组多问题时，每次select的都是同一个问题，需要检查删除问题的逻辑。
 
 """
 Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 6379:6379 -p 8001:8001 redis/redis-stack:latest` or `docker start para-eqa-redis` to start Redis.
@@ -31,6 +32,7 @@ import tqdm
 import yaml
 import time
 import redis
+import shutil
 from multiprocessing import Process, Manager, set_start_method
 
 from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STATS_KEYS
@@ -53,6 +55,15 @@ os.environ["HABITAT_SIM_LOG"] = (
     "quiet"  # https://aihabitat.org/docs/habitat-sim/logging.html
 )
 os.environ["MAGNUM_LOG"] = "quiet"
+
+
+def clear_record(result_dir="results"):
+    """如果结果目录存在，则删除它"""
+    if os.path.exists(result_dir):
+        shutil.rmtree(result_dir)
+        print(f"已删除结果目录: {result_dir}")
+    else:
+        print(f"结果目录不存在，无需删除: {result_dir}")
 
 
 def load_config(config_file):
@@ -149,6 +160,7 @@ if __name__ == "__main__":
     
     # Set up logging
     parent_dir = config.get("output_parent_dir", "results")
+    clear_record(result_dir=parent_dir) # Clear previous records
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir, exist_ok=True)
     logging_path = os.path.join(parent_dir, "main.log")
