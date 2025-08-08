@@ -11,7 +11,7 @@ from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STA
 from utils.vlm_api import VLM_API
 
 
-def parse_question(desc, model_api="openai/gpt-oss-120b", prompt_parser=None, use_openrouter=False):
+def parse_question(desc, model_name="openai/gpt-oss-120b", prompt_parser=None, server="openrouter", base_url=None, api_key=None):
     """
     解析问题描述，使用大模型提取urgency和scope_type
     
@@ -28,7 +28,7 @@ def parse_question(desc, model_api="openai/gpt-oss-120b", prompt_parser=None, us
     
     for attempt in range(max_retries):
         # 调用大模型获取回答
-        vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
+        vlm = VLM_API(model_name=model_name, server=server, base_url=base_url, api_key=api_key)
         prompt = prompt_parser.replace("{original_question}", desc)
         response = vlm.request_with_retry(image=None, prompt=prompt)[0]
         
@@ -96,9 +96,13 @@ def run(config: dict):
     )
     
     # Set up VLM
-    model_api = config.get("vlm", {}).get("vlm_parser", "openai/gpt-oss-120b")
-    use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_parser = config.get("prompt", {}).get("parser", None)
+    
+    config_vlm = config.get("vlm", {}).get("parser", {})
+    model_name = config_vlm.get("model", "qwen/qwen2.5-vl-72b-instruct")
+    server = config_vlm.get("server", "openrouter")
+    base_url = config_vlm.get("base_url", None)
+    api_key = config_vlm.get("api_key", None)
     
     # Redis Initialization
     redis_conn = get_redis_connection(config)
@@ -135,7 +139,7 @@ def run(config: dict):
                         continue
 
                     # 1. 创建完整的 Question 元数据
-                    urgency, scope_type = parse_question(desc, model_api=model_api, prompt_parser=prompt_parser, use_openrouter=use_openrouter)
+                    urgency, scope_type = parse_question(desc, model_name=model_name, prompt_parser=prompt_parser, server=server, base_url=base_url, api_key=api_key)
                     metadata = {
                         "id": q_id,
                         "description": desc,

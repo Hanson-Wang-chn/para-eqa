@@ -36,9 +36,13 @@ def run(config: dict):
     confidence_threshold = finishing_config.get("confidence_threshold", 0.7)
     
     # VLM配置
-    model_api = config.get("vlm", {}).get("vlm_finishing", "qwen/qwen2.5-vl-72b-instruct")
-    use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_get_confidence = config.get("prompt", {}).get("finishing", {}).get("get_confidence", "")
+    
+    config_vlm = config.get("vlm", {}).get("finishing", {})
+    model_name = config_vlm.get("model", "qwen/qwen2.5-vl-72b-instruct")
+    server = config_vlm.get("server", "openrouter")
+    base_url = config_vlm.get("base_url", None)
+    api_key = config_vlm.get("api_key", None)
     
     # Redis初始化
     redis_conn = get_redis_connection(config)
@@ -184,8 +188,10 @@ def run(config: dict):
                                 question_desc, 
                                 memory_data,
                                 prompt_get_confidence,
-                                model_api,
-                                use_openrouter
+                                model_name,
+                                server,
+                                base_url,
+                                api_key
                             )
                             
                             logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 置信度: {confidence}")

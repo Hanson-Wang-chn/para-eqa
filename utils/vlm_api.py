@@ -14,7 +14,7 @@ import httpx
 
 
 class VLM_API:
-    def __init__(self, model_name="gpt-4o", use_openrouter=False):
+    def __init__(self, model_name="openai/gpt-4o", server="openrouter", base_url=None, api_key=None):
         self.model_name = model_name
         
         # 初始化OpenAI客户端，显式设置代理
@@ -23,12 +23,14 @@ class VLM_API:
             "https://": "socks5://127.0.0.1:7897"
         } if os.environ.get('ALL_PROXY') else None
         
+        self.server = server
+        self.base_url = base_url
         self.api_key = None
         self.client = None
         
-        if not use_openrouter:
+        if self.server == "openai":
             try:
-                self.api_key = os.environ.get('OPENAI_API_KEY')
+                self.api_key = os.environ.get('OPENAI_API_KEY') if not api_key else api_key
                 if not self.api_key:
                     raise ValueError("OPENAI_API_KEY environment variable is not set.")
             except KeyError:
@@ -36,12 +38,13 @@ class VLM_API:
             
             self.client = openai.OpenAI(
                 api_key=self.api_key,
+                base_url = "https://api.openai.com/v1" if not self.base_url else self.base_url,
                 http_client=httpx.Client(proxies=proxies) if proxies else None
             )
         
-        else:
+        elif self.server == "openrouter":
             try:
-                self.api_key = os.environ.get('OPENROUTER_API_KEY')
+                self.api_key = os.environ.get('OPENROUTER_API_KEY') if not api_key else api_key
                 if not self.api_key:
                     raise ValueError("OPENROUTER_API_KEY environment variable is not set.")
             except KeyError:
@@ -49,9 +52,34 @@ class VLM_API:
             
             self.client = openai.OpenAI(
                 api_key=self.api_key,
-                base_url="https://openrouter.ai/api/v1",
+                base_url="https://openrouter.ai/api/v1" if not self.base_url else self.base_url,
                 http_client=httpx.Client(proxies=proxies) if proxies else None
             )
+            
+        elif self.server == "dashscope":
+            try:
+                self.api_key = os.environ.get('DASHSCOPE_API_KEY') if not api_key else api_key
+                if not self.api_key:
+                    raise ValueError("DASHSCOPE_API_KEY environment variable is not set.")
+            except KeyError:
+                raise ValueError("DASHSCOPE_API_KEY environment variable is not set.")
+            
+            self.client = openai.OpenAI(
+                api_key=self.api_key,
+                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1" if not self.base_url else self.base_url,
+                http_client=httpx.Client(proxies=proxies) if proxies else None
+            )
+        
+        elif self.server == "ollama":
+            self.client = openai.OpenAI(
+                api_key="ollama",
+                base_url="http://localhost:11434/v1" if not self.base_url else self.base_url,
+                http_client=httpx.Client(proxies=proxies) if proxies else None
+            )
+        
+        else:
+            # OpenAI compatible only
+            pass
 
 
     def convert_file_to_base64(self, image_path):
@@ -240,9 +268,11 @@ class VLM_API:
 if __name__ == "__main__":
     # 测试API调用是否正常
     # model_name = "deepseek/deepseek-chat"
-    model_name = "openai/gpt-oss-120b"
-    use_openrouter = True
-    vlm = VLM_API(model_name=model_name, use_openrouter=use_openrouter)
+    model_name = "gpt-oss:20b"
+    server = "ollama"
+    base_url = "http://100.88.238.80:11434/v1"
+    api_key = None
+    vlm = VLM_API(model_name=model_name, server=server, base_url=base_url, api_key=api_key)
     response = vlm.request_with_retry(image=None, prompt="Hello!")[0]
     print(response)
 

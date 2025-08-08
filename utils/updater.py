@@ -28,10 +28,14 @@ class Updater:
         
         # Set up VLM
         self.prompt_updater = config.get("prompt", {}).get("updater", {})
-        model_api = config.get("vlm", {}).get("vlm_updater", "openai/gpt-oss-120b")
-        use_openrouter = self.config.get("vlm", {}).get("use_openrouter", False)
-        self.vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
-        # Use: response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
+        
+        config_vlm = config.get("vlm", {}).get("updater", {})
+        model_name = config_vlm.get("model", "qwen/qwen2.5-vl-72b-instruct")
+        server = config_vlm.get("server", "openrouter")
+        base_url = config_vlm.get("base_url", None)
+        api_key = config_vlm.get("api_key", None)
+        
+        self.vlm = VLM_API(model_name=model_name, server=server, base_url=base_url, api_key=api_key)
         
         # Set up Buffer
         self.buffer = Buffer()

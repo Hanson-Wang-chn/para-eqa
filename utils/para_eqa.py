@@ -532,18 +532,28 @@ class ParaEQA:
         self.prompt_question = prompt.get("question", "")
         self.prompt_lsv = prompt.get("local_sem", "")
         self.prompt_gsv = prompt.get("global_sem", "")
-
+        
         # init VLM model
-        use_openrouter = self.config.get("vlm", {}).get("use_openrouter", False)
+        config_vlm = config.get("vlm", {}).get("planner", {})
+        model_name = config_vlm.get("model", "qwen/qwen2.5-vl-72b-instruct")
+        server = config_vlm.get("server", "openrouter")
+        base_url = config_vlm.get("base_url", None)
+        api_key = config_vlm.get("api_key", None)
+        self.vlm = VLM_API(model_name, server, base_url, api_key)
         
-        model_name = self.config.get("vlm", {}).get("vlm_planner", "openai/gpt-4.1")
-        self.vlm = VLM_API(model_name, use_openrouter)
+        config_vlm_lite = config.get("vlm", {}).get("planner_lite", {})
+        model_name_lite = config_vlm_lite.get("model", "qwen/qwen2.5-vl-72b-instruct")
+        server_lite = config_vlm_lite.get("server", "openrouter")
+        base_url_lite = config_vlm_lite.get("base_url", None)
+        api_key_lite = config_vlm_lite.get("api_key", None)
+        self.vlm_lite = VLM_API(model_name_lite, server_lite, base_url_lite, api_key_lite)
         
-        model_name_lite = self.config.get("vlm", {}).get("vlm_planner_lite", "qwen/qwen2.5-vl-72b-instruct")
-        self.vlm_lite = VLM_API(model_name_lite, use_openrouter)
-        
-        model_name_tiny = self.config.get("vlm", {}).get("vlm_planner_tiny", "qwen/qwen2.5-vl-32b-instruct")
-        self.vlm_tiny = VLM_API(model_name_tiny, use_openrouter)
+        config_vlm_tiny = config.get("vlm", {}).get("planner_tiny", {})
+        model_name_tiny = config_vlm_tiny.get("model", "qwen/qwen2.5-vl-32b-instruct")
+        server_tiny = config_vlm_tiny.get("server", "openrouter")
+        base_url_tiny = config_vlm_tiny.get("base_url", None)
+        api_key_tiny = config_vlm_tiny.get("api_key", None)
+        self.vlm_tiny = VLM_API(model_name_tiny, server_tiny, base_url_tiny, api_key_tiny)
         
         # 连接Redis
         self.redis_conn = get_redis_connection(config)

@@ -5,7 +5,7 @@ from utils.vlm_api import VLM_API
 from utils.image_processor import decode_image
 
 
-def get_confidence(question_desc, kb, prompt_get_confidence, model_api="qwen/qwen2.5-vl-72b-instruct", use_openrouter=False):
+def get_confidence(question_desc, kb, prompt_get_confidence, model_name="qwen/qwen2.5-vl-72b-instruct", server="openrouter", base_url=None, api_key=None):
     """
     调用大模型计算能否回答问题的置信度
     
@@ -19,7 +19,7 @@ def get_confidence(question_desc, kb, prompt_get_confidence, model_api="qwen/qwe
         float: 置信度，范围[0,1]
     """    
     # 实例化VLM
-    vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
+    vlm = VLM_API(model_name=model_name, server=server, base_url=base_url, api_key=api_key)
     
     # 构造提示
     prompt = prompt_get_confidence.format(question_desc)

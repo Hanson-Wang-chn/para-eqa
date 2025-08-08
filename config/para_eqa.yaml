@@ -13,16 +13,56 @@ detector: '/home/whs/eqa/para-eqa/data/yolo11x.pt' # 替换为实际的绝对路
 
 # VLM
 vlm:
-  use_openrouter: true # 只有设置为 true 时，才可以使用 OpenAI 之外的模型
   device: 'cuda'
-  vlm_answering: qwen/qwen2.5-vl-72b-instruct
-  vlm_finishing: qwen/qwen2.5-vl-72b-instruct
-  vlm_parser: openai/gpt-oss-120b
-  vlm_stopping: qwen/qwen2.5-vl-72b-instruct
-  vlm_updater: openai/gpt-oss-120b
-  vlm_planner: qwen/qwen2.5-vl-72b-instruct
-  vlm_planner_lite: qwen/qwen2.5-vl-72b-instruct
-  vlm_planner_tiny: qwen/qwen2.5-vl-32b-instruct
+
+  # chose server from {"openai", "openrouter", "dashscope", "ollama", "other"}
+  answering:
+    model: qwen2.5vl:72b
+    server: ollama
+    base_url: "http://58.198.176.200:11434/v1"
+    api_key:
+
+  finishing:
+    model: qwen2.5vl:72b
+    server: ollama
+    base_url: "http://58.198.176.200:11434/v1"
+    api_key:
+
+  parser:
+    model: gpt-oss:20b
+    server: ollama
+    base_url: "http://100.88.238.80:11434/v1"
+    api_key:
+
+  stopping:
+    model: qwen2.5vl:72b
+    server: ollama
+    base_url: "http://58.198.176.200:11434/v1"
+    api_key:
+
+  updater:
+    model: gpt-oss:20b
+    server: ollama
+    base_url: "http://100.88.238.80:11434/v1"
+    api_key:
+
+  planner:
+    model: qwen2.5vl:72b
+    server: ollama
+    base_url: "http://58.198.176.200:11434/v1"
+    api_key:
+
+  planner_lite:
+    model: qwen2.5vl:72b
+    server: ollama
+    base_url: "http://58.198.176.200:11434/v1"
+    api_key:
+
+  planner_tiny:
+    model: qwen2.5vl:72b
+    server: ollama
+    base_url: "http://58.198.176.200:11434/v1"
+    api_key:
 
 
 # Parallel

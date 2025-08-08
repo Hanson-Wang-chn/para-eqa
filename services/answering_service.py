@@ -10,7 +10,7 @@ from utils.vlm_api import VLM_API
 from utils.image_processor import decode_image
 
 
-def get_vlm_answer(question, kb, prompt_get_answer, model_api="qwen/qwen2.5-vl-72b-instruct", use_openrouter=False):
+def get_vlm_answer(question, kb, prompt_get_answer, model_name="qwen/qwen2.5-vl-72b-instruct", server="openrouter", base_url=None, api_key=None):
     """
     根据问题和记忆数据，使用VLM生成答案
     
@@ -27,7 +27,7 @@ def get_vlm_answer(question, kb, prompt_get_answer, model_api="qwen/qwen2.5-vl-7
     prompt = prompt_get_answer.format(question_desc)
     
     # 实例化VLM并请求回答
-    vlm = VLM_API(model_name=model_api, use_openrouter=use_openrouter)
+    vlm = VLM_API(model_name=model_name, server="openrouter", base_url=base_url, api_key=api_key)
     response = vlm.request_with_retry(image=None, prompt=prompt, kb=kb)[0]
     
     return response.strip()
@@ -66,9 +66,13 @@ def run(config: dict):
             json.dump([], f, ensure_ascii=False, indent=2)
 
     # VLM配置
-    model_api = config.get("vlm", {}).get("vlm_answering", "qwen/qwen2.5-vl-72b-instruct")
-    use_openrouter = config.get("vlm", {}).get("use_openrouter", False)
     prompt_get_answer = config.get("prompt", {}).get("answering", {}).get("get_answer", "")
+    
+    config_vlm = config.get("vlm", {}).get("answering", {})
+    model_name = config_vlm.get("model", "qwen/qwen2.5-vl-72b-instruct")
+    server = config_vlm.get("server", "openrouter")
+    base_url = config_vlm.get("base_url", None)
+    api_key = config_vlm.get("api_key", None)
     
     # Redis初始化
     redis_conn = get_redis_connection(config)
@@ -119,7 +123,7 @@ def run(config: dict):
                         # What colors are the cushions on the white sofa on the first floor? A) Blue and orange B) Red and green C) Black and gray D) Yellow and pink.
                         
                         # 获取答案
-                        answer = get_vlm_answer(question, memory_data, prompt_get_answer, model_api, use_openrouter)
+                        answer = get_vlm_answer(question, memory_data, prompt_get_answer, model_name, server, base_url, api_key)
                         logging.info(f"[{os.getpid()}](ANS) 已生成问题 {question_id} 的答案")
                         
                         # 更新问题元数据
