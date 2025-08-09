@@ -4,6 +4,7 @@ import os
 import json
 import time
 import logging
+import uuid
 
 from common.redis_client import get_redis_connection, STREAMS, STATS_KEYS
 from utils.vlm_api import VLM_API
@@ -79,14 +80,15 @@ def run(config: dict):
     
     # 流定义
     to_answering_stream = STREAMS["to_answering"]  # 从Finishing接收问题
-    answering_to_pool_stream = STREAMS["answering_to_pool"]  # 向Question Pool发送答案
+    to_pool_stream = STREAMS["pool_requests"]  # 向Question Pool发送答案
     
     # 创建消费者组
     group_name = "answering_group"
     try:
         redis_conn.xgroup_create(to_answering_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](ANS) Answering group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](ANS) Answering group already exists: {e}")
+        pass
     
     logging.info(f"[{os.getpid()}](ANS) Answering service started. Waiting for questions...")
     
@@ -119,7 +121,6 @@ def run(config: dict):
                         
                         logging.info(f"[{os.getpid()}](ANS) 收到问题: {question_id} - '{question_desc[:40]}...'")
                         
-                        # TODO: 整个代码有重复生成最终回答的冗余逻辑。需要修复。
                         # What colors are the cushions on the white sofa on the first floor? A) Blue and orange B) Red and green C) Black and gray D) Yellow and pink.
                         
                         # 获取答案
@@ -158,7 +159,13 @@ def run(config: dict):
                             logging.error(f"[{os.getpid()}](ANS) 保存答案到文件时出错: {e}")
                         
                         # 向Question Pool发送完成的问题
-                        redis_conn.xadd(answering_to_pool_stream, {"data": json.dumps(question)})
+                        answer_request = {
+                            "request_id": str(uuid.uuid4()),
+                            "sender": "answering",
+                            "type": "answer_question",
+                            "data": question
+                        }
+                        redis_conn.xadd(to_pool_stream, {"data": json.dumps(answer_request)})
                         logging.info(f"[{os.getpid()}](ANS) 问题 {question_id} 的答案已发送到Question Pool")
                         
                         # 更新统计信息

@@ -52,7 +52,7 @@ def run(config: dict):
     memory_requests_stream = STREAMS["memory_requests"]     # 向Memory发送请求
     memory_responses_stream = STREAMS["memory_responses"]  # 从Memory接收响应
     stopping_to_planner_stream = STREAMS["stopping_to_planner"]  # 向Planner发送消息
-    stopping_to_pool_stream = STREAMS["stopping_to_pool"]  # 向Question Pool发送完成请求
+    to_pool_stream = STREAMS["pool_requests"]  # 向Question Pool发送完成请求
     to_answering_stream = STREAMS["to_answering"]  # 向Answering发送问题
     
     # 创建消费者组
@@ -60,12 +60,14 @@ def run(config: dict):
     try:
         redis_conn.xgroup_create(planner_to_stopping_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](STO) Stopping group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](STO) Stopping group already exists: {e}")
+        pass
     
     try:
         redis_conn.xgroup_create(memory_responses_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](STO) Memory response group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](STO) Memory response group already exists: {e}")
+        pass
     
     logging.info(f"[{os.getpid()}](STO) Stopping service started. Waiting for planner requests...")
     
@@ -91,6 +93,7 @@ def run(config: dict):
                     request_data = json.loads(data.get('data', '{}'))
                     question = request_data.get('question', {})
                     planner_image = request_data.get('image', '')
+                    must_stop = request_data.get('must_stop', False)
                     
                     question_id = question.get('id')
                     question_desc = question.get('description', '')
@@ -172,16 +175,23 @@ def run(config: dict):
                     if not memory_response or memory_response.get('status') != 'success':
                         logging.warning(f"[{os.getpid()}](STO) 未收到有效Memory响应或请求失败")
                         # 默认置信度为0，表示需要继续探索
-                        confidence = 0.0
+                        confidence = 0.0 if not must_stop else 1.0
                         memory_data = []
+                    
                     else:
                         # 提取记忆数据
                         memory_data = memory_response.get('data', [])
                         
                         if not memory_data:
                             # 没有相关记忆，置信度为0
-                            confidence = 0.0
+                            confidence = 0.0 if not must_stop else 1.0
                             logging.info(f"[{os.getpid()}](STO) 问题 {question_id} 没有相关记忆，置信度设为0")
+                            
+                        elif must_stop:
+                            # 强制停止探索，置信度设为1.0
+                            confidence = 1.0
+                            logging.info(f"[{os.getpid()}](STO) 问题 {question_id} 强制停止探索，置信度设为1.0")
+                        
                         else:
                             # 计算置信度
                             confidence = get_confidence(
@@ -200,7 +210,17 @@ def run(config: dict):
                     if confidence >= confidence_threshold:
                         # 置信度高，可以停止探索并回答问题
                         
-                        # 4.1 向Planner发送停止探索的消息
+                        # 4.1 向Question Pool发送完成问题的请求
+                        answer_request = {
+                            "request_id": str(uuid.uuid4()),
+                            "sender": "stopping",
+                            "type": "complete_question",
+                            "data": question
+                        }
+                        redis_conn.xadd(to_pool_stream, {"data": json.dumps(answer_request)})
+                        logging.info(f"[{os.getpid()}](STO) 已向Question Pool发送完成问题请求，问题: {question_id}")
+                        
+                        # 4.2 向Planner发送停止探索的消息
                         stop_message = {
                             "status": "stop",
                             "question": question,
@@ -208,10 +228,6 @@ def run(config: dict):
                         }
                         redis_conn.xadd(stopping_to_planner_stream, {"data": json.dumps(stop_message)})
                         logging.info(f"[{os.getpid()}](STO) 已向Planner发送停止探索消息，问题: {question_id}")
-                        
-                        # 4.2 向Question Pool发送完成问题的请求
-                        redis_conn.xadd(stopping_to_pool_stream, {"data": json.dumps(question)})
-                        logging.info(f"[{os.getpid()}](STO) 已向Question Pool发送完成问题请求，问题: {question_id}")
                         
                         # 4.3 合并Planner的图像和Memory的记忆数据
                         # 创建记忆项的副本，避免修改原始数据

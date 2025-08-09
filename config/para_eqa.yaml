@@ -19,6 +19,8 @@ vlm:
   # RTX 5090 * 1: "http://100.88.238.80:11434/v1"
   # RTX 4090 * 4: "http://58.198.176.200:11434/v1"
   # RTX 4090 D * 1: "http://49.52.18.227:11434/v1"
+  
+  # 零成本高性能
   answering:
     model: qwen2.5vl:72b
     server: ollama
@@ -67,6 +69,67 @@ vlm:
     base_url: "http://58.198.176.200:11434/v1"
     api_key:
 
+  # # 零成本高效率
+  # answering:
+  #   model: qwen2.5vl:32b
+  #   server: ollama
+  #   base_url: "http://100.88.238.80:11434/v1"
+  #   api_key:
+
+  # finishing:
+  #   model: qwen2.5vl:32b
+  #   server: ollama
+  #   base_url: "http://100.88.238.80:11434/v1"
+  #   api_key:
+
+  # parser:
+  #   model: qwen2.5:14b
+  #   server: ollama
+  #   base_url: "http://49.52.18.227:11434/v1"
+  #   api_key:
+
+  # stopping:
+  #   model: qwen2.5vl:32b
+  #   server: ollama
+  #   base_url: "http://100.88.238.80:11434/v1"
+  #   api_key:
+
+  # updater:
+  #   model: qwen2.5:14b
+  #   server: ollama
+  #   base_url: "http://49.52.18.227:11434/v1"
+  #   api_key:
+
+  # planner:
+  #   model: qwen2.5vl:32b
+  #   server: ollama
+  #   base_url: "http://100.88.238.80:11434/v1"
+  #   api_key:
+
+  # planner_lite:
+  #   model: qwen2.5vl:32b
+  #   server: ollama
+  #   base_url: "http://100.88.238.80:11434/v1"
+  #   api_key:
+
+  # planner_tiny:
+  #   model: qwen2.5vl:32b
+  #   server: ollama
+  #   base_url: "http://100.88.238.80:11434/v1"
+  #   api_key:
+
+
+# Memory
+memory:
+  device: 'cuda'
+  use_rag: true
+  dimension: 768
+  weight_image: 0.5
+  weight_text: 0.5
+  max_retrieval_num: 1
+  replace_memory: false  # 是否替换相似的记忆
+  lambda_sim: 0.5
+
 
 # Parallel
 parallel:
@@ -98,11 +161,11 @@ generator:
   shuffle: false
 
 finishing:
-  retrieval_num: 5
+  retrieval_num: 1
   confidence_threshold: 0.5
 
 stopping:
-  retrieval_num: 5
+  retrieval_num: 1
   confidence_threshold: 0.5
 
 updater:
@@ -165,18 +228,6 @@ visual_prompt:
   cam_offset: 0.6
   min_num_prompt_points: 2
   circle_radius: 18
-
-
-# Memory
-memory:
-  device: 'cuda'
-  use_rag: true
-  dimension: 768
-  weight_image: 0.5
-  weight_text: 0.5
-  max_retrieval_num: 5
-  replace_memory: false  # 是否替换相似的记忆
-  lambda_sim: 0.5
 
 
 # Prompts

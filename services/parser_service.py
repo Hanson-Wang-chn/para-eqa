@@ -113,7 +113,8 @@ def run(config: dict):
     try:
         redis_conn.xgroup_create(stream_name, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](PAR) Parser group '{group_name}' already exists. Continuing...")
+        # logging.info(f"[{os.getpid()}](PAR) Parser group '{group_name}' already exists. Continuing...")
+        pass
 
     logging.info(f"[{os.getpid()}](PAR) Parser service started. Waiting for new questions...")
     

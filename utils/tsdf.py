@@ -768,7 +768,7 @@ class TSDFPlanner:
                         range(len(frontiers)),
                         p=frontiers_weight_red / np.sum(frontiers_weight_red),
                     )
-                    logging.info(f"weight: {frontiers_weight[frontier_ind]:.3f}")
+                    # logging.info(f"weight: {frontiers_weight[frontier_ind]:.3f}")
                     max_point = frontiers[frontier_ind]
 
                     # find the direction into unexplored

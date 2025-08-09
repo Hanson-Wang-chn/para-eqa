@@ -45,19 +45,20 @@ GROUP_INFO = {
 STREAMS = {
     "new_questions": "stream:new_questions", # New Questions -> Parser
     "parser_to_finishing": "stream:parser_to_finishing", # Parser -> Finishing Module
-    "finishing_to_pool": "stream:finishing_to_pool", # Finishing Module -> Question Pool
-    "stopping_to_pool": "stream:stopping_to_pool", # Stopping Module -> Question Pool
+    # "finishing_to_pool": "stream:finishing_to_pool", # Finishing Module -> Question Pool
+    # "stopping_to_pool": "stream:stopping_to_pool", # Stopping Module -> Question Pool
     "stopping_to_planner": "stream:stopping_to_planner", # Stopping Module -> Planner
-    "planner_to_pool": "stream:planner_to_pool", # Planner -> Question Pool
+    # "planner_to_pool": "stream:planner_to_pool", # Planner -> Question Pool
     "planner_to_stopping": "stream:planner_to_stopping", # Planner -> Stopping Module
-    "answering_to_pool": "stream:answering_to_pool", # Answering Module -> Question Pool
-    "pool_to_planner": "stream:pool_to_planner", # Question Pool -> Planner
+    # "answering_to_pool": "stream:answering_to_pool", # Answering Module -> Question Pool
+    # "pool_to_planner": "stream:pool_to_planner", # Question Pool -> Planner
     "to_answering": "stream:to_answering", # Finishing/Stopping Module -> Answering
     "memory_requests": "stream:memory_requests", # Others -> Memory Module
     "memory_responses": "stream:memory_responses", # Memory Module -> Others
     "generator_to_memory": "stream:generator_to_memory", # Generator -> Memory Module
-    "generator_to_pool": "stream:generator_to_pool", # Generator -> Question Pool
-    "pool_to_generator": "stream:pool_to_generator" # Question Pool -> Generator
+    # "pool_to_generator": "stream:pool_to_generator", # Question Pool -> Generator
+    "pool_requests": "stream:pool_requests", # Others -> Question Pool
+    "pool_responses": "stream:pool_responses" # Question Pool -> Others
 }
 
 

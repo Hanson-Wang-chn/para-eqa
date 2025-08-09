@@ -205,42 +205,52 @@ def wait_for_group_completion(redis_conn, group_id):
     logging.info(f"[{os.getpid()}](GEN) 等待组 {group_id} 完成确认...")
     
     # 创建消费者组（如果不存在）
-    pool_to_generator_stream = STREAMS["pool_to_generator"]
+    pool_responses_stream = STREAMS["pool_responses"]
     try:
-        redis_conn.xgroup_create(pool_to_generator_stream, "generator_group", id='0', mkstream=True)
+        redis_conn.xgroup_create(pool_responses_stream, "generator_group", id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](GEN) Generator response group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](GEN) Generator response group already exists: {e}")
+        pass
     
+    # 发送检查组完成请求
+    request_id = str(uuid.uuid4())
+    request = {
+        "request_id": request_id,
+        "sender": "generator",
+        "type": "check_group_completed",
+        "data": {"group_id": group_id}
+    }
+    redis_conn.xadd(STREAMS["pool_requests"], {"data": json.dumps(request)})
+    
+    # 等待响应
     while True:
-        # 从流中读取消息
         messages = redis_conn.xreadgroup(
             "generator_group", "generator_worker", 
-            {pool_to_generator_stream: '>'}, 
-            count=1, block=100
+            {pool_responses_stream: '>'}, 
+            count=20, block=100
         )
         
         if not messages:
             continue
         
-        for stream, message_list in messages:
+        for _, message_list in messages:
             for message_id, data in message_list:
                 try:
                     response = json.loads(data.get('data', '{}'))
-                    status = response.get('status')
-                    response_group_id = response.get('group_id')
+                    response_type = response.get('type')
                     
                     # 确认消息已处理
-                    redis_conn.xack(pool_to_generator_stream, "generator_group", message_id)
+                    redis_conn.xack(pool_responses_stream, "generator_group", message_id)
                     
-                    # 检查是否是我们期望的组完成消息
-                    if status == "group_completed" and response_group_id == group_id:
+                    # 检查是否是组完成消息
+                    if response_type == "group_completed" and response.get('data', {}).get('group_id') == group_id:
                         logging.info(f"[{os.getpid()}](GEN) 收到组 {group_id} 完成确认")
                         return True
                     
-                except (json.JSONDecodeError, Exception) as e:
+                except Exception as e:
                     logging.warning(f"[{os.getpid()}](GEN) 处理消息时出错: {e}")
                     # 确认消息以防止无限循环
-                    redis_conn.xack(pool_to_generator_stream, "generator_group", message_id)
+                    redis_conn.xack(pool_responses_stream, "generator_group", message_id)
 
 
 def clear_memory(redis_conn):

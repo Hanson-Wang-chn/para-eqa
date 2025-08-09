@@ -103,7 +103,8 @@ def run(config: dict):
     try:
         redis_conn.xgroup_create(requests_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](MEM) Memory group '{group_name}' already exists. Continuing...")
+        # logging.info(f"[{os.getpid()}](MEM) Memory group '{group_name}' already exists. Continuing...")
+        pass
     
     logging.info(f"[{os.getpid()}](MEM) Memory service started. Waiting for requests...")
     

@@ -21,57 +21,62 @@ def select_question(redis_conn):
         dict: 问题对象，如果没有可用问题则返回None
     """
     # 创建消费者组（如果不存在）
-    planner_stream_in = STREAMS["planner_to_pool"]
-    planner_stream_out = STREAMS["pool_to_planner"]
+    pool_responses_stream = STREAMS["pool_responses"]
     
     try:
-        redis_conn.xgroup_create(planner_stream_out, "planner_group", id='0', mkstream=True)
+        redis_conn.xgroup_create(pool_responses_stream, "planner_group", id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](PLA) Planner response group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](PLA) Planner response group already exists: {e}")
+        pass
     
     while True:
-        # 每次循环生成新的请求ID
+        # 生成请求ID
         request_id = str(uuid.uuid4())
+        
+        # 创建请求
         request = {
-            "request_id": request_id
+            "request_id": request_id,
+            "sender": "planner",
+            "type": "select_question",
+            "data": {}
         }
         
         # 发送请求
-        redis_conn.xadd(planner_stream_in, {"data": json.dumps(request)})
-        # FIXME: 调试结束后取消注释
-        # logging.info(f"[{os.getpid()}](PLA) Sent question selection request: {request_id}")
+        redis_conn.xadd(STREAMS["pool_requests"], {"data": json.dumps(request)})
         
-        # 在一个内部循环中等待正确的响应
+        # 等待响应
         wait_start_time = time.time()
-        while time.time() - wait_start_time < 1:
+        max_wait_time = 3  # 单次响应最多等待3秒，若超时，说明planner阻塞（正在处理其他请求）
+        
+        while time.time() - wait_start_time < max_wait_time:
             responses = redis_conn.xreadgroup(
                 "planner_group", "planner_worker", 
-                {planner_stream_out: '>'}, 
-                count=1, block=100
+                {pool_responses_stream: '>'}, 
+                count=20, block=100
             )
             
-            if responses:
-                for _, msg_list in responses:
-                    for msg_id, data in msg_list:
+            if not responses:
+                continue
+                
+            for _, msg_list in responses:
+                for msg_id, data in msg_list:
+                    try:
                         response = json.loads(data.get('data', '{}'))
                         response_request_id = response.get('request_id')
                         
-                        # 确认消息已处理
-                        redis_conn.xack(planner_stream_out, "planner_group", msg_id)
+                        # 确认消息
+                        redis_conn.xack(pool_responses_stream, "planner_group", msg_id)
                         
-                        # 检查是否是我们的请求的响应
-                        if response_request_id == request_id:
-                            status = response.get('status')
-                            question = response.get('question')
-                            
-                            if status == "success" and question:
-                                logging.info(f"[{os.getpid()}](PLA) Received question {question['id']} from Question Pool")
-                                return question
+                        # 检查是否是我们请求的响应
+                        if response_request_id == request_id and response.get('type') == 'question_selected':
+                            if response.get('status') == "success" and response.get('data'):
+                                logging.info(f"[{os.getpid()}](PLA) Received question {response['data']['id']} from Question Pool")
+                                return response['data']
                             else:
-                                # FIXME: 调试结束后取消注释
-                                # logging.info(f"[{os.getpid()}](PLA) No available questions from Question Pool")
-                                break 
-            
+                                return None
+                    except Exception as e:
+                        logging.error(f"[{os.getpid()}](PLA) Error processing response: {e}")
+        
         time.sleep(0.1)
 
 
@@ -107,6 +112,10 @@ def run(config: dict):
     while True:
         try:
             question = select_question(redis_conn)
+            if question is None:
+                logging.info(f"[{os.getpid()}](PLA) No available questions, waiting for new questions...")
+                time.sleep(1)
+                continue
             para_eqa.run(question, question["id"])
                 
         except Exception as e:

@@ -52,19 +52,21 @@ def run(config: dict):
     memory_requests_stream = STREAMS["memory_requests"]    # 向Memory发送请求
     memory_responses_stream = STREAMS["memory_responses"]  # 从Memory接收响应
     to_answering_stream = STREAMS["to_answering"]         # 向Answering发送问题
-    finishing_to_pool_stream = STREAMS["finishing_to_pool"] # 向Question Pool发送问题
+    to_pool_stream = STREAMS["pool_requests"] # 向Question Pool发送问题
     
     # 创建消费者组
     group_name = "finishing_group"
     try:
         redis_conn.xgroup_create(parser_to_finishing_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](FIN) Finishing group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](FIN) Finishing group already exists: {e}")
+        pass
     
     try:
         redis_conn.xgroup_create(memory_responses_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](FIN) Memory response group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](FIN) Memory response group already exists: {e}")
+        pass
     
     logging.info(f"[{os.getpid()}](FIN) Finishing service started. Waiting for parsed questions...")
     
@@ -169,19 +171,38 @@ def run(config: dict):
                     # 3. 处理Memory响应，计算置信度
                     if not memory_response or memory_response.get('status') != 'success':
                         logging.warning(f"[{os.getpid()}](FIN) 未收到有效Memory响应或请求失败")
+                        
                         # 默认转发到Question Pool
-                        redis_conn.xadd(finishing_to_pool_stream, {"data": json.dumps(question)})
+                        request_id = str(uuid.uuid4())
+                        request = {
+                            "request_id": request_id,
+                            "sender": "finishing",
+                            "type": "add_question",
+                            "data": question
+                        }
+                            
+                        redis_conn.xadd(to_pool_stream, {"data": json.dumps(request)})
                         forwarded_count += 1
                         logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 转发到Question Pool")
+                    
                     else:
                         # 提取记忆数据
                         memory_data = memory_response.get('data', [])
                         
                         if not memory_data:
                             # 没有相关记忆，转发到Question Pool
-                            redis_conn.xadd(finishing_to_pool_stream, {"data": json.dumps(question)})
+                            request_id = str(uuid.uuid4())
+                            request = {
+                                "request_id": request_id,
+                                "sender": "finishing",
+                                "type": "add_question",
+                                "data": question
+                            }
+                            
+                            redis_conn.xadd(to_pool_stream, {"data": json.dumps(request)})
                             forwarded_count += 1
                             logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 没有相关记忆，转发到Question Pool")
+                        
                         else:
                             # 计算置信度
                             confidence = get_confidence(
@@ -206,10 +227,20 @@ def run(config: dict):
                                 redis_conn.xadd(to_answering_stream, {"data": json.dumps(answering_request)})
                                 answered_count += 1
                                 logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 发送到Answering服务")
+                            
                             else:
                                 # 置信度低，发送到Question Pool
-                                redis_conn.xadd(finishing_to_pool_stream, {"data": json.dumps(question)})
+                                request_id = str(uuid.uuid4())
+                                request = {
+                                    "request_id": request_id,
+                                    "sender": "finishing",
+                                    "type": "add_question",
+                                    "data": question
+                                }
+                                
+                                redis_conn.xadd(to_pool_stream, {"data": json.dumps(request)})
                                 forwarded_count += 1
+                                
                                 logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 置信度不足，转发到Question Pool")
                     
                     # 更新统计信息

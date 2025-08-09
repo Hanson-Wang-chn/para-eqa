@@ -29,10 +29,6 @@ class Buffer:
     
     def set_status(self, question_id, status):
         if status not in {"pending", "ready", "completed", "answered", "in_progress"}:
-            print("\n\n\n")
-            print(f"Invalid status: {status}")
-            print(f"Question ID: {question_id}")
-            print("\n\n\n")
             raise ValueError("Invalid status. Must be one of: 'pending', 'ready', 'completed', 'answered', 'in_progress'.")
         for question in self.buffer:
             if question["id"] == question_id:

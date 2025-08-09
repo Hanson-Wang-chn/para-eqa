@@ -24,9 +24,6 @@ def get_confidence(question_desc, kb, prompt_get_confidence, model_name="qwen/qw
     # 构造提示
     prompt = prompt_get_confidence.format(question_desc)
     
-    # 调用VLM
-    response = vlm.request_with_retry(image=None, prompt=prompt, kb=kb)[0]
-    
     # 选项和数值的对照表
     choices_mapping = {
         "A": 0.1,
@@ -36,20 +33,36 @@ def get_confidence(question_desc, kb, prompt_get_confidence, model_name="qwen/qw
         "E": 0.9
     }
     
-    # 解析响应获取置信度
-    try:
-        confidence = choices_mapping.get(response.strip().upper(), -1.0)
-        if confidence == -1.0:
-            logging.error(f"无法从VLM响应中解析置信度: {response}")
-            return 0.0
-        
-        # 确保置信度在[0,1]范围内
-        confidence = max(0.0, min(1.0, confidence))
-        return confidence
+    # 最多重试5次
+    max_retries = 5
     
-    except ValueError:
-        logging.error(f"无法从VLM响应中解析置信度: {response}")
-        return 0.0
+    for attempt in range(max_retries):
+        try:
+            # 调用VLM
+            response = vlm.request_with_retry(image=None, prompt=prompt, kb=kb)[0]
+            
+            # 解析响应获取置信度
+            confidence = choices_mapping.get(response.strip().upper(), -1.0)
+            
+            if confidence != -1.0:
+                # 成功解析，确保置信度在[0,1]范围内并返回
+                confidence = max(0.0, min(1.0, confidence))
+                if attempt > 0:
+                    logging.info(f"第{attempt + 1}次尝试成功解析置信度: {confidence}")
+                return confidence
+            
+            else:
+                logging.warning(f"第{attempt + 1}次尝试无法解析置信度，VLM响应: {response}")
+        
+        except ValueError as e:
+            logging.warning(f"第{attempt + 1}次尝试解析置信度时发生错误: {e}, VLM响应: {response}")
+        
+        except Exception as e:
+            logging.error(f"第{attempt + 1}次尝试调用VLM时发生错误: {e}")
+    
+    # 所有重试都失败，返回默认值
+    logging.error(f"经过{max_retries}次尝试后仍无法从VLM响应中解析置信度，返回默认值0.0")
+    return 0.0
 
 
 """

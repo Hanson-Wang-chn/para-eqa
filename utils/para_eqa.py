@@ -89,7 +89,8 @@ def search(redis_conn, text, image=None, top_k=5):
     try:
         redis_conn.xgroup_create(responses_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](PLA) Memory response group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](PLA) Memory response group already exists: {e}")
+        pass
     
     # 发送请求
     redis_conn.xadd(requests_stream, {"data": json.dumps(request)})
@@ -195,7 +196,8 @@ def update(redis_conn, text, image=None):
     try:
         redis_conn.xgroup_create(responses_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](PLA) Memory response group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](PLA) Memory response group already exists: {e}")
+        pass
     
     # 发送请求
     redis_conn.xadd(requests_stream, {"data": json.dumps(request)})
@@ -268,7 +270,7 @@ def update(redis_conn, text, image=None):
     return True
 
 
-def can_stop(redis_conn, question, rgb_im=None):
+def can_stop(redis_conn, question, rgb_im=None, must_stop=False):
     """
     向Stopping Service发送请求，询问是否可以停止探索
     
@@ -287,7 +289,8 @@ def can_stop(redis_conn, question, rgb_im=None):
     request_id = str(uuid.uuid4())
     request = {
         "question": question,
-        "image": image_data
+        "image": image_data,
+        "must_stop": must_stop
     }
     
     # 定义流
@@ -299,7 +302,8 @@ def can_stop(redis_conn, question, rgb_im=None):
     try:
         redis_conn.xgroup_create(stopping_to_planner_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        logging.info(f"[{os.getpid()}](PLA) Stopping response group already exists: {e}")
+        # logging.info(f"[{os.getpid()}](PLA) Stopping response group already exists: {e}")
+        pass
     
     # 发送请求
     redis_conn.xadd(planner_to_stopping_stream, {"data": json.dumps(request)})
@@ -787,7 +791,6 @@ class ParaEQA:
         # Run steps
         pts_pixs = np.empty((0, 2))  # for plotting path on the image
         
-        # TODO: 日志中显示了cnt_step不递增的问题
         for cnt_step in range(num_step):
             logging.info(f"\n== step: {cnt_step}")
 
@@ -948,7 +951,6 @@ class ParaEQA:
                                 top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
                             )
                         
-                        # TODO: 这里没有结合全局语义和已探索的内容，最好优化
                         # "... Which direction (black letters on the image) would you explore then? ..."
                         response = self.vlm.request_with_retry(rgb_im_draw, self.prompt_lsv.format(question), kb)[0]
                         
@@ -1023,6 +1025,21 @@ class ParaEQA:
             rotation = quat_to_coeffs(
                 quat_from_angle_axis(angle, np.array([0, 1, 0]))
             ).tolist()
+            
+            # TODO:
+            # 当达到最大探索步数时，强制结束探索
+            if cnt_step == num_step - 1:
+                logging.info(f"达到最大探索步数 {num_step}，强制结束探索")
+                stopping_response = can_stop(self.redis_conn, question_data, rgb_im, must_stop=True)
+                if stopping_response.get("status") == "stop":
+                    # 可以停止探索，结束循环
+                    logging.info(f"[{os.getpid()}](PLA) Stopping Service决定停止探索，置信度设置为1.0")
+                else:
+                    raise RuntimeError(
+                        f"达到最大探索步数 {num_step}，但Stopping Service未能确认停止探索"
+                    )
+                
+                
 
         # Episode summary
         logging.info(f"\n== Episode Summary")
