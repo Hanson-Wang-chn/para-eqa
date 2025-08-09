@@ -885,35 +885,6 @@ class ParaEQA:
                     logging.info(f"[{os.getpid()}](PLA) Stopping Service决定停止探索，置信度: {stopping_response.get('confidence', 0.0)}")
                     break
 
-                # 对于过程性的探索判断，仍然保留原来的代码
-                if self.config.get("memory", {}).get("use_rag", True):
-                    kb = search(
-                        self.redis_conn, 
-                        self.prompt_rel.format(question), 
-                        rgb_im, 
-                        top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
-                    )
-                
-                smx_vlm_rel = stopping_response.get('confidence', 0.0)
-
-                if self.config.get("memory", {}).get("use_rag", True):
-                    kb = search(
-                        self.redis_conn, 
-                        self.prompt_question.format(vlm_question), 
-                        rgb_im, 
-                        top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
-                    )
-                
-                # "... Answer with the option's letter from the given choices directly. ..."
-                smx_vlm_pred = self.vlm.request_with_retry(rgb_im, self.prompt_question.format(vlm_question), kb)[0].strip(".")
-                
-                logging.info(f"Pred - Prob: {smx_vlm_pred}")
-
-                # save data
-                result["step"][cnt_step]["smx_vlm_rel"] = smx_vlm_rel
-                result["step"][cnt_step]["smx_vlm_pred"] = smx_vlm_pred
-                result["step"][cnt_step]["is_success"] = smx_vlm_pred == answer
-
                 # Get frontier candidates
                 prompt_points_pix = []
                 if self.config.get("use_active", True):
@@ -1026,7 +997,6 @@ class ParaEQA:
                 quat_from_angle_axis(angle, np.array([0, 1, 0]))
             ).tolist()
             
-            # TODO:
             # 当达到最大探索步数时，强制结束探索
             if cnt_step == num_step - 1:
                 logging.info(f"达到最大探索步数 {num_step}，强制结束探索")

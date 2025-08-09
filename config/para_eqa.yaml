@@ -19,12 +19,12 @@ vlm:
   # RTX 5090 * 1: "http://100.88.238.80:11434/v1"
   # RTX 4090 * 4: "http://58.198.176.200:11434/v1"
   # RTX 4090 D * 1: "http://49.52.18.227:11434/v1"
-  
-  # 零成本高性能
+
+  # 适中成本
   answering:
-    model: qwen2.5vl:72b
-    server: ollama
-    base_url: "http://58.198.176.200:11434/v1"
+    model: openai/gpt-5-mini
+    server: openrouter
+    base_url: 
     api_key:
 
   finishing:
@@ -40,9 +40,9 @@ vlm:
     api_key:
 
   stopping:
-    model: qwen2.5vl:72b
-    server: ollama
-    base_url: "http://58.198.176.200:11434/v1"
+    model: openai/gpt-5-mini
+    server: openrouter
+    base_url: 
     api_key:
 
   updater:
@@ -64,10 +64,59 @@ vlm:
     api_key:
 
   planner_tiny:
-    model: qwen2.5vl:72b
+    model: qwen2.5vl:7b
     server: ollama
-    base_url: "http://58.198.176.200:11434/v1"
+    base_url: "http://49.52.18.227:11434/v1"
     api_key:
+  
+  # # 零成本高性能
+  # answering:
+  #   model: qwen2.5vl:72b
+  #   server: ollama
+  #   base_url: "http://58.198.176.200:11434/v1"
+  #   api_key:
+
+  # finishing:
+  #   model: qwen2.5vl:72b
+  #   server: ollama
+  #   base_url: "http://58.198.176.200:11434/v1"
+  #   api_key:
+
+  # parser:
+  #   model: gpt-oss:20b
+  #   server: ollama
+  #   base_url: "http://100.88.238.80:11434/v1"
+  #   api_key:
+
+  # stopping:
+  #   model: qwen2.5vl:72b
+  #   server: ollama
+  #   base_url: "http://58.198.176.200:11434/v1"
+  #   api_key:
+
+  # updater:
+  #   model: gpt-oss:20b
+  #   server: ollama
+  #   base_url: "http://100.88.238.80:11434/v1"
+  #   api_key:
+
+  # planner:
+  #   model: qwen2.5vl:72b
+  #   server: ollama
+  #   base_url: "http://58.198.176.200:11434/v1"
+  #   api_key:
+
+  # planner_lite:
+  #   model: qwen2.5vl:72b
+  #   server: ollama
+  #   base_url: "http://58.198.176.200:11434/v1"
+  #   api_key:
+
+  # planner_tiny:
+  #   model: qwen2.5vl:72b
+  #   server: ollama
+  #   base_url: "http://58.198.176.200:11434/v1"
+  #   api_key:
 
   # # 零成本高效率
   # answering:
@@ -126,7 +175,7 @@ memory:
   dimension: 768
   weight_image: 0.5
   weight_text: 0.5
-  max_retrieval_num: 1
+  max_retrieval_num: 3
   replace_memory: false  # 是否替换相似的记忆
   lambda_sim: 0.5
 
@@ -161,7 +210,7 @@ generator:
   shuffle: false
 
 finishing:
-  retrieval_num: 1
+  retrieval_num: 3
   confidence_threshold: 0.5
 
 stopping:
@@ -301,7 +350,7 @@ prompt:
   
   answering:
     get_answer: |
-      "Consider the question: '{}'. \nAnswer with the option's letter from the given choices directly."
+      "Consider the question: '{}'. \nAnswer with the option's letter from the given choices directly. If you have no idea what the correct answer is, just choose an answer randomly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
   
   updater:
     get_cost_estimate:
