@@ -1,7 +1,5 @@
 # service/generator_service.py
 
-# TODO: 接受来自question_pool_service.py的组完成消息后，进行下一组问题的发送或终止程序
-
 import os
 import json
 import time

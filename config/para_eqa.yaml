@@ -222,7 +222,7 @@ updater:
   enable_reward_estimate: false
 
 answering:
-  result_path: results/answers.json
+  result_path: results/answers
 
 planner:
   dist_T: 10

@@ -13,7 +13,7 @@ def get_current_group_id(redis_conn):
         return None
     
     # 从键获取 group_id 值
-    # TODO: 读取最新的一个键
+    # 必须读取最新的一个键
     group_id_key = keys[-1]
     group_id = redis_conn.get(group_id_key)
     return group_id

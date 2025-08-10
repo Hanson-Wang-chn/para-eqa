@@ -600,7 +600,6 @@ class ParaEQA:
         pathfinder.seed(self.config.get("seed", 42))
         pathfinder.load_nav_mesh(navmesh_file)
         
-        # TODO: 这里总是报错
         if not pathfinder.is_loaded:
             logging.error("Not loaded .navmesh file yet. Please check file path {}.".format(navmesh_file))
 
