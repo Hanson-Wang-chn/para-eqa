@@ -66,7 +66,7 @@ vlm:
   planner_tiny:
     model: qwen2.5vl:7b
     server: ollama
-    base_url: "http://49.52.18.227:11434/v1"
+    base_url: "http://100.88.238.80:11434/v1"
     api_key:
   
   # # 零成本高性能

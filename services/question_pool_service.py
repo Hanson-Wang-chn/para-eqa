@@ -23,7 +23,7 @@ def send_group_completed(redis_conn, group_id, request_id=None):
             "group_id": group_id
         }
     }
-    redis_conn.xadd(STREAMS["pool_responses"], {"data": json.dumps(msg)})
+    redis_conn.xadd(STREAMS["pool_to_generator"], {"data": json.dumps(msg)})
     logging.info(f"[{os.getpid()}](QUE) 已发送组完成消息: {group_id}")
 
 
@@ -32,7 +32,20 @@ def run(config: dict):
     Question Pool Service 的主运行函数。
     负责维护问题池、更新问题依赖关系及状态、响应添加问题和完成问题的请求。
     """
-    # 设置日志部分保持不变...
+    # 设置日志
+    parent_dir = config.get("output_parent_dir", "results")
+    logs_dir = os.path.join(parent_dir, "question_pool_logs")
+    if not os.path.exists(logs_dir):
+        os.makedirs(logs_dir, exist_ok=True)
+    logging_path = os.path.join(logs_dir, "question_pool.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        handlers=[
+            logging.FileHandler(logging_path, mode="w"),
+            logging.StreamHandler(),
+        ],
+    )
     
     # 初始化 Updater 实例
     updater = Updater(config)
@@ -136,7 +149,7 @@ def run(config: dict):
                             
                             if highest_priority_question:
                                 # 更新问题状态为 "in_progress"
-                                updater.buffer.set_status(highest_priority_question["id"], "in_progress")
+                                updater.set_status(highest_priority_question["id"], "in_progress")
                                 
                                 # 返回问题
                                 response = {
@@ -157,6 +170,27 @@ def run(config: dict):
                                 }
                                 redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
                         
+                        elif request_type == "clear_buffer":
+                            # 清空内部缓冲区
+                            try:
+                                updater.clear_buffer()
+                                logging.info(f"[{os.getpid()}](QUE) Question buffer cleared successfully.")
+                                response = {
+                                    "request_id": request_id,
+                                    "status": "success",
+                                    "type": "buffer_cleared"
+                                }
+                                redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
+                            except Exception as e:
+                                logging.error(f"[{os.getpid()}](QUE) Error clearing buffer: {e}")
+                                response = {
+                                    "request_id": request_id,
+                                    "status": "error",
+                                    "type": "buffer_cleared",
+                                    "error": str(e)
+                                }
+                                redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
+                        
                         elif request_type == "answer_question":
                             # 处理添加答案请求
                             try:
@@ -164,7 +198,7 @@ def run(config: dict):
                                 
                                 try:
                                     # 检查buffer中是否已有该问题
-                                    existing_question = updater.buffer.get_question_by_id(question_id)
+                                    existing_question = updater.get_question_by_id(question_id)
                                     
                                     if existing_question["status"] == "completed":
                                         # 更新问题答案和状态
@@ -184,9 +218,10 @@ def run(config: dict):
                                             "data": {"id": question_id}
                                         }
                                         redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
+                                    
                                     else:
                                         # 状态不是completed
-                                        msg = f"Question {question_id} status is {existing_question['status']}, not completed"
+                                        msg = f"Question {question_id} status is {existing_question['status']}, not 'completed'"
                                         logging.error(f"[{os.getpid()}](QUE) {msg}")
                                         
                                         response = {
@@ -198,11 +233,17 @@ def run(config: dict):
                                         redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
                                         
                                 except ValueError:
-                                    # 问题不在buffer中，添加新问题
-                                    request_data["status"] = "answered"
-                                    updater.buffer.write_latest_questions([request_data])
+                                    # 问题不在缓冲区中，说明问题直接从finishing module进入answering module
+                                    logging.info(f"[{os.getpid()}](QUE) New answered question {question_id} is not in the buffer. Must be sent to ANS by FIN. Adding to pool.")
                                     
-                                    logging.info(f"[{os.getpid()}](QUE) New answered question {question_id} added to buffer")
+                                    # 直接把状态为answered的问题添加到buffer中
+                                    updater.add_answered_question_directly(request_data)
+                                    logging.info(f"[{os.getpid()}](QUE) Added answered question {question_id} directly to the pool.")
+                                    
+                                    # 检查问题组是否全部完成
+                                    group_id = get_current_group_id(redis_conn)
+                                    if group_id and updater.is_group_completed(redis_conn, group_id):
+                                        send_group_completed(redis_conn, group_id, request_id)
                                     
                                     # 发送成功响应
                                     response = {
@@ -219,22 +260,8 @@ def run(config: dict):
                                 response = {
                                     "request_id": request_id,
                                     "status": "error",
-                                    "type": "answer_added",
+                                    "type": "no_such_question",
                                     "error": str(e)
-                                }
-                                redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
-                        
-                        elif request_type == "check_group_completed":
-                            # 检查组是否完成
-                            group_id = request_data.get('group_id')
-                            if updater.is_group_completed(redis_conn, group_id):
-                                send_group_completed(redis_conn, group_id, request_id)
-                            else:
-                                response = {
-                                    "request_id": request_id,
-                                    "status": "success",
-                                    "type": "group_status",
-                                    "data": {"completed": False, "group_id": group_id}
                                 }
                                 redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
                         

@@ -120,6 +120,15 @@ class Updater:
         self.buffer.set_status(question_completed["id"], "answered")
     
     
+    def add_answered_question_directly(self, question):
+        """
+        直接添加一个已回答的问题到缓冲区中，跳过Finishing Module的处理。
+        该方法用于处理从Finishing Module直接进入Answering Module的问题。
+        """
+        question["status"] = "answered"
+        self.buffer.add_question(question)
+    
+    
     def get_highest_priority_question(self):
         """获取当前优先级最高的问题"""
         if self.highest_priority_question is None:
@@ -152,6 +161,21 @@ class Updater:
         if len(buffer_questions) == total_expected:
             return True
         return False
+    
+    
+    def clear_buffer(self):
+        self.buffer.clear()
+        self.highest_priority_question = None
+        self.highest_priority_score = float('-inf')
+        logging.info(f"[{os.getpid()}](QUE) Buffer cleared.")
+    
+    
+    def get_question_by_id(self, question_id):
+        return self.buffer.get_question_by_id(question_id)
+    
+    
+    def set_status(self, question_id, status):
+        return self.buffer.set_status(question_id, status)
     
     
     def _calculate_priority_score(self, question):

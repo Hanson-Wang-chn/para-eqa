@@ -106,7 +106,7 @@ def run(config: dict):
     
     # Redis Initialization
     redis_conn = get_redis_connection(config)
-    stream_name = STREAMS["new_questions"]
+    stream_name = STREAMS["generator_to_parser"]
     group_name = "parser_group"
 
     # 尝试创建消费者组，如果已存在则会报错，但可以安全地忽略

@@ -10,9 +10,6 @@ TODO: 总计划
 6. 增加控制字段，对比实验
 """
 
-# TODO: Qwen2.5-VL-72B-Instruct在回答关于单张图片的问题时，效果非常好；图片多了就不准了。
-# TODO: 单组多问题时，每次select的都是同一个问题，需要检查删除问题的逻辑。
-
 """
 Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 6379:6379 -p 8001:8001 redis/redis-stack:latest` or `docker start para-eqa-redis` to start Redis.
 """
@@ -20,7 +17,7 @@ Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 637
 """
 1. 读取配置文件
 2. 启动并初始化各个微服务
-3. 收集并统计运行结果
+3. 各个微服务的优雅退出
 """
 
 import os
@@ -34,6 +31,7 @@ import yaml
 import time
 import redis
 import shutil
+import threading
 from multiprocessing import Process, Manager, set_start_method
 
 from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STATS_KEYS
@@ -80,71 +78,75 @@ def initialize_system(config):
     redis_conn.flushdb()
 
 
-def display_stats(config):
-    """从Redis中读取并显示统计信息"""
+def listen_for_shutdown(config, processes, shutdown_event):
+    """
+    监听系统关闭请求并触发关闭事件
+    
+    Args:
+        config: 配置字典
+        processes: 服务进程列表
+        shutdown_event: 关闭事件，用于通知主线程
+    """
+    # 连接Redis
     redis_conn = get_redis_connection(config['redis'])
+    system_shutdown_stream = STREAMS["system_shutdown"]
     
-    # 获取所有统计信息
-    all_stats = {}
-    for service_name, stats_key in STATS_KEYS.items():
-        stats = redis_conn.hgetall(stats_key)
-        if stats:
-            all_stats[service_name] = stats
+    # 创建消费者组
+    group_name = "main_shutdown_group"
+    try:
+        redis_conn.xgroup_create(system_shutdown_stream, group_name, id='0', mkstream=True)
+    except Exception as e:
+        # 组可能已存在，忽略错误
+        pass
     
-    # 获取问题状态统计
-    question_prefix = KEY_PREFIXES["question"]
-    q_keys = redis_conn.keys(f"{question_prefix}*")
-    status_counts = {"pending": 0, "ready": 0, "In_progress": 0, "Completed": 0}
+    logging.info("主进程开始监听系统关闭请求...")
     
-    if q_keys:
-        pipe = redis_conn.pipeline()
-        for key in q_keys:
-            pipe.hget(key, "status")
-        statuses = pipe.execute()
-        for status in statuses:
-            if status and status in status_counts:
-                status_counts[status] += 1
-
-    # 清屏并显示统计信息
-    # os.system('cls' if os.name == 'nt' else 'clear')
-    print("="*50)
-    print("ParaEQA System Monitor")
-    print("="*50)
-    print(f"Total Questions: {sum(status_counts.values())}")
-    print(f"  - Pending:     {status_counts['pending']}")
-    print(f"  - Ready:       {status_counts['ready']}")
-    print(f"  - In Progress: {status_counts['In_progress']}")
-    print(f"  - Completed:   {status_counts['Completed']}")
-    print("-"*50)
-    
-    # 显示各服务的处理统计
-    print("Processing Stats:")
-    if all_stats:
-        for service_name, stats in all_stats.items():
-            print(f"  {service_name.title()} Service:")
-            for key, value in stats.items():
-                print(f"    - {key.replace('_', ' ').title()}: {value}")
-    else:
-        print("  No processing stats available yet.")
-    
-    # 显示流队列信息
-    print("-"*50)
-    print("Stream Queue Status:")
-    for stream_name, stream_key in STREAMS.items():
+    while not shutdown_event.is_set():
         try:
-            stream_info = redis_conn.xinfo_stream(stream_key)
-            length = stream_info.get('length', 0)
-            print(f"  - {stream_name.replace('_', ' ').title()}: {length} messages")
-        except redis.exceptions.ResponseError:
-            # 流不存在
-            print(f"  - {stream_name.replace('_', ' ').title()}: 0 messages")
+            # 从流中读取消息
+            messages = redis_conn.xreadgroup(
+                group_name, "main_worker", 
+                {system_shutdown_stream: '>'}, 
+                count=1, block=1000  # 1秒超时
+            )
+            
+            if not messages:
+                continue
+            
+            for stream, message_list in messages:
+                for message_id, data in message_list:
+                    try:
+                        message = json.loads(data.get('data', '{}'))
+                        logging.info(f"收到系统关闭请求: {message}")
+                        
+                        # 确认消息已处理
+                        redis_conn.xack(system_shutdown_stream, group_name, message_id)
+                        
+                        # 设置关闭事件，通知主线程
+                        shutdown_event.set()
+                        return
+                    
+                    except Exception as e:
+                        logging.error(f"处理系统关闭请求时出错: {e}")
+                        # 确认消息，防止重复处理错误消息
+                        redis_conn.xack(system_shutdown_stream, group_name, message_id)
+        
+        except Exception as e:
+            logging.error(f"监听系统关闭请求时出错: {e}")
+            time.sleep(1)
+
+
+def shutdown_services(processes):
+    """
+    优雅地关闭所有服务
     
-    print("="*50)
-    print("Press Ctrl+C to shut down.")
-    
-    # 返回是否所有任务都已完成
-    total_questions = sum(status_counts.values())
-    return total_questions > 0 and status_counts['Completed'] == total_questions
+    Args:
+        processes: 服务进程列表
+    """
+    for p in processes:
+        p.terminate()
+        p.join()
+    logging.info("All services have been shut down gracefully.")
 
 
 if __name__ == "__main__":
@@ -197,20 +199,24 @@ if __name__ == "__main__":
         processes.append(process)
         logging.info(f"[+] {name} service started (PID: {process.pid})")
     
+    # 创建关闭事件
+    shutdown_event = threading.Event()
+    
+    # 启动监听线程
+    shutdown_thread = threading.Thread(target=listen_for_shutdown, args=(config, processes, shutdown_event))
+    shutdown_thread.daemon = True  # 设为守护线程，主线程结束时自动结束
+    shutdown_thread.start()
+    
     try:
         while True:
-            # all_done = display_stats(config)
-            # if all_done:
-            #     logging.info("\nAll tasks completed. System is idle.")
-            # time.sleep(10)
+            # 如果关闭事件被触发，优雅关闭服务
+            if shutdown_event.is_set():
+                logging.info("\nShutdown signal received. Terminating all services...")
+                shutdown_services(processes)
+                break
             time.sleep(1)
+    
     except KeyboardInterrupt:
-        logging.info("\nShutdown signal received. Terminating all services...")
-        for p in processes:
-            p.terminate()
-            p.join()
-        logging.info("All services have been shut down gracefully.")
-
-
-
-
+        logging.info("\nKeyboardInterrupt received. Terminating all services...")
+        shutdown_event.set()  # 设置事件，让监听线程也能退出
+        shutdown_services(processes)

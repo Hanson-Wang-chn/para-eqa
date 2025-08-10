@@ -13,6 +13,97 @@ import glob
 from common.redis_client import get_redis_connection, STREAMS, GROUP_INFO
 
 
+def wait_for_group_completion(redis_conn, group_id):
+    """
+    等待来自Question Pool的组完成消息
+    
+    Args:
+        redis_conn: Redis连接对象
+        group_id: 组ID
+        
+    Returns:
+        bool: 是否成功收到组完成消息
+    """
+    pool_to_generator_stream = STREAMS["pool_to_generator"]
+    
+    # 创建消费者组
+    group_name = "generator_group"
+    try:
+        redis_conn.xgroup_create(pool_to_generator_stream, group_name, id='0', mkstream=True)
+    except Exception as e:
+        # 组可能已存在，忽略错误
+        pass
+    
+    logging.info(f"[{os.getpid()}](GEN) 等待组 {group_id} 完成消息...")
+    
+    while True:
+        try:
+            # 从流中读取消息
+            messages = redis_conn.xreadgroup(
+                group_name, "generator_worker", 
+                {pool_to_generator_stream: '>'}, 
+                count=1, block=100
+            )
+            
+            if not messages:
+                # logging.info(f"[{os.getpid()}](GEN) 等待组 {group_id} 完成中...")
+                time.sleep(0.1)
+                continue
+            
+            for stream, message_list in messages:
+                for message_id, data in message_list:
+                    try:
+                        message = json.loads(data.get('data', '{}'))
+                        message_type = message.get('type')
+                        message_data = message.get('data', {})
+                        message_group_id = message_data.get('group_id')
+                        
+                        logging.info(f"[{os.getpid()}](GEN) 收到消息: {message_type}, 组ID: {message_group_id}")
+                        
+                        # 确认消息已处理
+                        redis_conn.xack(pool_to_generator_stream, group_name, message_id)
+                        
+                        # 检查消息类型和组ID
+                        if message_type == "group_completed" and message_group_id == group_id:
+                            logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 已完成处理")
+                            return True
+                    
+                    except Exception as e:
+                        logging.error(f"[{os.getpid()}](GEN) 处理组完成消息时出错: {e}")
+                        # 确认消息，防止重复处理错误消息
+                        redis_conn.xack(pool_to_generator_stream, group_name, message_id)
+        
+        except Exception as e:
+            logging.error(f"[{os.getpid()}](GEN) 等待组完成消息时出错: {e}")
+            time.sleep(1)
+
+
+def send_system_shutdown(redis_conn):
+    """
+    向主进程发送系统关闭请求
+    
+    Args:
+        redis_conn: Redis连接对象
+        
+    Returns:
+        bool: 是否成功发送关闭请求
+    """
+    request_id = str(uuid.uuid4())
+    request = {
+        "request_id": request_id,
+        "type": "system_shutdown",
+        "data": {
+            "timestamp": time.time()
+        }
+    }
+    
+    system_shutdown_stream = STREAMS["system_shutdown"]
+    redis_conn.xadd(system_shutdown_stream, {"data": json.dumps(request)})
+    logging.info(f"[{os.getpid()}](GEN) 已发送系统关闭请求: {request_id}")
+    
+    return True
+
+
 def load_question_data(file_path):
     """
     从YAML文件中加载问题数据
@@ -54,8 +145,10 @@ def store_group_info(redis_conn, group_data):
     # 计算问题数量
     questions_init = group_data.get('questions_init', [])
     questions_follow_up = group_data.get('questions_follow_up', [])
-    num_questions_init = len(questions_init)
-    num_questions_follow_up = len(questions_follow_up)
+    num_questions_init = len(questions_init) if questions_init else 0
+    num_questions_follow_up = len(questions_follow_up) if questions_follow_up else 0
+    if num_questions_init == 0 and num_questions_follow_up == 0:
+        raise ValueError(f"问题组 {group_id} 必须包含至少一个初始或后续问题")
     
     # 为每个问题生成ID并映射答案
     question_ids_to_answers = {}
@@ -63,24 +156,26 @@ def store_group_info(redis_conn, group_data):
     processed_follow_up_questions = []
     
     # 处理初始问题
-    for q in questions_init:
-        q_id = str(uuid.uuid4())
-        answer = q.get('answer')
-        question_ids_to_answers[q_id] = answer if answer is not None else ''
-        processed_init_questions.append({
-            "id": q_id,
-            "description": q.get('question', '') or ''
-        })
+    if questions_init:
+        for q in questions_init:
+            q_id = str(uuid.uuid4())
+            answer = q.get('answer')
+            question_ids_to_answers[q_id] = answer if answer is not None else ''
+            processed_init_questions.append({
+                "id": q_id,
+                "description": q.get('question', '') or ''
+            })
     
     # 处理后续问题
-    for q in questions_follow_up:
-        q_id = str(uuid.uuid4())
-        answer = q.get('answer')
-        question_ids_to_answers[q_id] = answer if answer is not None else ''
-        processed_follow_up_questions.append({
-            "id": q_id,
-            "description": q.get('question', '') or ''
-        })
+    if questions_follow_up:
+        for q in questions_follow_up:
+            q_id = str(uuid.uuid4())
+            answer = q.get('answer')
+            question_ids_to_answers[q_id] = answer if answer is not None else ''
+            processed_follow_up_questions.append({
+                "id": q_id,
+                "description": q.get('question', '') or ''
+            })
     
     # 将信息存入Redis
     pipe = redis_conn.pipeline()
@@ -193,68 +288,6 @@ def scan_question_files(directory):
     return yaml_files
 
 
-def wait_for_group_completion(redis_conn, group_id):
-    """
-    等待Question Pool发送组完成的消息
-    
-    Args:
-        redis_conn: Redis连接对象
-        group_id: 当前处理的组ID
-        
-    Returns:
-        bool: 组是否已完成
-    """
-    logging.info(f"[{os.getpid()}](GEN) 等待组 {group_id} 完成确认...")
-    
-    # 创建消费者组（如果不存在）
-    pool_responses_stream = STREAMS["pool_responses"]
-    try:
-        redis_conn.xgroup_create(pool_responses_stream, "generator_group", id='0', mkstream=True)
-    except Exception as e:
-        # logging.info(f"[{os.getpid()}](GEN) Generator response group already exists: {e}")
-        pass
-    
-    # 发送检查组完成请求
-    request_id = str(uuid.uuid4())
-    request = {
-        "request_id": request_id,
-        "sender": "generator",
-        "type": "check_group_completed",
-        "data": {"group_id": group_id}
-    }
-    redis_conn.xadd(STREAMS["pool_requests"], {"data": json.dumps(request)})
-    
-    # 等待响应
-    while True:
-        messages = redis_conn.xreadgroup(
-            "generator_group", "generator_worker", 
-            {pool_responses_stream: '>'}, 
-            count=20, block=100
-        )
-        
-        if not messages:
-            continue
-        
-        for _, message_list in messages:
-            for message_id, data in message_list:
-                try:
-                    response = json.loads(data.get('data', '{}'))
-                    response_type = response.get('type')
-                    
-                    # 确认消息已处理
-                    redis_conn.xack(pool_responses_stream, "generator_group", message_id)
-                    
-                    # 检查是否是组完成消息
-                    if response_type == "group_completed" and response.get('data', {}).get('group_id') == group_id:
-                        logging.info(f"[{os.getpid()}](GEN) 收到组 {group_id} 完成确认")
-                        return True
-                    
-                except Exception as e:
-                    logging.warning(f"[{os.getpid()}](GEN) 处理消息时出错: {e}")
-                    # 确认消息以防止无限循环
-                    redis_conn.xack(pool_responses_stream, "generator_group", message_id)
-
-
 def clear_memory(redis_conn):
     """
     向Memory Service发送清空知识库的请求
@@ -274,6 +307,33 @@ def clear_memory(redis_conn):
     memory_requests_stream = STREAMS["memory_requests"]
     redis_conn.xadd(memory_requests_stream, {"data": json.dumps(request)})
     logging.info(f"[{os.getpid()}](GEN) 已向Memory Service发送清空知识库请求: {request_id}")
+    
+    return True
+
+
+def clear_buffer(redis_conn):
+    """
+    向Question Pool Service发送清空问题缓冲区的请求
+    
+    Args:
+        redis_conn: Redis连接对象
+        
+    Returns:
+        bool: 操作是否成功
+    """
+    request_id = str(uuid.uuid4())
+    request = {
+        "request_id": request_id,
+        "sender": "generator",
+        "type": "clear_buffer",
+        "data": {
+            "timestamp": time.time()
+        }
+    }
+    
+    pool_requests_stream = STREAMS["pool_requests"]
+    redis_conn.xadd(pool_requests_stream, {"data": json.dumps(request)})
+    logging.info(f"[{os.getpid()}](GEN) 已向Question Pool Service发送清空问题缓冲区请求: {request_id}")
     
     return True
 
@@ -305,26 +365,33 @@ def run(config: dict):
     
     # 连接 Redis
     redis_conn = get_redis_connection(config)
-    stream_name = STREAMS["new_questions"]
+    stream_name = STREAMS["generator_to_parser"]
     
     logging.info(f"[{os.getpid()}](GEN) Generator service started.")
     
     # 查找并处理所有YAML文件
     yaml_files = scan_question_files(question_data_path)
+    yaml_files = sorted(yaml_files)  # 按文件名排序
     
     if not yaml_files:
         logging.error(f"[{os.getpid()}](GEN) 未找到问题文件，退出服务")
         return
     
+    logging.info(f"[{os.getpid()}](GEN) 共 {len(yaml_files)} 个问题组，开始处理")
+    
     try:
         # 处理每一个yaml文件
         for file_index, file_path in enumerate(yaml_files):
+            is_last_file = file_index == len(yaml_files) - 1
             logging.info(f"[{os.getpid()}](GEN) 处理问题文件 [{file_index+1}/{len(yaml_files)}]: {file_path}")
             
             # 1. 清空知识库
             clear_memory(redis_conn)
             
-            # 2. 加载问题数据
+            # 2. 清空问题缓冲区
+            clear_buffer(redis_conn)
+            
+            # 3. 加载问题数据
             group_data = load_question_data(file_path)
             if not group_data:
                 logging.error(f"[{os.getpid()}](GEN) 无法加载问题数据，跳过此文件")
@@ -332,7 +399,7 @@ def run(config: dict):
             
             group_id = group_data.get('group_id', '')
             
-            # 3. 存储组信息到Redis并获取处理后的问题列表
+            # 4. 存储组信息到Redis并获取处理后的问题列表
             processed_questions = store_group_info(redis_conn, group_data)
             
             init_questions = processed_questions['questions_init']
@@ -341,27 +408,34 @@ def run(config: dict):
             logging.info(f"[{os.getpid()}](GEN) 将立即发送 {len(init_questions)} 个初始问题")
             logging.info(f"[{os.getpid()}](GEN) 将每隔 {interval_seconds} 秒发送 {len(follow_up_questions)} 个后续问题")
             
-            # 4. 发送初始问题
+            # 5. 发送初始问题
             init_sent = send_init_questions(redis_conn, init_questions, stream_name)
             
-            # 5. 发送后续问题
-            follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
+            # 6. 发送后续问题
+            if follow_up_questions:
+                follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
+                logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent + follow_up_sent} 个问题")
+            else:
+                logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 没有后续问题，已发送 {init_sent} 个初始问题")
             
-            logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent} 个问题")
+            # 7. 等待来自question_pool_service的组完成请求
+            wait_for_group_completion(redis_conn, group_id)
             
-            # logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent + follow_up_sent} 个问题")
-            
-            # 6. 等待组完成确认
-            if file_index < len(yaml_files) - 1:  # 如果不是最后一个文件，需要等待确认
-                wait_for_group_completion(redis_conn, group_id)
+            # 8. 判断是否是最后一个文件
+            if is_last_file:
+                logging.info(f"[{os.getpid()}](GEN) 这是最后一个问题组，将发送系统关闭请求")
+                send_system_shutdown(redis_conn)
+                break  # 退出循环，不再处理其他文件
+            else:
+                logging.info(f"[{os.getpid()}](GEN) 继续处理下一个问题组")
         
         logging.info(f"[{os.getpid()}](GEN) 所有问题组处理完毕，总共 {len(yaml_files)} 组")
         
         # 保持进程运行，直到被终止
         while True:
-            time.sleep(3600)  # 睡眠1小时，保持进程活跃
+            time.sleep(1)
             
     except KeyboardInterrupt:
         logging.info(f"[{os.getpid()}](GEN) Generator service received shutdown signal")
     except Exception as e:
-        logging.error(f"[{os.getpid()}](GEN) Generator service encountered an error: {e}")
+        logging.exception(f"[{os.getpid()}](GEN) Generator service encountered an error: {e}")

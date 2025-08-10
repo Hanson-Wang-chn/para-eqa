@@ -276,7 +276,6 @@ class VLM_API:
     
 if __name__ == "__main__":
     # 测试API调用是否正常
-    # model_name = "deepseek/deepseek-chat"
     model_name = "gpt-oss:20b"
     server = "ollama"
     base_url = "http://100.88.238.80:11434/v1"

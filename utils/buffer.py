@@ -6,25 +6,17 @@ class Buffer:
         self.dag = {}
     
     
-    # def add_question(self, question):
-    #     required_keys = {"id", "description", "urgency", "scope_type", "status", 
-    #                     "cost_estimate", "reward_estimate", "dependency", "answer"}
+    def add_question(self, question):
+        required_keys = {"id", "description", "urgency", "scope_type", "status", 
+                        "cost_estimate", "reward_estimate", "dependency", "answer"}
         
-    #     if not isinstance(question, dict):
-    #         raise ValueError("Question must be a dictionary.")
+        if not isinstance(question, dict):
+            raise ValueError("Question must be a dictionary.")
             
-    #     if set(question.keys()) != required_keys:
-    #         raise ValueError("Question must contain exactly the required keys: " + ", ".join(required_keys))
+        if set(question.keys()) != required_keys:
+            raise ValueError("Question must contain exactly the required keys: " + ", ".join(required_keys))
             
-    #     self.buffer.append(question)
-    
-    
-    # def delete_question(self, question_id):
-    #     for i, question in enumerate(self.buffer):
-    #         if question["id"] == question_id:
-    #             del self.buffer[i]
-    #             return
-    #     raise ValueError(f"Question with id {question_id} not found in buffer.")
+        self.buffer.append(question)
     
     
     def set_status(self, question_id, status):
@@ -150,6 +142,7 @@ class Buffer:
 
     def clear(self):
         self.buffer = []
+        self.dag = {}
     
     
     def get_buffer(self):
