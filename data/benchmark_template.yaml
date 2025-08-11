@@ -1,0 +1,28 @@
+group_id: ''
+scene: ''
+floor: 0
+init_x: 
+init_y: 
+init_z: 
+init_angle: 
+
+# Identification: asking about identifying the type of an object, e.g., “Which tablecloth is on the dining table? A) Red B) White C) Black D) Gray”
+# Counting: requiring the agent to count an entity, e.g., “How many chairs are around the dining table?”
+# Existence: asking if an object is present at a location, e.g., “Did I leave my jacket on the bench near the front door? A) Yes B) No”.
+# State (20.2%): asking about the state of an object, e.g., “Is the air conditioning in the living room turned on? A) Yes B) No” or “Is the curtain in the master bedroom closed? A) Yes B) No”.
+# Location (26.0%): asking about the location of an object, e.g., “Where have I left the black suitcase? A) At the corner of the bedroom B) In the hallway C) In the storage room D) Next to TV in the living room”.
+
+questions_init:
+  - question: 
+    answer: 
+  - question: 
+    answer: 
+  - question: 
+    answer: 
+
+
+questions_follow_up:
+  - question: 
+    answer: 
+  - question: 
+    answer: 

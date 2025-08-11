@@ -7,7 +7,7 @@ import time
 import logging
 
 from common.redis_client import get_redis_connection, STREAMS, STATS_KEYS
-from utils.get_confidence import get_confidence
+from utils.get_confidence import get_confidence, get_tryout_confidence
 
 
 def run(config: dict):
@@ -34,9 +34,13 @@ def run(config: dict):
     finishing_config = config.get("finishing", {})
     retrieval_num = finishing_config.get("retrieval_num", 5)
     confidence_threshold = finishing_config.get("confidence_threshold", 0.7)
+    # TODO:
+    enable_tryout_answer = finishing_config.get("enable_tryout_answer", False)
     
     # VLM配置
     prompt_get_confidence = config.get("prompt", {}).get("finishing", {}).get("get_confidence", "")
+    prompt_get_tryout_answer = config.get("prompt", {}).get("stopping", {}).get("get_tryout_answer", "")
+    prompt_get_tryout_confidence = config.get("prompt", {}).get("stopping", {}).get("get_tryout_confidence", "")
     
     config_vlm = config.get("vlm", {}).get("finishing", {})
     model_name = config_vlm.get("model", "qwen/qwen2.5-vl-72b-instruct")
@@ -205,15 +209,28 @@ def run(config: dict):
                         
                         else:
                             # 计算置信度
-                            confidence = get_confidence(
-                                question_desc, 
-                                memory_data,
-                                prompt_get_confidence,
-                                model_name,
-                                server,
-                                base_url,
-                                api_key
-                            )
+                            if not enable_tryout_answer:
+                                confidence = get_confidence(
+                                    question_desc, 
+                                    memory_data,
+                                    prompt_get_confidence,
+                                    model_name,
+                                    server,
+                                    base_url,
+                                    api_key
+                                )
+                            
+                            else:
+                                confidence = get_tryout_confidence(
+                                    question_desc, 
+                                    memory_data,
+                                    prompt_get_tryout_answer,
+                                    prompt_get_tryout_confidence,
+                                    model_name,
+                                    server=server,
+                                    base_url=base_url,
+                                    api_key=api_key
+                                )
                             
                             logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 置信度: {confidence}")
                             

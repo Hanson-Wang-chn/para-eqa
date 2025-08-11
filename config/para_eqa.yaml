@@ -212,10 +212,12 @@ generator:
 finishing:
   retrieval_num: 3
   confidence_threshold: 0.5
+  enable_tryout_answer: false
 
 stopping:
-  retrieval_num: 1
+  retrieval_num: 3
   confidence_threshold: 0.5
+  enable_tryout_answer: false
 
 updater:
   enable_cost_estimate: false
@@ -341,16 +343,68 @@ prompt:
     Please directly provide the structured output in JSON format and DO NOT include any additional text or explanations.
   
   finishing:
+    get_tryout_answer: |
+      Consider the question: '{}'.
+      Answer with the option's letter from the given choices directly based on the information currently available to you (may include the knowledge base, images and context infomation).
+      If you have no idea what the correct answer is, just choose an answer randomly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer.
+    get_tryout_confidence: |
+      Consider the question: '{question_desc}'.
+      If the proposed answer is '{tryout_answer}', how confident are you in confirming this answer is correct based on the information available in the knowledge base?
+
+      A. Very low (Almost no evidence from the knowledge base, and the answer clearly conflicts with known information)
+      B. Low (Very little or unclear evidence from the knowledge base, and most of the answer is inconsistent with available information)
+      C. Medium (Some relevant evidence in the knowledge base supports the answer, but the evidence is incomplete or partially inconsistent)
+      D. High (The knowledge base largely supports the answer, with only minor uncertainty or missing details)
+      E. Very high (The knowledge base fully supports the answer, with complete and unambiguous confirmation)
+
+      Answer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer.
+
     get_confidence: |
-      "Consider the question: '{}'. \n If you are asked to answer the quesiton now, how confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
+      Consider the question: '{}'.
+      If you were asked to answer this question right now, how confident are you that you can provide a correct answer based on the information currently available to you (may include the knowledge base, images and context infomation)?
+
+      A. Very low (Almost no supporting evidence exists in the knowledge base or context; the answer is unsupported or likely to be wrong)
+      B. Low (Only very limited, vague, or indirect support in the knowledge base; significant parts of the answer would require guessing or unsupported assumptions)
+      C. Medium (Some relevant evidence exists in the knowledge base or context that points toward the answer, but the evidence is incomplete, partially inconsistent, or requires moderate inference)
+      D. High (Clear and substantial evidence in the knowledge base and context supports the answer; only minor details are uncertain or missing)
+      E. Very high (Complete, direct, and unambiguous support in the knowledge base and context; you can answer correctly now with high confidence)
+
+      Answer with the single option letter ("A", "B", "C", "D", or "E") only. DO NOT include any additional text, explanation, or the option descriptions. Use an uppercase letter.
+
   
   stopping:
+    get_tryout_answer: |
+      Consider the question: '{}'.
+      Answer with the option's letter from the given choices directly based on the information currently available to you (may include the knowledge base, images and context infomation).
+      If you have no idea what the correct answer is, just choose an answer randomly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer.
+    get_tryout_confidence: |
+      Consider the question: '{question_desc}'.
+      If the proposed answer is '{tryout_answer}', how confident are you in confirming this answer is correct based on the information available in the knowledge base?
+
+      A. Very low (Almost no evidence from the knowledge base, and the answer clearly conflicts with known information)
+      B. Low (Very little or unclear evidence from the knowledge base, and most of the answer is inconsistent with available information)
+      C. Medium (Some relevant evidence in the knowledge base supports the answer, but the evidence is incomplete or partially inconsistent)
+      D. High (The knowledge base largely supports the answer, with only minor uncertainty or missing details)
+      E. Very high (The knowledge base fully supports the answer, with complete and unambiguous confirmation)
+
+      Answer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer.
     get_confidence: |
-      "Consider the question: '{}'. \n If you are asked to answer the quesiton now, how confident are you in answering this question from your current perspective? \nA. Very low \nB. Low \nC. Medium \nD. High \nE. Very high \nAnswer with the option's letter ("A", "B", "C", "D", or "E") from the given choices directly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
+      Consider the question: '{}'.
+      If you were asked to answer this question right now, how confident are you that you can provide a correct answer based on the information currently available to you (may include the knowledge base, images and context infomation)?
+
+      A. Very low (Almost no supporting evidence exists in the knowledge base or context; the answer is unsupported or likely to be wrong)
+      B. Low (Only very limited, vague, or indirect support in the knowledge base; significant parts of the answer would require guessing or unsupported assumptions)
+      C. Medium (Some relevant evidence exists in the knowledge base or context that points toward the answer, but the evidence is incomplete, partially inconsistent, or requires moderate inference)
+      D. High (Clear and substantial evidence in the knowledge base and context supports the answer; only minor details are uncertain or missing)
+      E. Very high (Complete, direct, and unambiguous support in the knowledge base and context; you can answer correctly now with high confidence)
+
+      Answer with the single option letter ("A", "B", "C", "D", or "E") only. DO NOT include any additional text, explanation, or the option descriptions. Use an uppercase letter.
   
   answering:
     get_answer: |
-      "Consider the question: '{}'. \nAnswer with the option's letter from the given choices directly. If you have no idea what the correct answer is, just choose an answer randomly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer."
+      Consider the question: '{}'.
+      Answer with the option's letter from the given choices directly based on the information currently available to you (may include the knowledge base, images and context infomation).
+      If you have no idea what the correct answer is, just choose an answer randomly. DO NOT include any additional text or explanations. Also DO NOT include any option's text in your answer.
   
   updater:
     get_cost_estimate:

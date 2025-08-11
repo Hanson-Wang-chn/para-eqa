@@ -58,7 +58,6 @@ def run(config: dict):
     # 读取配置
     answering_config = config.get("answering", {})
     result_path = answering_config.get("result_path", "results/answers")
-    # TODO: 在results/answers目录下创建若干名为answers_{group_id}.json的文件，存储该问题组中每一个问题的答案。
     
     # 确保结果目录存在
     os.makedirs(os.path.dirname(result_path), exist_ok=True)
