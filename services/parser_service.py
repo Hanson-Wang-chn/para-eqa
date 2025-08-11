@@ -151,6 +151,8 @@ def run(config: dict):
                         "reward_estimate": -1.0, # 待Updater更新
                         "dependency": [],
                         "answer": "",
+                        "max_steps": 0,
+                        "used_steps": 0,
                     }
                     logging.info(f"[{os.getpid()}](PAR) Question metadata: {json.dumps(metadata, indent=2, ensure_ascii=False)}")
                     

@@ -8,7 +8,7 @@ class Buffer:
     
     def add_question(self, question):
         required_keys = {"id", "description", "urgency", "scope_type", "status", 
-                        "cost_estimate", "reward_estimate", "dependency", "answer"}
+                        "cost_estimate", "reward_estimate", "dependency", "answer", "max_steps", "used_steps"}
         
         if not isinstance(question, dict):
             raise ValueError("Question must be a dictionary.")
@@ -50,7 +50,7 @@ class Buffer:
     
     def write_latest_questions(self, new_questions):
         required_keys = {"id", "description", "urgency", "scope_type", "status", 
-                        "cost_estimate", "reward_estimate", "dependency", "answer"}
+                        "cost_estimate", "reward_estimate", "dependency", "answer", "max_steps", "used_steps"}
         
         if not isinstance(new_questions, list):
             raise ValueError("new_questions must be a list.")

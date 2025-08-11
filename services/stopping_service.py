@@ -98,6 +98,7 @@ def run(config: dict):
                     question = request_data.get('question', {})
                     planner_image = request_data.get('image', '')
                     must_stop = request_data.get('must_stop', False)
+                    used_steps = request_data.get('used_steps', 0)
                     
                     question_id = question.get('id')
                     question_desc = question.get('description', '')
@@ -226,6 +227,10 @@ def run(config: dict):
                     # 4. 根据置信度决定是否停止探索
                     if confidence >= confidence_threshold:
                         # 置信度高，可以停止探索并回答问题
+                        
+                        # 更新 used_step
+                        if used_steps > 0:
+                            question["used_steps"] = used_steps
                         
                         # 4.1 向Question Pool发送完成问题的请求
                         answer_request = {

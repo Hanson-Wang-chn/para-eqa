@@ -270,7 +270,7 @@ def update(redis_conn, text, image=None):
     return True
 
 
-def can_stop(redis_conn, question, rgb_im=None, must_stop=False):
+def can_stop(redis_conn, question, rgb_im=None, must_stop=False, used_steps=0):
     """
     向Stopping Service发送请求，询问是否可以停止探索
     
@@ -278,6 +278,8 @@ def can_stop(redis_conn, question, rgb_im=None, must_stop=False):
         redis_conn: Redis连接对象
         question: 问题对象
         images: 图像数据列表，可选
+        must_stop: 是否达到最大步数限制，必须停止探索
+        used_steps: 已使用的步数，默认为0
     
     Returns:
         dict: 停止服务的响应，包含status和confidence等信息
@@ -290,7 +292,8 @@ def can_stop(redis_conn, question, rgb_im=None, must_stop=False):
     request = {
         "question": question,
         "image": image_data,
-        "must_stop": must_stop
+        "must_stop": must_stop,
+        "used_steps": used_steps
     }
     
     # 定义流
@@ -704,6 +707,9 @@ class ParaEQA:
         floor_height = pts_normal[-1]
         tsdf_bnds, scene_size = get_scene_bnds(pathfinder, floor_height)
         num_step = int(math.sqrt(scene_size) * self.config.get("max_step_room_size_ratio", 3))
+        
+        question_data["max_steps"] = num_step
+        
         logging.info(
             f"Scene size: {scene_size} Floor height: {floor_height} Steps: {num_step}"
         )
@@ -878,7 +884,7 @@ class ParaEQA:
                 # 在每一步后询问stopping service是否可以停止探索
                 # 如果可以结束，会把更新后的信息存储到GROUP_INFO中
                 # "... How confident are you in answering this question from your current perspective? ..."
-                stopping_response = can_stop(self.redis_conn, question_data, rgb_im)
+                stopping_response = can_stop(self.redis_conn, question_data, rgb_im, used_steps=cnt_step + 1)
                 if stopping_response.get("status") == "stop":
                     # 可以停止探索，结束循环
                     logging.info(f"[{os.getpid()}](PLA) Stopping Service决定停止探索，置信度: {stopping_response.get('confidence', 0.0)}")
@@ -999,7 +1005,7 @@ class ParaEQA:
             # 当达到最大探索步数时，强制结束探索
             if cnt_step == num_step - 1:
                 logging.info(f"达到最大探索步数 {num_step}，强制结束探索")
-                stopping_response = can_stop(self.redis_conn, question_data, rgb_im, must_stop=True)
+                stopping_response = can_stop(self.redis_conn, question_data, rgb_im, must_stop=True, used_steps=cnt_step + 1)
                 if stopping_response.get("status") == "stop":
                     # 可以停止探索，结束循环
                     logging.info(f"[{os.getpid()}](PLA) Stopping Service决定停止探索，置信度设置为1.0")

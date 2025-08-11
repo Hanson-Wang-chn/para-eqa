@@ -125,6 +125,8 @@ class Updater:
         该方法用于处理从Finishing Module直接进入Answering Module的问题。
         """
         question["status"] = "answered"
+        question.setdefault("max_steps", 0)
+        question.setdefault("used_steps", 0)
         self.buffer.add_question(question)
     
     
