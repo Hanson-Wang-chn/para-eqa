@@ -6,12 +6,6 @@ init_y:
 init_z: 
 init_angle: 
 
-# Identification: asking about identifying the type of an object, e.g., “Which tablecloth is on the dining table? A) Red B) White C) Black D) Gray”
-# Counting: requiring the agent to count an entity, e.g., “How many chairs are around the dining table?”
-# Existence: asking if an object is present at a location, e.g., “Did I leave my jacket on the bench near the front door? A) Yes B) No”.
-# State (20.2%): asking about the state of an object, e.g., “Is the air conditioning in the living room turned on? A) Yes B) No” or “Is the curtain in the master bedroom closed? A) Yes B) No”.
-# Location (26.0%): asking about the location of an object, e.g., “Where have I left the black suitcase? A) At the corner of the bedroom B) In the hallway C) In the storage room D) Next to TV in the living room”.
-
 questions_init:
   - question: 
     answer: 
@@ -26,3 +20,38 @@ questions_follow_up:
     answer: 
   - question: 
     answer: 
+
+# Identification: asking about identifying the type of an object, e.g., “Which tablecloth is on the dining table? A) Red B) White C) Black D) Gray”
+# Counting: requiring the agent to count an entity, e.g., “How many chairs are around the dining table?”
+# Existence: asking if an object is present at a location, e.g., “Did I leave my jacket on the bench near the front door? A) Yes B) No”.
+# State (20.2%): asking about the state of an object, e.g., “Is the air conditioning in the living room turned on? A) Yes B) No” or “Is the curtain in the master bedroom closed? A) Yes B) No”.
+# Location (26.0%): asking about the location of an object, e.g., “Where have I left the black suitcase? A) At the corner of the bedroom B) In the hallway C) In the storage room D) Next to TV in the living room”.
+
+  - question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+    answer: B
+  - question: What colors are the cushions on the sofa in the living room? A) Blue and orange B) Yellow and pink C) Black and gray D) Purple and green.
+    answer: D
+  - question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+    answer: B
+  - question: What is the dinning table made of? A) Wood B) Glass C) Plastic D) Metal.
+    answer: A
+  - question: Where can you find some plates or bowls? A) On the bed in the bedroom B) In the kitchen C) On the sofa in the living room D) On the dining table.
+    answer: D
+  - question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+    answer: B
+  - question: Is the toiled lid closed? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+    answer: A
+  - question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+    answer: B
+  - question: How many chairs are around the dining table? A) Two B) Four C) Six D) Eight.
+    answer: C
+  - question: What is the color of the walls in the dining room? A) Yellow B) Green C) Blue D) Orange.
+    answer: D
+  - question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+    answer: A
+  - question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+    answer: B
+  - question: How many cushions are there on the sofa in the living room? A) One B) Two C) Three D) Four.
+    answer: D
+  - question: Is there a carpet in the living room? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+    answer: A
