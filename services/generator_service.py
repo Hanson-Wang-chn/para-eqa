@@ -8,7 +8,7 @@ import uuid
 import yaml
 import glob
 
-from common.redis_client import get_redis_connection, STREAMS, GROUP_INFO
+from common.redis_client import get_redis_connection, STREAMS, GROUP_INFO, CURRENT_GROUP_ID
 
 
 def wait_for_group_completion(redis_conn, group_id):
@@ -178,6 +178,9 @@ def store_group_info(redis_conn, group_data):
     # 将信息存入Redis
     pipe = redis_conn.pipeline()
     
+    # 设置当前活跃的组ID
+    pipe.set(CURRENT_GROUP_ID, group_id)
+    
     # 存储基本信息
     pipe.set(f"{GROUP_INFO['group_id']}{group_id}", group_id)
     pipe.set(f"{GROUP_INFO['scene']}{group_id}", scene)
@@ -239,7 +242,7 @@ def send_init_questions(redis_conn, questions, stream_name):
 
 def send_follow_up_questions(redis_conn, questions, stream_name, interval):
     """
-    发送后续问题组，每个问题之间有间隔时间
+    发送后续问题组，每个问题之间有间隔时间（包括第一个问题前也等待）
     
     Args:
         redis_conn: Redis连接对象
@@ -253,10 +256,9 @@ def send_follow_up_questions(redis_conn, questions, stream_name, interval):
     total_sent = 0
     
     for i, question in enumerate(questions):
-        # 等待指定的间隔时间
-        if i > 0:  # 第一个问题不等待
-            logging.info(f"[{os.getpid()}](GEN) 等待 {interval} 秒后发送后续问题...")
-            time.sleep(interval)
+        # 每个问题前都等待指定的间隔时间
+        logging.info(f"[{os.getpid()}](GEN) 等待 {interval} 秒后发送后续问题...")
+        time.sleep(interval)
         
         redis_conn.xadd(stream_name, {"data": json.dumps(question)})
         total_sent += 1
@@ -371,8 +373,8 @@ def run(config: dict):
     yaml_files = scan_question_files(question_data_path)
     
     # TODO: 在这里指定某一个group
-    yaml_files = sorted(yaml_files)  # 按文件名排序
-    # yaml_files = sorted(yaml_files)[0:1]
+    # yaml_files = sorted(yaml_files)  # 按文件名排序
+    yaml_files = sorted(yaml_files)[10:20]
     
     if not yaml_files:
         logging.error(f"[{os.getpid()}](GEN) 未找到问题文件，退出服务")

@@ -9,16 +9,21 @@ init_angle:
 questions_init:
   - question: 
     answer: 
+    urgency: 
   - question: 
     answer: 
+    urgency: 
   - question: 
     answer: 
+    urgency: 
 
 questions_follow_up:
   - question: 
     answer: 
+    urgency: 
   - question: 
     answer: 
+    urgency: 
 
 # Identification: asking about identifying the type of an object, e.g., “Which tablecloth is on the dining table? A) Red B) White C) Black D) Gray”
 # Counting: requiring the agent to count an entity, e.g., “How many chairs are around the dining table?”

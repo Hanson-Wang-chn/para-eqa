@@ -26,15 +26,45 @@ def validate_yaml_file(data: Dict[str, Any]) -> bool:
     # 如果存在questions_init，检查其格式
     if 'questions_init' in data and data['questions_init']:
         for q in data['questions_init']:
-            if 'question' not in q or 'answer' not in q:
-                print("错误: questions_init 中包含没有 'question' 或 'answer' 字段的项")
+            if 'question' not in q or 'answer' not in q or 'urgency' not in q:
+                print("错误: questions_init 中包含没有 'question' 或 'answer' 或 'urgency' 字段的项")
+                return False
+            if q['urgency'] is None or q['urgency'] == '':
+                print("错误: questions_init 中的 'urgency' 字段不能为空")
+                return False
+            if not isinstance(q['urgency'], (int, float)):
+                print("错误: questions_init 中的 'urgency' 字段必须是数字")
+                return False
+            if q['urgency'] < 0 or q['urgency'] > 1:
+                print("错误: questions_init 中的 'urgency' 字段必须在0到1之间")
+                return False
+            if not isinstance(q['question'], str) or not isinstance(q['answer'], str):
+                print("错误: questions_init 中的 'question' 和 'answer' 字段必须是字符串")
+                return False
+            if not q['question'].strip() or not q['answer'].strip():
+                print("错误: questions_init 中的 'question' 和 'answer' 字段不能为空")
                 return False
     
     # 如果存在questions_follow_up，检查其格式
     if 'questions_follow_up' in data and data['questions_follow_up']:
         for q in data['questions_follow_up']:
-            if 'question' not in q or 'answer' not in q:
-                print("错误: questions_follow_up 中包含没有 'question' 或 'answer' 字段的项")
+            if 'question' not in q or 'answer' not in q or 'urgency' not in q:
+                print("错误: questions_follow_up 中包含没有 'question' 或 'answer' 或 'urgency' 字段的项")
+                return False
+            if q['urgency'] is None or q['urgency'] == '':
+                print("错误: questions_follow_up 中的 'urgency' 字段不能为空")
+                return False
+            if not isinstance(q['urgency'], (int, float)):
+                print("错误: questions_follow_up 中的 'urgency' 字段必须是数字")
+                return False
+            if q['urgency'] < 0 or q['urgency'] > 1:
+                print("错误: questions_follow_up 中的 'urgency' 字段必须在0到1之间")
+                return False
+            if not isinstance(q['question'], str) or not isinstance(q['answer'], str):
+                print("错误: questions_follow_up 中的 'question' 和 'answer' 字段必须是字符串")
+                return False
+            if not q['question'].strip() or not q['answer'].strip():
+                print("错误: questions_follow_up 中的 'question' 和 'answer' 字段不能为空")
                 return False
     
     return True

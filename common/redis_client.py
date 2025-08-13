@@ -5,11 +5,6 @@ import redis
 
 # ----------------- Key 前缀与名称设计 -----------------
 
-# 用于存储 Question Pool 中问题元数据的 Hash Key 前缀
-KEY_PREFIXES = {
-    "question": "question:"
-}
-
 # 统计信息
 STATS_KEYS = {
     "parser":   "stats:parser",
@@ -19,6 +14,11 @@ STATS_KEYS = {
     "planner":  "stats:planner",
     "memory": "stats:memory"
 }
+
+
+# 单独记录当前问题的组ID
+CURRENT_GROUP_ID = "current_group_id"
+
 
 # 用于存储一组问题的元信息
 GROUP_INFO = {
@@ -36,10 +36,6 @@ GROUP_INFO = {
     "scene_size": "scene_size:"
 }
 
-# # 用于记录每一组问题的运行结果，包括组信息（总运行时间、平均步数等）和每个问题的结果（步数、是否正确等）
-# RESULTS_KEYS = {
-#     "group_results": "group_results:",  # 每组问题的结果
-# }
 
 # 用于持久化任务队列的 Stream 名称
 STREAMS = {

@@ -7,7 +7,7 @@ import time
 import logging
 import re
 
-from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STATS_KEYS
+from common.redis_client import get_redis_connection, STREAMS, STATS_KEYS
 from utils.vlm_api import VLM_API
 
 

@@ -2,12 +2,8 @@
 
 """
 TODO: 总计划
-1. RAG效果一般，尽量优化
-2. 完善一组问题结束时的处理逻辑
-3. prompt调试
-4. 结果统计
-5. 数据集
-6. 增加控制字段，对比实验
+1. 数据集
+2. 增加控制字段，对比实验
 """
 
 """
@@ -34,7 +30,7 @@ import shutil
 import threading
 from multiprocessing import Process, Manager, set_start_method
 
-from common.redis_client import get_redis_connection, STREAMS, KEY_PREFIXES, STATS_KEYS
+from common.redis_client import get_redis_connection, STREAMS, STATS_KEYS
 from services import (
     generator_service,
     parser_service,

@@ -1,5 +1,8 @@
 # evaluate_para_eqa.py
 
+# TODO: 加入 urgency 相关计算
+# TODO: 单独计算 direct_answer 的问题的正确率
+
 """
 1. 在run_para_eqa.py运行完成后，根据results统计EQA信息
 2. 统计questions_init正确率、questions_follow_up正确率、总正确率、直接回答率
