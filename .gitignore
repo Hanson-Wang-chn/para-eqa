@@ -5,6 +5,7 @@ data/HM3D/
 nohup.out
 *.pyc
 results/
+logs/
 __pychache__/
 *.egg-info/
 vlm/

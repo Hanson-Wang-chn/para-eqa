@@ -41,7 +41,7 @@ def run(config: dict):
     负责接收问题，生成答案，并将答案发送到Question Pool。
     """
     # 设置日志
-    parent_dir = config.get("output_parent_dir", "results")
+    parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "answering_logs")
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir, exist_ok=True)
@@ -57,15 +57,10 @@ def run(config: dict):
     
     # 读取配置
     answering_config = config.get("answering", {})
-    result_path = answering_config.get("result_path", "results/answers")
+    result_dir = answering_config.get("result_dir", "results/answers")
     
     # 确保结果目录存在
-    os.makedirs(os.path.dirname(result_path), exist_ok=True)
-    
-    # 初始化结果文件，如果不存在
-    if not os.path.exists(result_path):
-        with open(result_path, 'w', encoding='utf-8') as f:
-            json.dump([], f, ensure_ascii=False, indent=2)
+    os.makedirs(result_dir, exist_ok=True)
 
     # VLM配置
     prompt_get_answer = config.get("prompt", {}).get("answering", {}).get("get_answer", "")
@@ -135,43 +130,42 @@ def run(config: dict):
                         try:
                             # 获取当前的 group_id
                             group_id = get_current_group_id(redis_conn)
+                            
                             if not group_id:
-                                logging.error(f"[{os.getpid()}](ANS) 无法获取当前 group_id，将使用默认文件保存")
-                                group_specific_result_path = result_path
+                                logging.error(f"[{os.getpid()}](ANS) 无法获取当前 group_id，无法保存答案")
+                                continue  # 跳过保存
+                            
                             else:
-                                # 构建特定组的文件路径
-                                result_dir = os.path.dirname(result_path)
-                                group_specific_result_path = os.path.join(result_dir, f"answers_{group_id.decode('utf-8') if isinstance(group_id, bytes) else group_id}.json")
+                                group_id_str = group_id.decode('utf-8') if isinstance(group_id, bytes) else str(group_id)
+                                group_specific_result_path = os.path.join(result_dir, f"answers_{group_id_str}.json")
                             
-                            # 确保目录存在
                             os.makedirs(os.path.dirname(group_specific_result_path), exist_ok=True)
-                            
-                            # 读取现有的答案
                             existing_answers = []
                             try:
                                 if os.path.exists(group_specific_result_path):
                                     with open(group_specific_result_path, 'r', encoding='utf-8') as f:
                                         existing_answers = json.load(f)
+                                
                                 else:
-                                    logging.info(f"[{os.getpid()}](ANS) 为组 {group_id} 创建新的答案文件")
+                                    logging.info(f"[{os.getpid()}](ANS) 为组 {group_id_str} 创建新的答案文件")
+                            
                             except (json.JSONDecodeError, FileNotFoundError):
                                 logging.warning(f"[{os.getpid()}](ANS) 无法读取现有答案文件，将创建新文件")
                             
                             # 检查是否已存在相同ID的问题
                             for i, existing_answer in enumerate(existing_answers):
                                 if existing_answer.get('id') == question_id:
-                                    # 更新现有答案
                                     existing_answers[i] = question
                                     break
+                            
                             else:
-                                # 添加新答案
                                 existing_answers.append(question)
                             
-                            # 写入更新后的答案
                             with open(group_specific_result_path, 'w', encoding='utf-8') as f:
                                 json.dump(existing_answers, f, ensure_ascii=False, indent=2)
                                 
                             logging.info(f"[{os.getpid()}](ANS) 问题 {question_id} 的答案已保存到文件 {os.path.basename(group_specific_result_path)}")
+                        
                         except Exception as e:
                             logging.error(f"[{os.getpid()}](ANS) 保存答案到文件时出错: {e}")
                         

@@ -74,7 +74,7 @@ def run(config: dict):
     负责初始化知识库并处理来自其他模块的记忆检索和更新请求。
     """
     # 设置日志
-    parent_dir = config.get("output_parent_dir", "results")
+    parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "memory_logs")
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir, exist_ok=True)

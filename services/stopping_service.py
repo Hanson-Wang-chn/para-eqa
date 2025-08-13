@@ -16,7 +16,7 @@ def run(config: dict):
     负责判断是否应该停止探索，并将问题路由到适当的服务。
     """
     # 设置日志
-    parent_dir = config.get("output_parent_dir", "results")
+    parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "stopping_logs")
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir, exist_ok=True)

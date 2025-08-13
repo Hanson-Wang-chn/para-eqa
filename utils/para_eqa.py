@@ -694,7 +694,7 @@ class ParaEQA:
         logging.info(f"Question:\n{vlm_question}\nAnswer: {answer}")
 
         # Set data dir for this question - set initial data to be saved
-        episode_data_dir = os.path.join(self.config.get("output_dir", "results"), str(question_ind))
+        episode_data_dir = os.path.join(self.config.get("output_dir", "logs"), str(question_ind))
         os.makedirs(episode_data_dir, exist_ok=True)
 
         agent, agent_state, self.simulator, pathfinder = self.init_sim(scene)

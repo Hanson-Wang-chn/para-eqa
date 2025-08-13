@@ -33,7 +33,7 @@ def run(config: dict):
     负责维护问题池、更新问题依赖关系及状态、响应添加问题和完成问题的请求。
     """
     # 设置日志
-    parent_dir = config.get("output_parent_dir", "results")
+    parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "question_pool_logs")
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir, exist_ok=True)

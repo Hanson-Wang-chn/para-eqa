@@ -81,7 +81,7 @@ def run(config: dict):
     由主入口脚本 (run_system.py) 作为独立进程启动。
     """
     # Set up logging
-    parent_dir = config.get("output_parent_dir", "results")
+    parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "parser_logs")
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir, exist_ok=True)

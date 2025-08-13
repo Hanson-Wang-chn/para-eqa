@@ -344,7 +344,7 @@ def run(config: dict):
     负责按照配置的规则向系统发送问题。
     """
     # 设置日志
-    parent_dir = config.get("output_parent_dir", "results")
+    parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "generator_logs")
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir, exist_ok=True)

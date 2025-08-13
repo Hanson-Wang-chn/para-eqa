@@ -52,8 +52,8 @@ os.environ["HABITAT_SIM_LOG"] = (
 os.environ["MAGNUM_LOG"] = "quiet"
 
 
-def clear_record(result_dir="results"):
-    """如果结果目录存在，则删除它"""
+def clear_record(result_dir="logs"):
+    """如果日志目录存在，则删除它"""
     if os.path.exists(result_dir):
         shutil.rmtree(result_dir)
         print(f"已删除结果目录: {result_dir}")
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     config = load_config(args.config_file)
     
     # Set up logging
-    parent_dir = config.get("output_parent_dir", "results")
+    parent_dir = config.get("logs_parent_dir", "logs")
     clear_record(result_dir=parent_dir) # Clear previous records
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir, exist_ok=True)

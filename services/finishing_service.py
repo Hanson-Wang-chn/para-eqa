@@ -16,7 +16,7 @@ def run(config: dict):
     负责判断问题是否可以直接回答，并将问题路由到适当的服务。
     """
     # 设置日志
-    parent_dir = config.get("output_parent_dir", "results")
+    parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "finishing_logs")
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir, exist_ok=True)
@@ -34,7 +34,6 @@ def run(config: dict):
     finishing_config = config.get("finishing", {})
     retrieval_num = finishing_config.get("retrieval_num", 5)
     confidence_threshold = finishing_config.get("confidence_threshold", 0.7)
-    # TODO:
     enable_tryout_answer = finishing_config.get("enable_tryout_answer", False)
     
     # VLM配置

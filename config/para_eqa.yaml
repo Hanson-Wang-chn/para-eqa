@@ -1,7 +1,8 @@
 # General
 seed: 42
 exp_name: ParaEQA
-output_parent_dir: results
+result_parent_dir: results
+logs_parent_dir: logs
 question_data_path: ./data/benchmark
 scene_data_path: ./data/HM3D
 init_pose_data_path: ./data/scene_init_poses_all.csv
@@ -224,7 +225,7 @@ updater:
   enable_reward_estimate: false
 
 answering:
-  result_path: results/answers
+  result_dir: results/answers
 
 planner:
   dist_T: 10
