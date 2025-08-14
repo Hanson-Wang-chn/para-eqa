@@ -1,0 +1,28 @@
+group_id: '026'
+scene: 00097-rPwrKEnR3fk
+floor: 0
+init_x: -4.09
+init_y: 0.12
+init_z: 5.33
+init_angle: -0.94
+questions_init:
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+- question: How many chairs are around the dining table? A) Two B) Four C) Six D)
+    Eight.
+  answer: B
+  urgency: 0.2
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+questions_follow_up:
+- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+- question: Is the light turned on in the living room? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.4

@@ -1,0 +1,28 @@
+group_id: '027'
+scene: 00098-MVStfLiYYQv
+floor: 0
+init_x: -1.25
+init_y: -3.08
+init_z: -0.77
+init_angle: -1.31
+questions_init:
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.2
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: Where can you find a yellow lamp? A) On the dining table B) Beside the
+    sofa C) Beside the stove D) On a wooden desk.
+  answer: D
+  urgency: 0.2
+questions_follow_up:
+- question: How many chairs are around the dining table? A) Two B) Four C) Six D)
+    Eight.
+  answer: B
+  urgency: 0.2
+- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+  answer: A
+  urgency: 0.2

@@ -1,0 +1,30 @@
+group_id: 029
+scene: 00101-n8AnEznQQpv
+floor: 0
+init_x: -0.8
+init_y: 0.12
+init_z: 3.32
+init_angle: -0.71
+questions_init:
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: What is the floor made of in the living room? A) Wood B) Stone C) Tile
+    D) Concrete.
+  answer: A
+  urgency: 0.2
+- question: How many cushions are there on the beige sofa in the living room? A) One
+    B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+questions_follow_up:
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: I'm in a hurry. Could you check if I have cleaned and emptied the sinks
+    in the kitchen? A) Yes B) No C) (Do not choose this option) D) (Do not choose
+    this option).
+  answer: B
+  urgency: 0.6

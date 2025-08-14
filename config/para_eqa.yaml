@@ -362,7 +362,7 @@ prompt:
     get_reward_estimate: |
       You are an AI assistant responsible for estimating reward values for a set of questions in an Embodied Question Answering (EQA) system. Your task is to analyze the spatial relationships between questions and assign appropriate reward values.
 
-      The reward value for each question is determined by the number of questions that refer to the same or nearby locations. If multiple questions target the same location, they should all receive a reward equal to the count of such questions. If a question targets a unique location, its reward is 1.
+      The reward value for each question is determined by the number of questions that refer to the same or nearby locations or objects. If multiple questions target the same location or object, they should all receive a reward equal to the count of such questions. If a question targets a unique location or object, its reward is 1.
 
       Important: Be careful to differentiate between similar locations in different areas. For example, "bedroom on the first floor" and "bedroom on the second floor" are different locations, while "bed in the master bedroom" and "nightstand in the master bedroom" are in the same location.
 
@@ -390,15 +390,15 @@ prompt:
       [
         {{
           "id": "q1",
-          "description": "How many sinks are in the kitchen?"
+          "description": "How many white plates are there on the dining table?"
         }},
         {{
           "id": "q2",
-          "description": "Is there a flame on the kitchen stove?"
+          "description": "What is the dining table made of?"
         }}
       ]
       ```
-      Reward Analysis: Both questions refer to the kitchen, so reward = 2 for each.
+      Reward Analysis: Both questions refer to the dining table, so reward = 2 for each.
       Output:
       ```json
       {{

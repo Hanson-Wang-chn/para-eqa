@@ -55,20 +55,12 @@ class Updater:
         all_questions = original_questions.copy()
         all_questions.append(question)
         
-        print(f"\n\n\n[{os.getpid()}](QUE) Before calculating reward:")
-        print(all_questions)
-        print("\n\n\n")
-        
         # 为所有问题计算reward
         if self.enable_reward_estimate:
             all_questions = self._get_reward_estimate(all_questions)
         else:
             for q in all_questions:
                 q["reward_estimate"] = 0.0
-        
-        print(f"\n\n\n[{os.getpid()}](QUE) After calculating reward:")
-        print(all_questions)
-        print("\n\n\n")
         
         for q in all_questions:
             q["cost_estimate"] = self._get_cost_estimate(q) if self.enable_cost_estimate else 0.0
@@ -348,6 +340,8 @@ class Updater:
     
     
     def _get_new_dependency(self, all_questions, qid):
+        # FIXME:
+        return {"depends_on": [], "required_by": []}
         """
         为目标问题生成依赖关系
         

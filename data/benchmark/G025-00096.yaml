@@ -1,0 +1,29 @@
+group_id: '025'
+scene: 00096-6HRFAUDqpTb
+floor: 0
+init_x: 2.53
+init_y: -1.21
+init_z: -4.17
+init_angle: -0.38
+questions_init:
+- question: How many yellow cushions are there on the brown sofa in the living room?
+    A) One B) Two C) Three D) Four.
+  answer: A
+  urgency: 0.2
+- question: Is there a carpet in the room with a teal sofa? A) Yes B) No C) (Do not
+    choose this option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: Is the toiled lid closed? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: A
+  urgency: 0.4
+questions_follow_up:
+- question: What is the brown sofa in the living room made of? A) Leather B) Fabric
+    C) Wood D) Plastic.
+  answer: A
+  urgency: 0.5
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4

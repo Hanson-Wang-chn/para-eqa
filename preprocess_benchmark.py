@@ -100,7 +100,7 @@ def shuffle_questions(data: Dict[str, Any]) -> Dict[str, Any]:
 
 def main():
     parser = argparse.ArgumentParser(description='处理基准测试YAML文件。')
-    parser.add_argument('--reorder', default=False, help='随机重排问题')
+    parser.add_argument('--reorder', default=True, help='随机重排问题')
     parser.add_argument('--dir', default='data/benchmark', help='包含YAML文件的目录')
     args = parser.parse_args()
     
@@ -116,6 +116,15 @@ def main():
         sys.exit(1)
     
     print(f"在基准测试目录中找到 {len(yaml_files)} 个YAML文件")
+    
+    # TODO: 选择要处理的文件
+    yaml_files = yaml_files[30:]
+    
+    if not yaml_files:
+        print(f"错误: 没有需要处理的文件")
+        sys.exit(1)
+    
+    print(f"开始处理 {len(yaml_files)} 个YAML文件")
     
     # 处理每个文件
     for yaml_file in yaml_files:

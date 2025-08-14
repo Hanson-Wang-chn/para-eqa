@@ -1,0 +1,29 @@
+group_id: 028
+scene: 00100-y3K5dmhuukt
+floor: 0
+init_x: -1.07
+init_y: -2.92
+init_z: -1.38
+init_angle: -2.89
+questions_init:
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: How many white plates are there on the dining table? A) Two B) Four C)
+    Six D) Eight.
+  answer: C
+  urgency: 0.5
+- question: How many chairs are around the dining table? A) Two B) Four C) Six D)
+    Eight.
+  answer: C
+  urgency: 0.2
+questions_follow_up:
+- question: What color is the cushion on the long gray sofa in the living room? A)
+    Yellow B) Orange C) Blue D) Teal.
+  answer: D
+  urgency: 0.2
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
