@@ -1,0 +1,28 @@
+group_id: '013'
+scene: 00062-ACZZiU6BXLz
+floor: 0
+init_x: 0.96
+init_y: 0.09
+init_z: 3.07
+init_angle: -0.96
+questions_init:
+- question: Is there a carpet in the living room? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: What color is the washing machine in the laundry room (or bathroom)? A)
+    White B) Silver C) Black D) Red.
+  answer: D
+  urgency: 0.2
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+questions_follow_up:
+- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+  answer: A
+  urgency: 0.2
+- question: Is there a red cushion on the bed with patterns of flowers? A) Yes B)
+    No C) (Do not choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.2

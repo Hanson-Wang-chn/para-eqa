@@ -1,0 +1,29 @@
+group_id: '004'
+scene: 00037-oKFJo8jpzRW
+floor: 0
+init_x: 1.19
+init_y: 0.0
+init_z: 10.03
+init_angle: 0.0
+questions_init:
+- question: What is the color of the walls in the dining room? A) Yellow B) Green
+    C) Blue D) Orange.
+  answer: D
+  urgency: 0.2
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: Where can you find a woven basket? A) Near the fireplace B) On the dining
+    table C) On the sofa D) On the stairs.
+  answer: A
+  urgency: 0.2
+questions_follow_up:
+- question: Is there any fire or flame in the fireplace in the living room? A) Yes
+    B) No C) (Do not choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: How many chairs are around the dining table? A) Two B) Four C) Six D)
+    Eight.
+  answer: C
+  urgency: 0.2

@@ -1,0 +1,28 @@
+group_id: 008
+scene: 00051-CETmJJqkhcK
+floor: 0
+init_x: null
+init_y: null
+init_z: null
+init_angle: null
+questions_init:
+- question: Where can you find a towel? A) In the kitchen B) In the bedroom C) In
+    the living room D) In the bathroom.
+  answer: D
+  urgency: 0.2
+- question: Is the oven next to the microwave? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.5
+- question: What color is the cushions on the long sofa? A) Red B) Blue C) Green D)
+    Black.
+  answer: A
+  urgency: 0.2
+questions_follow_up:
+- question: How many chairs are there around the table? A) Two B) Four C) Six D) Eight.
+  answer: B
+  urgency: 0.2
+- question: Is the television in the living room turned on? A) Yes B) No C) (Do not
+    choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4

@@ -10,6 +10,9 @@ save_obs: true
 save_freq: 20
 device: 'cuda'
 detector: '/home/whs/eqa/para-eqa/data/yolo11x.pt' # 替换为实际的绝对路径
+# FIXME:
+use_parallel: true
+
 
 
 # VLM
@@ -119,59 +122,11 @@ vlm:
   #   base_url: "http://100.88.238.80:11434/v1"
   #   api_key:
 
-  # # 零成本高效率
-  # answering:
-  #   model: qwen2.5vl:32b
-  #   server: ollama
-  #   base_url: "http://100.88.238.80:11434/v1"
-  #   api_key:
-
-  # finishing:
-  #   model: qwen2.5vl:32b
-  #   server: ollama
-  #   base_url: "http://100.88.238.80:11434/v1"
-  #   api_key:
-
-  # parser:
-  #   model: qwen2.5:14b
-  #   server: ollama
-  #   base_url: "http://49.52.18.227:11434/v1"
-  #   api_key:
-
-  # stopping:
-  #   model: qwen2.5vl:32b
-  #   server: ollama
-  #   base_url: "http://100.88.238.80:11434/v1"
-  #   api_key:
-
-  # updater:
-  #   model: qwen2.5:14b
-  #   server: ollama
-  #   base_url: "http://49.52.18.227:11434/v1"
-  #   api_key:
-
-  # planner:
-  #   model: qwen2.5vl:32b
-  #   server: ollama
-  #   base_url: "http://100.88.238.80:11434/v1"
-  #   api_key:
-
-  # planner_lite:
-  #   model: qwen2.5vl:32b
-  #   server: ollama
-  #   base_url: "http://100.88.238.80:11434/v1"
-  #   api_key:
-
-  # planner_tiny:
-  #   model: qwen2.5vl:32b
-  #   server: ollama
-  #   base_url: "http://100.88.238.80:11434/v1"
-  #   api_key:
-
 
 # Memory
 memory:
   device: 'cuda'
+  # FIXME:
   use_rag: true
   dimension: 768
   weight_image: 0.5
@@ -179,14 +134,6 @@ memory:
   max_retrieval_num: 3
   replace_memory: false  # 是否替换相似的记忆
   lambda_sim: 0.5
-
-
-# Parallel
-parallel:
-  use_parallel: true
-  enable_preempt: true
-  num_init_questions: 5
-  num_followup_questions: 3
 
 
 # Priority
@@ -207,6 +154,8 @@ redis:
 
 # Services
 generator:
+  # FIXME:
+  enable_follow_up: true
   interval_seconds: 120
   shuffle: false
 
@@ -222,6 +171,7 @@ stopping:
 
 updater:
   enable_cost_estimate: false
+  # FIXME:
   enable_reward_estimate: false
 
 answering:
@@ -410,7 +360,6 @@ prompt:
   updater:
     get_cost_estimate:
     get_reward_estimate:
-    # TODO: 下面的提示词还没写完
     get_dependency: |
       You are an AI assistant responsible for generating a dependency graph for a set of structured questions in an Embodied Question Answering (EQA) system within a multi-story residential environment. Your task is to analyze relationships between questions and represent their dependencies in a JSON format, considering spatial, informational, and logical dependencies.
 
@@ -433,14 +382,6 @@ prompt:
       where:
       1. **depends_on**: the set of questions that the target question depends on. These are prerequisite questions that must be solved first before the target question can be addressed.
       2. **required_by**: the set of questions that depend on the target question. These are questions that consider the target question as a prerequisite.
-
-      Here are some examples to guide you:
-
-      <Example 1>
-
-      <Example 2>
-
-      <Example 3>
 
       Now, please analyze the following target question and the list of other questions, and provide the dependencies in JSON format. NOTE that your response should only contain the JSON object. DO NOT include any additional text or explanations.
 

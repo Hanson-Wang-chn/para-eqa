@@ -1,0 +1,29 @@
+group_id: '003'
+scene: 00036-41FNXLAZZgC
+floor: 0
+init_x: -0.91
+init_y: 0.11
+init_z: -1.8
+init_angle: -0.92
+questions_init:
+- question: Is the toiled lid closed? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: What colors are the quilt on the bed in the master bedroom with a television?
+    A) Pink and yellow B) Black and gray C) Green and red D) Blue and white.
+  answer: D
+  urgency: 0.2
+- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+questions_follow_up:
+- question: Is the television in the living room turned on? A) Yes B) No C) (Do not
+    choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+- question: Where can you find a metal cage? A) Beside the fridge in the kitchen B)
+    On the bed in the master bedroom C) At the corner of the living room D) On the
+    dining table.
+  answer: C
+  urgency: 0.2

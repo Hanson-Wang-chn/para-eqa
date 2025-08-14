@@ -1,7 +1,5 @@
 # utils/knowledgebase.py
 
-# TODO: 完成 replace_memory 的复杂逻辑
-
 import uuid
 import numpy as np
 import torch

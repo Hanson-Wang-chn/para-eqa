@@ -324,7 +324,7 @@ def main():
     
     benchmark_dir = "data/benchmark"  # 基准文件夹路径
     
-    parse_from_scratch = True  # 是否从头解析所有文件
+    parse_from_scratch = False  # 是否从头解析所有文件
     
     # 开始处理文件
     process_yaml_files(benchmark_dir, model_config, parse_from_scratch)

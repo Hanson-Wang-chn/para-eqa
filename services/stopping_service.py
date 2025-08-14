@@ -34,7 +34,6 @@ def run(config: dict):
     stopping_config = config.get("stopping", {})
     retrieval_num = stopping_config.get("retrieval_num", 5)
     confidence_threshold = stopping_config.get("confidence_threshold", 0.7)
-    # TODO:
     enable_tryout_answer = stopping_config.get("enable_tryout_answer", False)
     
     # VLM配置

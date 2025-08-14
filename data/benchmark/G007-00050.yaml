@@ -1,0 +1,28 @@
+group_id: '007'
+scene: 00050-wrq3kiEU4VR
+floor: 0
+init_x: 11.54
+init_y: 0.06
+init_z: -1.67
+init_angle: 2.3
+questions_init:
+- question: Is the television in the living room turned on? A) Yes B) No C) (Do not
+    choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+- question: What color is the piano? A) Black B) White C) Brown D) Red.
+  answer: A
+  urgency: 0.2
+- question: How many chairs are around the dining table made of marble? A) Two B)
+    Four C) Six D) Eight.
+  answer: C
+  urgency: 0.2
+questions_follow_up:
+- question: Is there any fruit on the table in the center of the sofas in the living
+    room? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.2
+- question: What color are the beddings in the bedroom? A) Red and pink B) Green and
+    yellow C) Scarlet and purple D) White and light blue.
+  answer: D
+  urgency: 0.2

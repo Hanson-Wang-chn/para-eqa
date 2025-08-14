@@ -1,0 +1,30 @@
+group_id: '014'
+scene: 00066-nHHVbEyHX3t
+floor: 0
+init_x: -0.13
+init_y: 0.08
+init_z: -1.39
+init_angle: -3.09
+questions_init:
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: Is the toiled lid closed? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: How many cushions are there on the black leather sofa? A) One B) Two C)
+    Three D) Four.
+  answer: B
+  urgency: 0.2
+questions_follow_up:
+- question: What can you see on the painting hanging on the wall above the fireplace?
+    A) A magnificent castle standing on a hill B) A running leopard in chase of a
+    gazelle C) A modern city skyline D) A bird floating on the water.
+  answer: D
+  urgency: 0.2
+- question: How many chairs are around the dining table? A) Two B) Four C) Six D)
+    Eight.
+  answer: D
+  urgency: 0.2

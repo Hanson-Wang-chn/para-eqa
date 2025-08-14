@@ -100,7 +100,7 @@ def shuffle_questions(data: Dict[str, Any]) -> Dict[str, Any]:
 
 def main():
     parser = argparse.ArgumentParser(description='处理基准测试YAML文件。')
-    parser.add_argument('--reorder', default=True, help='随机重排问题')
+    parser.add_argument('--reorder', default=False, help='随机重排问题')
     parser.add_argument('--dir', default='data/benchmark', help='包含YAML文件的目录')
     args = parser.parse_args()
     

@@ -1,0 +1,29 @@
+group_id: 018
+scene: 00075-u3zrj4Nojev
+floor: 0
+init_x: -0.88
+init_y: 0.14
+init_z: -3.42
+init_angle: -2.34
+questions_init:
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: Is there a carpet in the living room? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: How many chairs are around the wooden dining table with a plate of yellow
+    food on it? A) Two B) Four C) Six D) Eight.
+  answer: B
+  urgency: 0.2
+questions_follow_up:
+- question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: B
+  urgency: 0.5
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4

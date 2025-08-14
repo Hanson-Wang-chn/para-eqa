@@ -8,13 +8,17 @@ class Buffer:
     
     def add_question(self, question):
         required_keys = {"id", "description", "urgency", "scope_type", "status", 
-                        "cost_estimate", "reward_estimate", "dependency", "answer", "max_steps", "used_steps"}
+                        "cost_estimate", "reward_estimate", "dependency", "answer", "max_steps", "used_steps", "time"}
         
         if not isinstance(question, dict):
             raise ValueError("Question must be a dictionary.")
             
         if set(question.keys()) != required_keys:
             raise ValueError("Question must contain exactly the required keys: " + ", ".join(required_keys))
+        
+        # 确保time字段是字典结构
+        if not isinstance(question["time"], dict):
+            raise ValueError("The 'time' field must be a dictionary.")
             
         self.buffer.append(question)
     
@@ -50,7 +54,7 @@ class Buffer:
     
     def write_latest_questions(self, new_questions):
         required_keys = {"id", "description", "urgency", "scope_type", "status", 
-                        "cost_estimate", "reward_estimate", "dependency", "answer", "max_steps", "used_steps"}
+                        "cost_estimate", "reward_estimate", "dependency", "answer", "max_steps", "used_steps", "time"}
         
         if not isinstance(new_questions, list):
             raise ValueError("new_questions must be a list.")
@@ -61,6 +65,10 @@ class Buffer:
                 
             if set(question.keys()) != required_keys:
                 raise ValueError("Each question must contain exactly the required keys: " + ", ".join(required_keys))
+            
+            # 确保time字段是字典结构
+            if not isinstance(question["time"], dict):
+                raise ValueError("The 'time' field must be a dictionary.")
         
         for new_question in new_questions:
             question_id = new_question["id"]

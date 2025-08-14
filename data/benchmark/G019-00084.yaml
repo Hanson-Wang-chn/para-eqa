@@ -1,0 +1,29 @@
+group_id: 019
+scene: 00084-CtZLhCbWFm7
+floor: 0
+init_x: -2.49
+init_y: 0.02
+init_z: -4.2
+init_angle: -2.77
+questions_init:
+- question: How many chairs are around the dining table? A) Two B) Four C) Six D)
+    Eight.
+  answer: C
+  urgency: 0.2
+- question: How many cushions are the on the beige sofa in the living room? A) One
+    B) Two C) Three D) Four.
+  answer: D
+  urgency: 0.2
+- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+questions_follow_up:
+- question: Where can you find a globe? A) On the shelf in the living room B) On the
+    floor in the kitchen C) On the bedside table in the bedroom D) On the sofa in
+    the living room.
+  answer: C
+  urgency: 0.2
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4

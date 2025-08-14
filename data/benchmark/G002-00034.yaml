@@ -1,0 +1,30 @@
+group_id: '002'
+scene: 00034-6imZUJGRUq4
+floor: 0
+init_x: 8.3
+init_y: 0.11
+init_z: 6.49
+init_angle: 0.97
+questions_init:
+- question: What colors are the quilt on the bed made of dark wood? A) Red and blue
+    B) Green and yellow C) orange and pink D) brown and white.
+  answer: D
+  urgency: 0.2
+- question: How many dark brown drawers can you find in the bedroom with a bed made
+    of dark wood? A) One B) Two C) Four D) Eight.
+  answer: D
+  urgency: 0.5
+- question: Is there a plate of fruit on the coffee table near the long sofa in the
+    living room? A) Yes B) No C) (Do not choose this option) D) (Do not choose this
+    option).
+  answer: B
+  urgency: 0.2
+questions_follow_up:
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.4

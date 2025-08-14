@@ -1,0 +1,29 @@
+group_id: '015'
+scene: 00070-w7QyjJ3H9Bp
+floor: 0
+init_x: 0.75
+init_y: -1.55
+init_z: -5.36
+init_angle: 1.54
+questions_init:
+- question: Is there a TV near the sofa in the living room? A) Yes B) No C) (Do not
+    choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.5
+- question: What color is the table cloth on the dining table? A) White B) Purple
+    C) Cyan D) Red.
+  answer: D
+  urgency: 0.2
+- question: How many chairs are around the dining table? A) Two B) Four C) Six D)
+    Eight.
+  answer: B
+  urgency: 0.2
+questions_follow_up:
+- question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: B
+  urgency: 0.5
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.2

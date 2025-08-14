@@ -1,0 +1,30 @@
+group_id: '023'
+scene: 00094-WT4QWwXrMzs
+floor: 0
+init_x: 0.84
+init_y: -2.64
+init_z: -6.28
+init_angle: -2.77
+questions_init:
+- question: Is the television in the living room turned on? A) Yes B) No C) (Do not
+    choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: What is the table with a computer on it made of? A) Plastic B) Glass C)
+    Metal D) Wood.
+  answer: D
+  urgency: 0.2
+questions_follow_up:
+- question: How many white cushions are there on the sofa in the living room? A) One
+    B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+- question: Where can you find my school bag? A) On the floor in the living room B)
+    On the sofa in the living room C) On the hook on the wall D) On the desk in the
+    study.
+  answer: C
+  urgency: 0.6

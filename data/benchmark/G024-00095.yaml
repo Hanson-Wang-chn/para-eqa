@@ -1,0 +1,28 @@
+group_id: '024'
+scene: 00095-HsYeeztxPG6
+floor: 0
+init_x: -3.73
+init_y: -3.26
+init_z: 1.52
+init_angle: -2.18
+questions_init:
+- question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: B
+  urgency: 0.5
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+questions_follow_up:
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+- question: How many cushions are there on the sofa in the living room? A) One B)
+    Two C) Three D) Four.
+  answer: C
+  urgency: 0.2

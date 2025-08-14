@@ -1,0 +1,28 @@
+group_id: '017'
+scene: 00074-kHvNo8x6Qoe
+floor: 0
+init_x: 6.21
+init_y: 0.13
+init_z: -2.38
+init_angle: 0.13
+questions_init:
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.2
+- question: What color is the kitchen table? A) White B) Black C) Gray D) Green.
+  answer: D
+  urgency: 0.2
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+questions_follow_up:
+- question: How many red cushions are there on the sofa in the living room? A) One
+    B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+- question: How many chairs are around the wooden dining table? A) Two B) Four C)
+    Six D) Eight.
+  answer: C
+  urgency: 0.2

@@ -1,0 +1,29 @@
+group_id: '011'
+scene: 00057-1UnKg1rAb8A
+floor: 0
+init_x: 2.12
+init_y: -2.8
+init_z: -1.51
+init_angle: -0.61
+questions_init:
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+- question: How many chairs are around the dining table? A) Two B) Four C) Six D)
+    Eight.
+  answer: B
+  urgency: 0.2
+- question: Is the toiled lid closed? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: A
+  urgency: 0.4
+questions_follow_up:
+- question: Is there a carpet in the living room? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9

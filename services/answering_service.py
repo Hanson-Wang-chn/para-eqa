@@ -126,6 +126,11 @@ def run(config: dict):
                         # 更新问题元数据
                         question['answer'] = answer
                         
+                        # 设置finish时间
+                        if "time" not in question:
+                            question["time"] = {}
+                        question["time"]["finish"] = time.time()
+                        
                         # 将答案保存到文件
                         try:
                             # 获取当前的 group_id

@@ -1,0 +1,29 @@
+group_id: '020'
+scene: 00085-KWoYKrff5L4
+floor: 0
+init_x: 10.22
+init_y: 0.16
+init_z: 0.4
+init_angle: 1.41
+questions_init:
+- question: How many yellow cushions are there on the sofa in the living room? A)
+    One B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+- question: Is there any fruit in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: What can you see on the bed in the bedroom? A) A bunch of flowers B) A
+    laptop C) A teddy bear D) A wooden tray.
+  answer: D
+  urgency: 0.2
+questions_follow_up:
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: How many chairs are around the dining table with a bunch of flowers on
+    it? A) Two B) Four C) Six D) Eight.
+  answer: A
+  urgency: 0.2

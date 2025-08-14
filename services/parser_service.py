@@ -153,6 +153,9 @@ def run(config: dict):
                         "answer": "",
                         "max_steps": 0,
                         "used_steps": 0,
+                        "time": {
+                            "request": question_data.get("time", {}).get("request", 0)
+                        }
                     }
                     logging.info(f"[{os.getpid()}](PAR) Question metadata: {json.dumps(metadata, indent=2, ensure_ascii=False)}")
                     

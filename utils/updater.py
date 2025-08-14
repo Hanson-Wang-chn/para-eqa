@@ -46,6 +46,7 @@ class Updater:
 
 
     def add_question(self, question):
+        # TODO: 加入get_reward_estimate的逻辑，一次可以输入所有的问题，统一更新
         # Finishing Module调用该方法加入一个问题
         self.highest_priority_question = None
         self.highest_priority_score = float('-inf')
@@ -127,6 +128,11 @@ class Updater:
         question["status"] = "answered"
         question.setdefault("max_steps", 0)
         question.setdefault("used_steps", 0)
+        
+        # 确保time字段存在
+        if "time" not in question:
+            question["time"] = {}
+        
         self.buffer.add_question(question)
     
     

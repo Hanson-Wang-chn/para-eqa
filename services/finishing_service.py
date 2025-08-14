@@ -236,6 +236,12 @@ def run(config: dict):
                             # 根据置信度决定去向
                             if confidence >= confidence_threshold:
                                 # 置信度高，发送到Answering服务
+                                
+                                # 设置问题开始处理时间
+                                if "time" not in question:
+                                    question["time"] = {}
+                                question["time"]["start"] = time.time()
+                                
                                 answering_request = {
                                     "question": question,
                                     "memory_data": memory_data

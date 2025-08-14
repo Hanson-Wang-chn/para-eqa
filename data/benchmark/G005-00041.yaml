@@ -1,0 +1,28 @@
+group_id: '005'
+scene: 00041-QKfBMSSy7Hy
+floor: 0
+init_x: -5.05
+init_y: 0.04
+init_z: -0.77
+init_angle: -2.35
+questions_init:
+- question: Which of the following objects is what you cannot find on the black desk
+    in a small room? A) A lamp B) Potted plant C) A book or magzine D) A pair of glasses.
+  answer: D
+  urgency: 0.2
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: Is the television in the living room turned on? A) Yes B) No C) (Do not
+    choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+questions_follow_up:
+- question: How many chairs are around the dining table? A) 2 B) 3 C) 4 D) 5.
+  answer: C
+  urgency: 0.2
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.2

@@ -1,0 +1,28 @@
+group_id: '000'
+scene: 00007-UQuchpekHRJ
+floor: 0
+init_x: -4.21
+init_y: 1.53
+init_z: 1.03
+init_angle: -2.08
+questions_init:
+- question: Where can you find some plates or bowls? A) On the bed in the bedroom
+    B) In the kitchen C) On the sofa in the living room D) On the dining table.
+  answer: D
+  urgency: 0.2
+- question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: B
+  urgency: 0.5
+- question: What is the dinning table made of? A) Wood B) Glass C) Plastic D) Metal.
+  answer: A
+  urgency: 0.2
+questions_follow_up:
+- question: What colors are the cushions on the white sofa in the living room? A)
+    Blue and orange B) Red and green C) Yellow and black D) Purple and pink.
+  answer: C
+  urgency: 0.2
+- question: Can you see any scenery outside the windows in the bedroom? A) Yes B)
+    No C) (Do not choose this option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2

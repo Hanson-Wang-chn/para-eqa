@@ -1,0 +1,29 @@
+group_id: '006'
+scene: 00045-mt5PhMmTk5m
+floor: 0
+init_x: -12.1
+init_y: -0.09
+init_z: -0.47
+init_angle: -1.63
+questions_init:
+- question: How many cushions are there on the brown sofa? A) One B) Two C) Three
+    D) Four.
+  answer: D
+  urgency: 0.2
+- question: What does the decoration of the coffee table near the brown sofa look
+    like? A) Mickey Mouse B) The Iron Man C) Minions D) The national flag of the United
+    Kingdom.
+  answer: D
+  urgency: 0.2
+- question: Is the television in the living room turned on? A) Yes B) No C) (Do not
+    choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+questions_follow_up:
+- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+- question: How many chairs are there on the table with a plate of bananas on it?
+    A) Two B) Four C) Six D) Eight.
+  answer: A
+  urgency: 0.2

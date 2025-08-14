@@ -151,6 +151,11 @@ def run(config: dict):
                                 # 更新问题状态为 "in_progress"
                                 updater.set_status(highest_priority_question["id"], "in_progress")
                                 
+                                # 设置开始处理时间
+                                if "time" not in highest_priority_question:
+                                    highest_priority_question["time"] = {}
+                                highest_priority_question["time"]["start"] = time.time()
+                                
                                 # 返回问题
                                 response = {
                                     "request_id": request_id,
@@ -160,6 +165,7 @@ def run(config: dict):
                                 }
                                 redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
                                 logging.info(f"[{os.getpid()}](QUE) Sent question {highest_priority_question['id']} to requester")
+                            
                             else:
                                 # 没有可用问题
                                 response = {

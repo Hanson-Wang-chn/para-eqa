@@ -112,6 +112,16 @@ def main():
 
     benchmark_files = glob.glob(os.path.join(benchmark_dir, 'G*.yaml'))
     
+    # 按组号字典序排序文件
+    def extract_group_number(filename):
+        basename = os.path.basename(filename)
+        if basename.startswith('G') and basename.endswith('.yaml'):
+            group_part = basename[1:-5]  # 去掉'G'和'.yaml'
+            return group_part  # 返回字符串，按字典序排序
+        return basename  # 其他情况按完整文件名字典序
+    
+    benchmark_files.sort(key=extract_group_number)
+    
     evaluation_results = {}
     
     # 用于计算总体指标的变量

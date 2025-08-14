@@ -161,7 +161,8 @@ def store_group_info(redis_conn, group_data):
             question_ids_to_answers[q_id] = answer if answer is not None else ''
             processed_init_questions.append({
                 "id": q_id,
-                "description": q.get('question', '') or ''
+                "description": q.get('question', '') or '',
+                "time": {}
             })
     
     # 处理后续问题
@@ -172,7 +173,8 @@ def store_group_info(redis_conn, group_data):
             question_ids_to_answers[q_id] = answer if answer is not None else ''
             processed_follow_up_questions.append({
                 "id": q_id,
-                "description": q.get('question', '') or ''
+                "description": q.get('question', '') or '',
+                "time": {}
             })
     
     # 将信息存入Redis
@@ -233,6 +235,11 @@ def send_init_questions(redis_conn, questions, stream_name):
     total_sent = 0
     
     for question in questions:
+        # 添加request时间
+        if "time" not in question:
+            question["time"] = {}
+        question["time"]["request"] = time.time()
+        
         redis_conn.xadd(stream_name, {"data": json.dumps(question)})
         total_sent += 1
         logging.info(f"[{os.getpid()}](GEN) 已发送初始问题 {total_sent}/{len(questions)}: '{question['description'][:40]}...'")
@@ -259,6 +266,11 @@ def send_follow_up_questions(redis_conn, questions, stream_name, interval):
         # 每个问题前都等待指定的间隔时间
         logging.info(f"[{os.getpid()}](GEN) 等待 {interval} 秒后发送后续问题...")
         time.sleep(interval)
+        
+        # 添加request时间
+        if "time" not in question:
+            question["time"] = {}
+        question["time"]["request"] = time.time()
         
         redis_conn.xadd(stream_name, {"data": json.dumps(question)})
         total_sent += 1
@@ -374,10 +386,12 @@ def run(config: dict):
     
     # TODO: 在这里指定某一个group
     # yaml_files = sorted(yaml_files)  # 按文件名排序
-    yaml_files = sorted(yaml_files)[10:20]
+    # yaml_files = sorted(yaml_files)[0:25]
+    yaml_files = sorted(yaml_files)[1:2]
     
     if not yaml_files:
         logging.error(f"[{os.getpid()}](GEN) 未找到问题文件，退出服务")
+        send_system_shutdown(redis_conn)
         return
     
     logging.info(f"[{os.getpid()}](GEN) 共 {len(yaml_files)} 个问题组，开始处理")
