@@ -6,6 +6,9 @@ init_y: -3.26
 init_z: 1.52
 init_angle: -2.18
 questions_init:
+- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
 - question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option)
     D) (Do not choose this option).
   answer: B
@@ -14,9 +17,6 @@ questions_init:
     this option) D) (Do not choose this option).
   answer: B
   urgency: 0.9
-- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
-  answer: B
-  urgency: 0.2
 questions_follow_up:
 - question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
     this option) D) (Do not choose this option).

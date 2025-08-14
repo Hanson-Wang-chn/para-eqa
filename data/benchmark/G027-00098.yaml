@@ -10,14 +10,14 @@ questions_init:
     option) D) (Do not choose this option).
   answer: B
   urgency: 0.2
-- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
-    option) D) (Do not choose this option).
-  answer: B
-  urgency: 0.9
 - question: Where can you find a yellow lamp? A) On the dining table B) Beside the
     sofa C) Beside the stove D) On a wooden desk.
   answer: D
   urgency: 0.2
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
 questions_follow_up:
 - question: How many chairs are around the dining table? A) Two B) Four C) Six D)
     Eight.

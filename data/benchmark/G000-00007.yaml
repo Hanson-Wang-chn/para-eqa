@@ -10,13 +10,13 @@ questions_init:
     B) In the kitchen C) On the sofa in the living room D) On the dining table.
   answer: D
   urgency: 0.2
+- question: What is the dinning table made of? A) Wood B) Glass C) Plastic D) Metal.
+  answer: A
+  urgency: 0.2
 - question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option)
     D) (Do not choose this option).
   answer: B
   urgency: 0.5
-- question: What is the dinning table made of? A) Wood B) Glass C) Plastic D) Metal.
-  answer: A
-  urgency: 0.2
 questions_follow_up:
 - question: What colors are the cushions on the white sofa in the living room? A)
     Blue and orange B) Red and green C) Yellow and black D) Purple and pink.

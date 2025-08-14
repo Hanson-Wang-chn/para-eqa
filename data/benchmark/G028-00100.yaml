@@ -6,10 +6,6 @@ init_y: -2.92
 init_z: -1.38
 init_angle: -2.89
 questions_init:
-- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
-    option) D) (Do not choose this option).
-  answer: B
-  urgency: 0.9
 - question: How many white plates are there on the dining table? A) Two B) Four C)
     Six D) Eight.
   answer: C
@@ -18,6 +14,10 @@ questions_init:
     Eight.
   answer: C
   urgency: 0.2
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
 questions_follow_up:
 - question: What color is the cushion on the long gray sofa in the living room? A)
     Yellow B) Orange C) Blue D) Teal.

@@ -10,14 +10,14 @@ questions_init:
     Blue and orange B) Yellow and pink C) Black and gray D) Purple and green.
   answer: D
   urgency: 0.2
-- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
-    this option) D) (Do not choose this option).
-  answer: B
-  urgency: 0.9
 - question: Is there a white chair in the bedroom with colorful quilt? A) Yes B) No
     C) (Do not choose this option) D) (Do not choose this option).
   answer: A
   urgency: 0.2
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
 questions_follow_up:
 - question: What is the color that you cannot find in the pictures hanging on the
     wall in the bedroom with two twin beds? A) Red B) Green C) Yellow D) (Do not choose

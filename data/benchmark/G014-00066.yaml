@@ -6,10 +6,6 @@ init_y: 0.08
 init_z: -1.39
 init_angle: -3.09
 questions_init:
-- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
-    this option) D) (Do not choose this option).
-  answer: B
-  urgency: 0.9
 - question: Is the toiled lid closed? A) Yes B) No C) (Do not choose this option)
     D) (Do not choose this option).
   answer: A
@@ -18,6 +14,10 @@ questions_init:
     Three D) Four.
   answer: B
   urgency: 0.2
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
 questions_follow_up:
 - question: What can you see on the painting hanging on the wall above the fireplace?
     A) A magnificent castle standing on a hill B) A running leopard in chase of a

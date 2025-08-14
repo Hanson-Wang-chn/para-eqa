@@ -6,10 +6,6 @@ init_y: -2.64
 init_z: -6.28
 init_angle: -2.77
 questions_init:
-- question: Is the television in the living room turned on? A) Yes B) No C) (Do not
-    choose this option) D) (Do not choose this option).
-  answer: B
-  urgency: 0.4
 - question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
     option) D) (Do not choose this option).
   answer: A
@@ -18,6 +14,10 @@ questions_init:
     Metal D) Wood.
   answer: D
   urgency: 0.2
+- question: Is the television in the living room turned on? A) Yes B) No C) (Do not
+    choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
 questions_follow_up:
 - question: How many white cushions are there on the sofa in the living room? A) One
     B) Two C) Three D) Four.

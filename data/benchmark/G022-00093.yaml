@@ -10,15 +10,15 @@ questions_init:
     Wood D) Plastic.
   answer: B
   urgency: 0.2
+- question: Is there a carpet under the dining table with four chairs around it? A)
+    Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
 - question: Where can you find my white scarf? A) On the bed in the bedroom B) On
     the desk in the study C) On the floor in the kitchen D) On one of the sofas in
     the living room.
   answer: D
   urgency: 0.6
-- question: Is there a carpet under the dining table with four chairs around it? A)
-    Yes B) No C) (Do not choose this option) D) (Do not choose this option).
-  answer: A
-  urgency: 0.2
 questions_follow_up:
 - question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
   answer: A
