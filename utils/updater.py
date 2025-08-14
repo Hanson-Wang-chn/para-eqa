@@ -46,19 +46,32 @@ class Updater:
 
 
     def add_question(self, question):
-        # TODO: 加入get_reward_estimate的逻辑，一次可以输入所有的问题，统一更新
         # Finishing Module调用该方法加入一个问题
         self.highest_priority_question = None
         self.highest_priority_score = float('-inf')
         
-        # 先逐一计算cost和reward，然后一次性计算dependency，最后status由buffer中的calculate_status()方法生成
+        # 先计算cost和reward，然后计算dependency，最后status由buffer中的calculate_status()方法生成
         original_questions = self.buffer.get_pending_and_ready_questions()
         all_questions = original_questions.copy()
         all_questions.append(question)
         
+        print(f"\n\n\n[{os.getpid()}](QUE) Before calculating reward:")
+        print(all_questions)
+        print("\n\n\n")
+        
+        # 为所有问题计算reward
+        if self.enable_reward_estimate:
+            all_questions = self._get_reward_estimate(all_questions)
+        else:
+            for q in all_questions:
+                q["reward_estimate"] = 0.0
+        
+        print(f"\n\n\n[{os.getpid()}](QUE) After calculating reward:")
+        print(all_questions)
+        print("\n\n\n")
+        
         for q in all_questions:
             q["cost_estimate"] = self._get_cost_estimate(q) if self.enable_cost_estimate else 0.0
-            q["reward_estimate"] = self._get_reward_estimate(q) if self.enable_reward_estimate else 0.0
         
         if len(all_questions) >= 2:
             qid = question["id"]
@@ -100,6 +113,16 @@ class Updater:
         for other_question in other_questions:
             if completed_id in other_question["dependency"]:
                 other_question["dependency"].remove(completed_id)
+        
+        # 重新计算reward和cost
+        if self.enable_reward_estimate:
+            other_questions = self._get_reward_estimate(other_questions)
+        else:
+            for q in other_questions:
+                q["reward_estimate"] = 0.0
+        
+        for q in other_questions:
+            q["cost_estimate"] = self._get_cost_estimate(q) if self.enable_cost_estimate else 0.0
         
         # 将更新后的问题列表写回buffer
         self.buffer.write_latest_questions(other_questions)
@@ -230,13 +253,97 @@ class Updater:
                 self.highest_priority_question = question
                 
         logging.info(f"更新优先级完成，最高优先级问题ID: {self.highest_priority_question['id'] if self.highest_priority_question else 'None'}, 分数: {self.highest_priority_score}")
+
+
+    def _get_reward_estimate(self, questions):
+        """
+        计算每个问题的奖励估计值
+        
+        Args:
+            questions: 问题列表
+        
+        Returns:
+            list: 更新了reward_estimate的问题列表
+        """
+        # 如果只有一个问题，reward直接设为1
+        if len(questions) <= 1:
+            for q in questions:
+                q["reward_estimate"] = 1.0
+            return questions
+        
+        # 获取prompt模板
+        prompt_get_reward = self.prompt_updater.get("get_reward_estimate", "")
+        if not prompt_get_reward:
+            logging.warning("未找到奖励估计的提示词模板")
+            # 如果没有模板，默认所有问题reward为1
+            for q in questions:
+                q["reward_estimate"] = 1.0
+            return questions
+        
+        # 准备问题数据
+        questions_data = []
+        for q in questions:
+            questions_data.append({
+                "id": q["id"],
+                "description": q["description"]
+            })
+        
+        # 准备问题的格式化字符串
+        questions_str = json.dumps(questions_data, ensure_ascii=False, indent=2)
+        
+        # 填充提示词模板
+        prompt = prompt_get_reward.format(questions=questions_str)
+        
+        # 发送请求到VLM API
+        response = self.vlm.request_with_retry(image=None, prompt=prompt)[0]
+        
+        # 解析响应获取reward值
+        try:
+            # 寻找JSON格式的响应
+            json_start = response.find("{")
+            json_end = response.rfind("}") + 1
+            
+            if json_start >= 0 and json_end > json_start:
+                json_str = response[json_start:json_end]
+                reward_data = json.loads(json_str)
+                
+                # 确保返回格式正确
+                if not isinstance(reward_data, dict):
+                    logging.error(f"奖励估计格式错误: {reward_data}")
+                    # 默认所有问题reward为1
+                    for q in questions:
+                        q["reward_estimate"] = 1.0
+                    return questions
+                    
+                # 更新问题的reward_estimate
+                for q in questions:
+                    q_id = q["id"]
+                    if q_id in reward_data:
+                        # 确保reward是一个数值并在合理范围内
+                        reward = float(reward_data[q_id])
+                        reward = max(1.0, min(len(questions), reward))  # 限制在1到问题数量之间
+                        q["reward_estimate"] = reward
+                    else:
+                        # 未找到对应ID的reward，设为默认值1
+                        q["reward_estimate"] = 1.0
+                        logging.warning(f"未找到问题ID {q_id} 的reward值，设为默认值1")
+                
+                return questions
+            else:
+                logging.error(f"无法从响应中提取JSON: {response}")
+                # 默认所有问题reward为1
+                for q in questions:
+                    q["reward_estimate"] = 1.0
+                return questions
+        except Exception as e:
+            logging.error(f"解析奖励估计时出错: {e}, 响应: {response}")
+            # 发生错误时，默认所有问题reward为1
+            for q in questions:
+                q["reward_estimate"] = 1.0
+            return questions
     
     
     def _get_cost_estimate(self, question):
-        return 0.0
-    
-    
-    def _get_reward_estimate(self, question):
         return 0.0
     
     

@@ -156,7 +156,7 @@ redis:
 generator:
   # FIXME:
   enable_follow_up: true
-  interval_seconds: 120
+  interval_seconds: 1
   shuffle: false
 
 finishing:
@@ -172,7 +172,7 @@ stopping:
 updater:
   enable_cost_estimate: false
   # FIXME:
-  enable_reward_estimate: false
+  enable_reward_estimate: true
 
 answering:
   result_dir: results/answers
@@ -359,7 +359,116 @@ prompt:
   
   updater:
     get_cost_estimate:
-    get_reward_estimate:
+    get_reward_estimate: |
+      You are an AI assistant responsible for estimating reward values for a set of questions in an Embodied Question Answering (EQA) system. Your task is to analyze the spatial relationships between questions and assign appropriate reward values.
+
+      The reward value for each question is determined by the number of questions that refer to the same or nearby locations. If multiple questions target the same location, they should all receive a reward equal to the count of such questions. If a question targets a unique location, its reward is 1.
+
+      Important: Be careful to differentiate between similar locations in different areas. For example, "bedroom on the first floor" and "bedroom on the second floor" are different locations, while "bed in the master bedroom" and "nightstand in the master bedroom" are in the same location.
+
+      Here are some examples:
+
+      Example 1:
+      ```
+      [
+        {{
+          "id": "q1",
+          "description": "What is the color of the kitchen countertop?"
+        }}
+      ]
+      ```
+      Reward Analysis: Only one question, so reward = 1.
+      Output:
+      ```json
+      {{
+        "q1": 1
+      }}
+      ```
+
+      Example 2:
+      ```
+      [
+        {{
+          "id": "q1",
+          "description": "How many sinks are in the kitchen?"
+        }},
+        {{
+          "id": "q2",
+          "description": "Is there a flame on the kitchen stove?"
+        }}
+      ]
+      ```
+      Reward Analysis: Both questions refer to the kitchen, so reward = 2 for each.
+      Output:
+      ```json
+      {{
+        "q1": 2,
+        "q2": 2
+      }}
+      ```
+
+      Example 3:
+      ```
+      [
+        {{
+          "id": "q1", 
+          "description": "Is there a vase on the bedroom floor?"
+        }},
+        {{
+          "id": "q2",
+          "description": "How many pillows are on the bedroom bed?"
+        }},
+        {{
+          "id": "q3",
+          "description": "What color is the blanket on the bedroom bed?"
+        }}
+      ]
+      ```
+      Reward Analysis: All three questions refer to the same bedroom, so reward = 3 for each.
+      Output:
+      ```json
+      {{
+        "q1": 3,
+        "q2": 3,
+        "q3": 3
+      }}
+      ```
+
+      Example 4:
+      ```
+      [
+        {{
+          "id": "q1",
+          "description": "What color is the sofa in the living room?"
+        }},
+        {{
+          "id": "q2",
+          "description": "Is there a TV in the master bedroom?"
+        }},
+        {{
+          "id": "q3",
+          "description": "How many windows are in the living room?"
+        }},
+        {{
+          "id": "q4",
+          "description": "Is there a desk in the guest bedroom?"
+        }}
+      ]
+      ```
+      Reward Analysis: q1 and q3 refer to the living room (reward = 2), q2 refers to the master bedroom (reward = 1), q4 refers to the guest bedroom (reward = 1).
+      Output:
+      ```json
+      {{
+        "q1": 2,
+        "q2": 1,
+        "q3": 2,
+        "q4": 1
+      }}
+      ```
+
+      Now, please analyze the following questions and provide the reward estimates in JSON format with question IDs as keys and reward values as integers. The output should ONLY contain the JSON object. DO NOT include any additional text or explanations.
+
+      Questions: {questions}
     get_dependency: |
       You are an AI assistant responsible for generating a dependency graph for a set of structured questions in an Embodied Question Answering (EQA) system within a multi-story residential environment. Your task is to analyze relationships between questions and represent their dependencies in a JSON format, considering spatial, informational, and logical dependencies.
 

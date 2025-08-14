@@ -374,6 +374,12 @@ def run(config: dict):
     config_generator = config.get("generator", {})
     question_data_path = config.get("question_data_path", "./data/benchmark")
     interval_seconds = config_generator.get("interval_seconds", 120)
+    enable_follow_up = config_generator.get("enable_follow_up", True)
+    
+    if enable_follow_up:
+        logging.info(f"[{os.getpid()}](GEN) 启用 follow-up 模式，后续问题将每隔 {interval_seconds} 秒发送一个")
+    else:
+        logging.info(f"[{os.getpid()}](GEN) 禁用 follow-up 模式，所有问题将一次性发送")
     
     # 连接 Redis
     redis_conn = get_redis_connection(config)
@@ -386,8 +392,7 @@ def run(config: dict):
     
     # TODO: 在这里指定某一个group
     # yaml_files = sorted(yaml_files)  # 按文件名排序
-    # yaml_files = sorted(yaml_files)[0:25]
-    yaml_files = sorted(yaml_files)[1:2]
+    yaml_files = sorted(yaml_files)[0:25]
     
     if not yaml_files:
         logging.error(f"[{os.getpid()}](GEN) 未找到问题文件，退出服务")
@@ -422,18 +427,30 @@ def run(config: dict):
             init_questions = processed_questions['questions_init']
             follow_up_questions = processed_questions['questions_follow_up']
             
-            logging.info(f"[{os.getpid()}](GEN) 将立即发送 {len(init_questions)} 个初始问题")
-            logging.info(f"[{os.getpid()}](GEN) 将每隔 {interval_seconds} 秒发送 {len(follow_up_questions)} 个后续问题")
+            # 根据enable_follow_up决定发送方式
+            if enable_follow_up:
+                # 原有逻辑：分别发送初始问题和后续问题
+                logging.info(f"[{os.getpid()}](GEN) 将立即发送 {len(init_questions)} 个初始问题")
+                logging.info(f"[{os.getpid()}](GEN) 将每隔 {interval_seconds} 秒发送 {len(follow_up_questions)} 个后续问题")
+                
+                # 5. 发送初始问题
+                init_sent = send_init_questions(redis_conn, init_questions, stream_name)
+                
+                # 6. 发送后续问题
+                if follow_up_questions:
+                    follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
+                    logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent + follow_up_sent} 个问题")
+                
+                else:
+                    logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 没有后续问题，已发送 {init_sent} 个初始问题")
             
-            # 5. 发送初始问题
-            init_sent = send_init_questions(redis_conn, init_questions, stream_name)
-            
-            # 6. 发送后续问题
-            if follow_up_questions:
-                follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
-                logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent + follow_up_sent} 个问题")
             else:
-                logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 没有后续问题，已发送 {init_sent} 个初始问题")
+                # 新逻辑：将所有问题都作为初始问题一次性发送
+                all_questions = init_questions + follow_up_questions
+                logging.info(f"[{os.getpid()}](GEN) 将一次性发送所有 {len(all_questions)} 个问题")
+                
+                total_sent = send_init_questions(redis_conn, all_questions, stream_name)
+                logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已一次性发送完毕，共 {total_sent} 个问题")
             
             # 7. 等待来自question_pool_service的组完成请求
             wait_for_group_completion(redis_conn, group_id)
