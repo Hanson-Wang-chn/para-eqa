@@ -107,14 +107,16 @@ class Updater:
                 other_question["dependency"].remove(completed_id)
         
         # 重新计算reward和cost
-        if self.enable_reward_estimate:
-            other_questions = self._get_reward_estimate(other_questions)
-        else:
+        # FIXME:
+        if other_questions:
+            if self.enable_reward_estimate:
+                other_questions = self._get_reward_estimate(other_questions)
+            else:
+                for q in other_questions:
+                    q["reward_estimate"] = 0.0
+            
             for q in other_questions:
-                q["reward_estimate"] = 0.0
-        
-        for q in other_questions:
-            q["cost_estimate"] = self._get_cost_estimate(q) if self.enable_cost_estimate else 0.0
+                q["cost_estimate"] = self._get_cost_estimate(q) if self.enable_cost_estimate else 0.0
         
         # 将更新后的问题列表写回buffer
         self.buffer.write_latest_questions(other_questions)

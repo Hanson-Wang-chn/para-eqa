@@ -156,7 +156,7 @@ redis:
 generator:
   # FIXME:
   enable_follow_up: true
-  interval_seconds: 1
+  interval_seconds: 120
   shuffle: false
 
 finishing:

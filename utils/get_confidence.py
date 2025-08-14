@@ -6,6 +6,7 @@ from utils.image_processor import decode_image
 
 
 def get_confidence(question_desc, kb, prompt_get_confidence, model_name="qwen/qwen2.5-vl-72b-instruct", server="openrouter", base_url=None, api_key=None):
+    return 1.0
     """
     调用大模型计算能否回答问题的置信度
     
