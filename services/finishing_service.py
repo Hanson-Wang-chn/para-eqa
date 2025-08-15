@@ -234,6 +234,8 @@ def run(config: dict):
                             logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 置信度: {confidence}")
                             
                             # 根据置信度决定去向
+                            # FIXME:
+                            # confidence = 0.1
                             if confidence >= confidence_threshold:
                                 # 置信度高，发送到Answering服务
                                 

@@ -129,6 +129,15 @@ class Updater:
         self._update_priority_scores()
     
     
+    def select_question(self):
+        selected_question = self.highest_priority_question
+        if selected_question is None:
+            logging.info(f"[{os.getpid()}](QUE) No pending or ready questions available for selection.")
+            return None
+        self.buffer.set_status(selected_question["id"], "in_progress")
+        return selected_question
+        
+        
     def answer_question(self, question):
         question_completed = self.buffer.get_question_by_id(question["id"])
         if question_completed["status"] != "completed":
@@ -145,6 +154,11 @@ class Updater:
         question["status"] = "answered"
         question.setdefault("max_steps", 0)
         question.setdefault("used_steps", 0)
+        question.setdefault("reward_estimate", 0.0)  # 添加默认奖励估计
+        question.setdefault("cost_estimate", 0.0)    # 添加默认成本估计
+        question.setdefault("dependency", [])        # 添加默认依赖关系
+        question.setdefault("urgency", 0.0)          # 添加默认紧急度
+        question.setdefault("scope_type", "local")   # 添加默认范围类型
         
         # 确保time字段存在
         if "time" not in question:
@@ -153,13 +167,13 @@ class Updater:
         self.buffer.add_question(question)
     
     
-    def get_highest_priority_question(self):
-        """获取当前优先级最高的问题"""
-        if self.highest_priority_question is None:
-            logging.info(f"[{os.getpid()}](QUE) No pending or ready questions available.")
-            return None
+    # def get_highest_priority_question(self):
+    #     """获取当前优先级最高的问题"""
+    #     if self.highest_priority_question is None:
+    #         logging.info(f"[{os.getpid()}](QUE) No pending or ready questions available.")
+    #         return None
         
-        return self.highest_priority_question
+    #     return self.highest_priority_question
     
     
     def is_group_completed(self, redis_conn, group_id):

@@ -280,7 +280,7 @@ if __name__ == "__main__":
     # 测试API调用是否正常
     model_name = "gpt-oss:20b"
     server = "ollama"
-    base_url = "http://100.88.238.80:11434/v1"
+    base_url = "http://100.81.140.32:11434/v1"
     api_key = None
     vlm = VLM_API(model_name=model_name, server=server, base_url=base_url, api_key=api_key)
     response = vlm.request_with_retry(image=None, prompt="Hello!")[0]

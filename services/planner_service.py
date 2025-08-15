@@ -29,26 +29,24 @@ def select_question(redis_conn):
         # logging.info(f"[{os.getpid()}](PLA) Planner response group already exists: {e}")
         pass
     
+    # 生成请求ID
+    request_id = str(uuid.uuid4())
+    
+    # 创建请求
+    request = {
+        "request_id": request_id,
+        "sender": "planner",
+        "type": "select_question",
+        "data": {}
+    }
+    
+    # 发送请求 - 只发送一次
+    redis_conn.xadd(STREAMS["pool_requests"], {"data": json.dumps(request)})
+    logging.info(f"[{os.getpid()}](PLA) 发送问题选择请求: {request_id}")
+    
+    # 无限循环等待响应，不再重复发送请求
     while True:
-        # 生成请求ID
-        request_id = str(uuid.uuid4())
-        
-        # 创建请求
-        request = {
-            "request_id": request_id,
-            "sender": "planner",
-            "type": "select_question",
-            "data": {}
-        }
-        
-        # 发送请求
-        redis_conn.xadd(STREAMS["pool_requests"], {"data": json.dumps(request)})
-        
-        # 等待响应
-        wait_start_time = time.time()
-        max_wait_time = 3  # 单次响应最多等待3秒，若超时，说明planner阻塞（正在处理其他请求）
-        
-        while time.time() - wait_start_time < max_wait_time:
+        try:
             responses = redis_conn.xreadgroup(
                 "planner_group", "planner_worker", 
                 {pool_responses_stream: '>'}, 
@@ -64,20 +62,30 @@ def select_question(redis_conn):
                         response = json.loads(data.get('data', '{}'))
                         response_request_id = response.get('request_id')
                         
-                        # 确认消息
-                        redis_conn.xack(pool_responses_stream, "planner_group", msg_id)
-                        
                         # 检查是否是我们请求的响应
                         if response_request_id == request_id and response.get('type') == 'question_selected':
+                            # 确认匹配的消息
+                            redis_conn.xack(pool_responses_stream, "planner_group", msg_id)
+                            
                             if response.get('status') == "success" and response.get('data'):
                                 logging.info(f"[{os.getpid()}](PLA) Received question {response['data']['id']} from Question Pool")
                                 return response['data']
+                            
                             else:
+                                logging.info(f"[{os.getpid()}](PLA) No available questions from Question Pool")
                                 return None
+                        
+                        else:
+                            # 不是我们的响应，不确认消息
+                            logging.debug(f"[{os.getpid()}](PLA) 收到非目标响应: {response_request_id}, 等待: {request_id}")
+                    
                     except Exception as e:
                         logging.error(f"[{os.getpid()}](PLA) Error processing response: {e}")
+                        # 处理错误但继续等待正确响应
         
-        time.sleep(0.1)
+        except Exception as e:
+            logging.error(f"[{os.getpid()}](PLA) Error while waiting for response: {e}")
+            time.sleep(1)  # 发生错误时短暂等待后继续
 
 
 def run(config: dict):

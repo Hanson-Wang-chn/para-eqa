@@ -144,27 +144,24 @@ def run(config: dict):
                                 redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
                         
                         elif request_type == "select_question":
-                            # 处理选择问题请求
-                            highest_priority_question = updater.get_highest_priority_question()
+                            # 选择一个问题
+                            selected_question = updater.select_question()
                             
-                            if highest_priority_question:
-                                # 更新问题状态为 "in_progress"
-                                updater.set_status(highest_priority_question["id"], "in_progress")
-                                
+                            if selected_question:
                                 # 设置开始处理时间
-                                if "time" not in highest_priority_question:
-                                    highest_priority_question["time"] = {}
-                                highest_priority_question["time"]["start"] = time.time()
+                                if "time" not in selected_question:
+                                    selected_question["time"] = {}
+                                selected_question["time"]["start"] = time.time()
                                 
                                 # 返回问题
                                 response = {
                                     "request_id": request_id,
                                     "status": "success",
                                     "type": "question_selected",
-                                    "data": highest_priority_question
+                                    "data": selected_question
                                 }
                                 redis_conn.xadd(pool_responses_stream, {"data": json.dumps(response)})
-                                logging.info(f"[{os.getpid()}](QUE) Sent question {highest_priority_question['id']} to requester")
+                                logging.info(f"[{os.getpid()}](QUE) Sent question {selected_question['id']} to requester")
                             
                             else:
                                 # 没有可用问题
