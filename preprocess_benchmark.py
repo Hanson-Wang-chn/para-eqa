@@ -118,7 +118,7 @@ def main():
     print(f"在基准测试目录中找到 {len(yaml_files)} 个YAML文件")
     
     # TODO: 选择要处理的文件
-    yaml_files = yaml_files[30:]
+    yaml_files = yaml_files[40:]
     
     if not yaml_files:
         print(f"错误: 没有需要处理的文件")

@@ -1,0 +1,28 @@
+group_id: '031'
+scene: 00104-KJxdMPgweZG
+floor: 0
+init_x: 8.47
+init_y: 0.05
+init_z: 6.66
+init_angle: 0.74
+questions_init:
+- question: Where can you find a towel? A) In the kitchen B) In the bedroom C) In
+    the living room D) In the bathroom.
+  answer: D
+  urgency: 0.2
+- question: How many cushions are there on the brown leather sofa in the living room?
+    A) One B) Two C) Three D) Four.
+  answer: A
+  urgency: 0.2
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+questions_follow_up:
+- question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
+  answer: B
+  urgency: 0.2
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9

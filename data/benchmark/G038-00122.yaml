@@ -1,0 +1,30 @@
+group_id: 038
+scene: 00122-QDtpZSqaeyW
+floor: 0
+init_x: 8.17
+init_y: 1.29
+init_z: 7.05
+init_angle: 0.73
+questions_init:
+- question: What color are the sheets on the beds in the bedroom with two twin beds?
+    A) Yellow B) Green C) Blue D) Orange.
+  answer: D
+  urgency: 0.2
+- question: In the bathroom, is the toilet lid closed? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.5
+- question: I'm in a hurry. Could you check if I have cleaned and emptied the sinks
+    in the kitchen? A) Yes B) No C) (Do not choose this option) D) (Do not choose
+    this option).
+  answer: B
+  urgency: 0.5
+questions_follow_up:
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4

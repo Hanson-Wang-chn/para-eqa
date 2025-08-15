@@ -1,0 +1,30 @@
+group_id: '036'
+scene: 00118-F5j7ZLfMm1n
+floor: 0
+init_x: 1.3
+init_y: 0.13
+init_z: -0.08
+init_angle: 1.91
+questions_init:
+- question: How many cushions are there on the long sofa in the living room? A) One
+    B) Two C) Three D) Four.
+  answer: C
+  urgency: 0.2
+- question: I'm in a hurry. Could you check if I have cleaned and emptied the sinks
+    in the kitchen? A) Yes B) No C) (Do not choose this option) D) (Do not choose
+    this option).
+  answer: A
+  urgency: 0.6
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+questions_follow_up:
+- question: Is there a carpet in the living room? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.2

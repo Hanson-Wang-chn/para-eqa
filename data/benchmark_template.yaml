@@ -43,7 +43,7 @@ questions_follow_up:
     answer: D
   - question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
     answer: B
-  - question: Is the toiled lid closed? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
+  - question: In the bathroom, is the toilet lid closed? A) Yes B) No C) (Do not choose this option) D) (Do not choose this option).
     answer: A
   - question: How many sinks are there in the kitchen? A) One B) Two C) Three D) Four.
     answer: B

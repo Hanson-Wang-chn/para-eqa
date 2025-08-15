@@ -1,0 +1,28 @@
+group_id: '0337'
+scene: 00119-k17yptqNRAn
+floor: 0
+init_x: 11.69
+init_y: 0.1
+init_z: 0.51
+init_angle: 1.29
+questions_init:
+- question: What is the dining table made of? A) Wood B) Glass C) Metal D) Plastic.
+  answer: A
+  urgency: 0.2
+- question: Is there a towel on the red sofa in the living room? A) Yes B) No C) (Do
+    not choose this option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.5
+- question: Is there any fire in the fireplace in the living room? A) Yes B) No C)
+    (Do not choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+questions_follow_up:
+- question: How many cushions are on the long sofa in the living room? A) One B) Two
+    C) Three D) Four.
+  answer: B
+  urgency: 0.2
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9

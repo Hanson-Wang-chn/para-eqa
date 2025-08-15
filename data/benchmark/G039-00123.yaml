@@ -1,0 +1,29 @@
+group_id: 039
+scene: 00123-C3ifY177Ldq
+floor: 0
+init_x: -0.62
+init_y: -3.26
+init_z: -4.06
+init_angle: 2.23
+questions_init:
+- question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: B
+  urgency: 0.5
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: In the bathroom, is the toilet lid closed? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.5
+questions_follow_up:
+- question: Is there any fire in the fireplace in the living room? A) Yes B) No C)
+    (Do not choose this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2

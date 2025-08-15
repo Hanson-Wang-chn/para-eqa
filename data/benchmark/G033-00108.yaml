@@ -1,0 +1,29 @@
+group_id: '033'
+scene: 00108-oStKKWkQ1id
+floor: 0
+init_x: 5.52
+init_y: 0.04
+init_z: 2.17
+init_angle: 2.3
+questions_init:
+- question: Is there a carpet in the living room? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.2
+- question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: B
+  urgency: 0.5
+- question: Is there a bathtub in the bathroom? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.2
+questions_follow_up:
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: What color is the wall of the bedroom with a cozy bed with some teddy
+    bears on it? A) Green B) Blue C) Pink D) Orange.
+  answer: C
+  urgency: 0.2

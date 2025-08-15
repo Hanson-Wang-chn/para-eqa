@@ -1,0 +1,29 @@
+group_id: '030'
+scene: 00102-r77mpaAYUEc
+floor: 0
+init_x: 2.71
+init_y: 0.14
+init_z: -1.87
+init_angle: 0.99
+questions_init:
+- question: How many white cushions are there on the long sofa in the living room?
+    A) One B) Two C) Three D) Four.
+  answer: A
+  urgency: 0.2
+- question: How many chairs are around the dining table? A) Two B) Four C) Six D)
+    Eight.
+  answer: C
+  urgency: 0.2
+- question: Is there any fire or flame in the kitchen? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+questions_follow_up:
+- question: Where can you find some wine? A) On the kitchen table B) Near the sofa
+    C) On the shelf D) On the dining table.
+  answer: C
+  urgency: 0.2
+- question: How many maroon sofas are there in the living room? A) One B) Two C) Three
+    D) Four.
+  answer: A
+  urgency: 0.2

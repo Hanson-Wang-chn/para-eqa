@@ -1,0 +1,29 @@
+group_id: '035'
+scene: 00110-ikChNYDHtRf
+floor: 0
+init_x: 3.26
+init_y: 0.25
+init_z: 2.64
+init_angle: 1.38
+questions_init:
+- question: What color is the quilt on the bed in the bedroom with one big bed? A)
+    Blue B) Red C) White D) Green.
+  answer: C
+  urgency: 0.2
+- question: Is the TV in the living room turned on? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.4
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+questions_follow_up:
+- question: What is the long sofa in the living room made of? A) Wood B) Leather C)
+    Plastic D) Metal.
+  answer: B
+  urgency: 0.2
+- question: In the bathroom, is the toilet lid closed? A) Yes B) No C) (Do not choose
+    this option) D) (Do not choose this option).
+  answer: A
+  urgency: 0.4

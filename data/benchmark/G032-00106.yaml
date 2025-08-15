@@ -1,0 +1,30 @@
+group_id: '032'
+scene: 00106-ZVScmfktNQ1
+floor: 0
+init_x: -1.15
+init_y: 0.14
+init_z: -4.9
+init_angle: 0.99
+questions_init:
+- question: How many cushions are there on the bed with a white sheet and a red bedspread?
+    A) One B) Two C) Three D) Four
+  answer: D
+  urgency: 0.2
+- question: Is the door of the fridge open? A) Yes B) No C) (Do not choose this option)
+    D) (Do not choose this option).
+  answer: B
+  urgency: 0.5
+- question: What color is the clock in the living room? A) Red B) Blue C) Green D)
+    Black
+  answer: D
+  urgency: 0.2
+questions_follow_up:
+- question: Is there any smoke in the kitchen? A) Yes B) No C) (Do not choose this
+    option) D) (Do not choose this option).
+  answer: B
+  urgency: 0.9
+- question: I'm in a hurry. Where can you find my small blue bag together with a laptop?
+    A) On the sofa B) Beside the stove in the kitchen C) On a white desk D) On the
+    chair near the bed.
+  answer: C
+  urgency: 0.6
