@@ -32,6 +32,8 @@ def run(config: dict):
     
     # 读取配置
     use_parallel = config.get("use_parallel", True)
+    direct_answer = config.get("direct_answer", True)
+    
     finishing_config = config.get("finishing", {})
     retrieval_num = finishing_config.get("retrieval_num", 5)
     confidence_threshold = finishing_config.get("confidence_threshold", 0.7)
@@ -99,8 +101,8 @@ def run(config: dict):
                     
                     logging.info(f"[{os.getpid()}](FIN) 收到问题: {question_id} - '{question_desc[:40]}...'")
                     
-                    # use_parallel = False 时，直接转发到Question Pool
-                    if not use_parallel:
+                    # use_parallel == False 或 direct_answer == False 时，直接转发到Question Pool
+                    if not use_parallel or not direct_answer:
                         request_id = str(uuid.uuid4())
                         request = {
                             "request_id": request_id,

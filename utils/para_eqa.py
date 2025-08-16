@@ -533,6 +533,7 @@ class ParaEQA:
         self.simulator = None
         
         self.use_parallel = self.config.get("use_parallel", True)
+        self.use_rag = self.config.get("memory", {}).get("use_rag", True)
 
         # init prompts
         prompt = self.config.get("prompt", {}).get("planner", {})
@@ -800,6 +801,9 @@ class ParaEQA:
         
         for cnt_step in range(num_step):
             logging.info(f"\n== step: {cnt_step}")
+            
+            # Initialize kb
+            kb = []
 
             # Save step info and set current pose
             step_name = f"step_{cnt_step}"
@@ -831,42 +835,43 @@ class ParaEQA:
 
             rgb_im = Image.fromarray(rgb, mode="RGBA").convert("RGB")
             
-            # "What room are you most likely to be in at the moment? Answer with a phrase"
-            room = self.vlm_lite.request_with_retry(image=rgb_im, prompt="What room are you most likely to be in at the moment? Answer with a phrase")
+            if self.use_rag:            
+                # "What room are you most likely to be in at the moment? Answer with a phrase"
+                room = self.vlm_lite.request_with_retry(image=rgb_im, prompt="What room are you most likely to be in at the moment? Answer with a phrase")
 
-            objects = self.detector(rgb_im)[0]
-            objs_info = []
-            for box in objects.boxes:
-                cls = objects.names[box.cls.item()]
-                box = box.xyxy[0].cpu()
-                
-                # 裁剪目标区域进行描述
-                x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
-                obj_im = rgb_im.crop((x1, y1, x2, y2))
-                # "Describe this image."
-                obj_caption = self.vlm_tiny.request_with_retry(image=obj_im, prompt=self.prompt_caption)
-                
-                # 中心点转换世界坐标
-                x, y = (x1 + x2) / 2, (y1 + y2) / 2
-                world_pos = pixel2world(x, y, depth[int(y), int(x)], cam_pose)
-                world_pos = pos_normal_to_habitat(world_pos)
-                
-                # 保存目标信息
-                objs_info.append({"room": room, "cls": cls ,"caption": obj_caption[0], "pos": world_pos.tolist()})
+                objects = self.detector(rgb_im)[0]
+                objs_info = []
+                for box in objects.boxes:
+                    cls = objects.names[box.cls.item()]
+                    box = box.xyxy[0].cpu()
+                    
+                    # 裁剪目标区域进行描述
+                    x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
+                    obj_im = rgb_im.crop((x1, y1, x2, y2))
+                    # "Describe this image."
+                    obj_caption = self.vlm_tiny.request_with_retry(image=obj_im, prompt=self.prompt_caption)
+                    
+                    # 中心点转换世界坐标
+                    x, y = (x1 + x2) / 2, (y1 + y2) / 2
+                    world_pos = pixel2world(x, y, depth[int(y), int(x)], cam_pose)
+                    world_pos = pos_normal_to_habitat(world_pos)
+                    
+                    # 保存目标信息
+                    objs_info.append({"room": room, "cls": cls ,"caption": obj_caption[0], "pos": world_pos.tolist()})
 
-            if self.config.get("memory", {}).get("use_rag", True):
-                # "Describe this image."
-                caption = self.vlm_lite.request_with_retry(image=rgb_im, prompt=self.prompt_caption)
+                    # "Describe this image."
+                    caption = self.vlm_lite.request_with_retry(image=rgb_im, prompt=self.prompt_caption)
 
-            if self.config.get("save_obs", True):
-                save_rgbd(rgb, depth, os.path.join(episode_data_dir, f"{cnt_step}_rgbd.png"))
-                if self.config.get("memory", {}).get("use_rag", True):
+                if self.config.get("save_obs", True):
+                    save_rgbd(rgb, depth, os.path.join(episode_data_dir, f"{cnt_step}_rgbd.png"))
                     rgb_path = os.path.join(episode_data_dir, "{}.png".format(cnt_step))
                     plt.imsave(rgb_path, rgb)
-                    # 构建目标信息
-                    objs_str = json.dumps(objs_info)
-                    # 向Memory添加知识
-                    update(self.redis_conn, f"{step_name}: agent position is {pts}. {caption}. Objects: {objs_str}", rgb_im)
+                
+                # 构建目标信息
+                objs_str = json.dumps(objs_info)
+                
+                # 向Memory添加知识
+                update(self.redis_conn, f"{step_name}: agent position is {pts}. {caption}. Objects: {objs_str}", rgb_im)
 
             num_black_pixels = np.sum(
                 np.sum(rgb, axis=-1) == 0
@@ -884,7 +889,7 @@ class ParaEQA:
                 )
 
                 # 在每一步后询问stopping service是否可以停止探索
-                # 如果可以结束，会把更新后的信息存储到GROUP_INFO中
+                # 如果可以结束，把更新后的信息存储到GROUP_INFO中
                 # "... How confident are you in answering this question from your current perspective? ..."
                 stopping_response = can_stop(self.redis_conn, question_data, rgb_im, used_steps=cnt_step + 1)
                 if stopping_response.get("status") == "stop":
@@ -921,22 +926,30 @@ class ParaEQA:
 
                     # get VLM reasoning for exploring
                     if self.config.get("use_lsv", True):
-                        if self.config.get("memory", {}).get("use_rag", True):
+                        response = None
+                        
+                        if self.use_rag:
                             kb = search(
                                 self.redis_conn, 
                                 self.prompt_lsv.format(question), 
                                 rgb_im, 
                                 top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
                             )
+                            
+                            # "... Which direction (black letters on the image) would you explore then? ..."
+                            response = self.vlm.request_with_retry(rgb_im_draw, self.prompt_lsv.format(question), kb)[0]
                         
-                        # "... Which direction (black letters on the image) would you explore then? ..."
-                        response = self.vlm.request_with_retry(rgb_im_draw, self.prompt_lsv.format(question), kb)[0]
+                        else:
+                            prompt_lsv_no_rag = f"\nConsider the question: '{question}', and you will explore the environment for answering it.\nWhich direction (black letters on the image) would you explore then? Answer with a single letter."
+                            
+                            response = self.vlm.request_with_retry(rgb_im_draw, prompt_lsv_no_rag)[0]
                         
                         lsv = np.zeros(actual_num_prompt_points)
                         for i in range(actual_num_prompt_points):
                             if response == self.letters[i]:
                                 lsv[i] = 1
                         lsv *= actual_num_prompt_points / 3
+                    
                     else:
                         lsv = (
                             np.ones(actual_num_prompt_points) / actual_num_prompt_points
@@ -944,16 +957,23 @@ class ParaEQA:
 
                     # base - use image without label
                     if self.config.get("use_gsv", True):
-                        if self.config.get("memory", {}).get("use_rag", True):
+                        response = None
+                        
+                        if self.use_rag:
                             kb = search(
                                 self.redis_conn, 
                                 self.prompt_gsv.format(question), 
                                 rgb_im, 
                                 top_k=self.config.get("memory", {}).get("max_retrieval_num", 5) if cnt_step > self.config.get("memory", {}).get("max_retrieval_num", 5) else cnt_step
                             )
+                            
+                            # "... Is there any direction shown in the image worth exploring? ..."
+                            response = self.vlm.request_with_retry(rgb_im, self.prompt_gsv.format(question), kb)[0].strip(".")
                         
-                        # "... Is there any direction shown in the image worth exploring? ..."
-                        response = self.vlm.request_with_retry(rgb_im, self.prompt_gsv.format(question), kb)[0].strip(".")
+                        else:
+                            prompt_gsv_no_rag = f"\nConsider the question: '{question}', and you will explore the environment for answering it. Is there any direction shown in the image worth exploring? Answer with Yes or No."
+                            
+                            response = self.vlm.request_with_retry(rgb_im, prompt_gsv_no_rag)[0].strip(".")
                         
                         gsv = np.zeros(2)
                         if response == "Yes":
@@ -961,8 +981,10 @@ class ParaEQA:
                         else:
                             gsv[1] = 1
                         gsv = (np.exp(gsv[0] / self.config.get("gsv_T", 0.5)) / self.config.get("gsv_F", 3))  # scale before combined with lsv
+                    
                     else:
                         gsv = 1
+                    
                     sv = lsv * gsv
                     logging.info(f"Exp - LSV: {lsv} GSV: {gsv} SV: {sv}")
 

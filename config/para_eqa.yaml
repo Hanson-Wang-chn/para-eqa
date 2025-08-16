@@ -8,16 +8,21 @@ init_pose_data_path: ./data/scene_init_poses_all.csv
 save_obs: true
 save_freq: 20
 device: 'cuda'
+# TODO: 
 detector: '/home/whs/eqa/para-eqa/data/yolo11x.pt' # 替换为实际的绝对路径
-# FIXME:
-use_parallel: false # 是否有 group memory 和 finishing service
+# TODO:
+use_parallel: true # 是否有 group memory 和 finishing service
+# TODO:
+priority_scheduling: true
+# TODO:
+direct_answer: false
 
 
 # Memory
 memory:
   device: 'cuda'
-  # FIXME:
-  use_rag: true
+  # TODO:
+  use_rag: true # 是否有 question memory
   dimension: 768
   weight_image: 0.5
   weight_text: 0.5
@@ -45,10 +50,10 @@ redis:
 
 # Services
 generator:
-  # FIXME:
+  # TODO:
   enable_follow_up: true
   # TODO:
-  interval_seconds: 60
+  interval_seconds: 15
   # TODO:
   start_group: 1
   end_group: 1
@@ -70,7 +75,7 @@ updater:
 
 answering:
   # TODO:
-  result_dir: results/answers-sequential
+  result_dir: results/answers-no-direct-answer
 
 planner:
   dist_T: 10
@@ -138,7 +143,7 @@ vlm:
   # RTX 4090 * 4: "http://58.198.176.200:11434/v1"
   # RTX 4090 D * 1: "http://49.52.18.227:11434/v1"
 
-  # 适中成本
+  # 稳定高成本
   answering:
     model: openai/gpt-5-mini
     server: openrouter
@@ -152,9 +157,9 @@ vlm:
     api_key:
 
   parser:
-    model: gpt-oss:20b
-    server: ollama
-    base_url: "http://100.81.140.32:11434/v1"
+    model: openai/gpt-oss-20b
+    server: openrouter
+    base_url: 
     api_key:
 
   stopping:
@@ -164,9 +169,9 @@ vlm:
     api_key:
 
   updater:
-    model: gpt-oss:20b
-    server: ollama
-    base_url: "http://100.81.140.32:11434/v1"
+    model: openai/gpt-oss-20b
+    server: openrouter
+    base_url: 
     api_key:
 
   planner:
@@ -182,10 +187,59 @@ vlm:
     api_key:
 
   planner_tiny:
-    model: qwen2.5vl:7b
-    server: ollama
-    base_url: "http://100.88.238.80:11434/v1"
+    model: qwen2.5-vl-7b-instruct
+    server: dashscope
+    base_url: 
     api_key:
+
+  # # 适中成本
+  # answering:
+  #   model: openai/gpt-5-mini
+  #   server: openrouter
+  #   base_url: 
+  #   api_key:
+
+  # finishing:
+  #   model: openai/gpt-5-mini
+  #   server: openrouter
+  #   base_url: 
+  #   api_key:
+
+  # parser:
+  #   model: gpt-oss:20b
+  #   server: ollama
+  #   base_url: "http://100.81.140.32:11434/v1"
+  #   api_key:
+
+  # stopping:
+  #   model: openai/gpt-5-mini
+  #   server: openrouter
+  #   base_url: 
+  #   api_key:
+
+  # updater:
+  #   model: gpt-oss:20b
+  #   server: ollama
+  #   base_url: "http://100.81.140.32:11434/v1"
+  #   api_key:
+
+  # planner:
+  #   model: qwen2.5vl:72b
+  #   server: ollama
+  #   base_url: "http://58.198.176.200:11434/v1"
+  #   api_key:
+
+  # planner_lite:
+  #   model: qwen2.5vl:72b
+  #   server: ollama
+  #   base_url: "http://58.198.176.200:11434/v1"
+  #   api_key:
+
+  # planner_tiny:
+  #   model: qwen2.5vl:7b
+  #   server: ollama
+  #   base_url: "http://100.88.238.80:11434/v1"
+  #   api_key:
   
   # 零成本高性能
   # answering:

@@ -14,6 +14,8 @@ from common.redis_client import GROUP_INFO
 class Updater:
     def __init__(self, config):
         self.config = config
+        self.priority_scheduling = config.get("priority_scheduling", True)
+        
         updater_config = self.config.get("updater", {})
         self.enable_cost_estimate = updater_config.get("enable_cost_estimate", False)
         self.enable_reward_estimate = updater_config.get("enable_reward_estimate", False)
@@ -61,10 +63,10 @@ class Updater:
         else:
             for q in all_questions:
                 q["reward_estimate"] = 0.0
-        
+            
         for q in all_questions:
             q["cost_estimate"] = self._get_cost_estimate(q) if self.enable_cost_estimate else 0.0
-        
+            
         if len(all_questions) >= 2:
             qid = question["id"]
             new_dependency = self._get_new_dependency(all_questions, qid)
@@ -73,7 +75,7 @@ class Updater:
             #     "depends_on": ["id_1", "id_2", ...],
             #     "required_by": ["id_3", "id_4", ...]
             # }
-            
+                
             all_questions = self._merge_dependencies(all_questions, new_dependency, qid)
         
         # 将更新后的问题列表写回buffer
@@ -107,7 +109,6 @@ class Updater:
                 other_question["dependency"].remove(completed_id)
         
         # 重新计算reward和cost
-        # FIXME:
         if other_questions:
             if self.enable_reward_estimate:
                 other_questions = self._get_reward_estimate(other_questions)
@@ -167,15 +168,6 @@ class Updater:
         self.buffer.add_question(question)
     
     
-    # def get_highest_priority_question(self):
-    #     """获取当前优先级最高的问题"""
-    #     if self.highest_priority_question is None:
-    #         logging.info(f"[{os.getpid()}](QUE) No pending or ready questions available.")
-    #         return None
-        
-    #     return self.highest_priority_question
-    
-    
     def is_group_completed(self, redis_conn, group_id):
         """
         检查当前问题组是否已全部完成：若 self.buffer 中所有问题均为 answered 状态，
@@ -218,6 +210,9 @@ class Updater:
     
     def _calculate_priority_score(self, question):
         """根据联合优化公式计算问题的优先级分数"""
+        if not self.priority_scheduling:
+            return 0.0
+        
         # 提取必要的参数
         urgency = question["urgency"]
         scope_type = question["scope_type"]

@@ -1,25 +1,6 @@
 # run_para_eqa.py
 
 """
-TODO: 总计划
-1. 完善 generator 和 NUWL 计算的逻辑，增加问题开始和结束的时间戳（对于follow-up questions，只需要计算结束时间比其开始时间晚的问题的步数；或者直接用时间计算 NUWL）
-2. 完善 get_reward_estimate 方法，对于重复的地点给予更高奖励
-3. 增加控制字段，对比实验
-    - 有无 reward_estimate （在无follow-up questions的条件下验证）
-    - 有无在组内各个问题之间分享 memory
-4. 数据集
-"""
-
-"""
-baseline：sequential，无reward，有memory；sequential，无reward，无memory
-主实验：有follow-up，有reward，有memory；
-reward：无follow-up，有reward，有memory；无follow-up，无reward，有memory
-memory：有follow-up，有reward，无memory
-
-控制：use_parallel, enable_reward_estimate, enable_follow_up, use_rag
-"""
-
-"""
 Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 6379:6379 -p 8001:8001 redis/redis-stack:latest` or `docker start para-eqa-redis` to start Redis.
 """
 
