@@ -14,7 +14,7 @@ questions_init:
     Eight.
   answer: B
   urgency: 0.2
-- question: Is the toiled lid closed? A) Yes B) No C) (Do not choose this option)
+- question: In the bathroom, is the toilet lid closed? A) Yes B) No C) (Do not choose this option)
     D) (Do not choose this option).
   answer: A
   urgency: 0.4

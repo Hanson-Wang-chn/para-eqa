@@ -392,7 +392,10 @@ def run(config: dict):
     
     # TODO: 在这里指定某一个group
     # yaml_files = sorted(yaml_files)  # 按文件名排序
-    yaml_files = sorted(yaml_files)[0:30]
+    # yaml_files = sorted(yaml_files)[0:30]
+    sorted_files = sorted(yaml_files)
+    selected_indices = {3, 9, 11, 14, 25}
+    yaml_files = [f for i, f in enumerate(sorted_files) if i in selected_indices or i >= 30]
     
     if not yaml_files:
         logging.error(f"[{os.getpid()}](GEN) 未找到问题文件，退出服务")

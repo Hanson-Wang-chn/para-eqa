@@ -6,7 +6,7 @@ init_y: -3.1
 init_z: 4.05
 init_angle: 0.73
 questions_init:
-- question: Is the toiled lid closed? A) Yes B) No C) (Do not choose this option)
+- question: In the bathroom, is the toilet lid closed? A) Yes B) No C) (Do not choose this option)
     D) (Do not choose this option).
   answer: A
   urgency: 0.2

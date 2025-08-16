@@ -221,7 +221,7 @@ def process_yaml_files(benchmark_dir="data/benchmark", model_config=None, parse_
     yaml_files = sorted(glob.glob(os.path.join(benchmark_dir, "*.yaml")))
     
     # TODO: 选择要处理的文件
-    yaml_files = yaml_files[30:]
+    yaml_files = yaml_files[40:]
     
     if not yaml_files:
         print(f"警告: 在{benchmark_dir}目录中未找到YAML文件")
