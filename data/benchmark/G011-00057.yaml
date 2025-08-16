@@ -17,7 +17,7 @@ questions_init:
 - question: In the bathroom, is the toilet lid closed? A) Yes B) No C) (Do not choose this option)
     D) (Do not choose this option).
   answer: A
-  urgency: 0.4
+  urgency: 0.5
 questions_follow_up:
 - question: Is there a carpet in the living room? A) Yes B) No C) (Do not choose this
     option) D) (Do not choose this option).

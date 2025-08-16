@@ -82,7 +82,7 @@ def load_config(config_file):
 
 def initialize_system(config):
     """清空Redis"""
-    redis_conn = get_redis_connection(config['redis'])
+    redis_conn = get_redis_connection(config)
     logging.info("Flushing Redis DB...")
     redis_conn.flushdb()
 
@@ -97,7 +97,7 @@ def listen_for_shutdown(config, processes, shutdown_event):
         shutdown_event: 关闭事件，用于通知主线程
     """
     # 连接Redis
-    redis_conn = get_redis_connection(config['redis'])
+    redis_conn = get_redis_connection(config)
     system_shutdown_stream = STREAMS["system_shutdown"]
     
     # 创建消费者组

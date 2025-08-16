@@ -531,6 +531,8 @@ class ParaEQA:
         self.img_width = self.config.get("img_width", 640)
 
         self.simulator = None
+        
+        self.use_parallel = self.config.get("use_parallel", True)
 
         # init prompts
         prompt = self.config.get("prompt", {}).get("planner", {})
@@ -1043,6 +1045,8 @@ class ParaEQA:
             'correct_answers': group_info.get('correct_answers', {})
         }
         
-        set_group_info(self.redis_conn, group_id, updated_group_info)
+        # 只有当 use_parallel 为 True 时才更新 GROUP_INFO
+        if self.use_parallel:
+            set_group_info(self.redis_conn, group_id, updated_group_info)
 
         return result

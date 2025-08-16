@@ -9,7 +9,7 @@ questions_init:
 - question: In the bathroom, is the toilet lid closed? A) Yes B) No C) (Do not choose this option)
     D) (Do not choose this option).
   answer: A
-  urgency: 0.2
+  urgency: 0.5
 - question: What colors are the quilt on the bed in the master bedroom with a television?
     A) Pink and yellow B) Black and gray C) Green and red D) Blue and white.
   answer: D

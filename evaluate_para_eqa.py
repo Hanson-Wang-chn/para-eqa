@@ -156,6 +156,7 @@ def calculate_metrics(group_results, ground_truth):
 
 def main():
     benchmark_dir = 'data/benchmark'
+    # TODO:
     results_dir = 'results/answers'
     output_file = 'results/evaluation.json'
 

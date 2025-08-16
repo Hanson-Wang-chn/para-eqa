@@ -375,6 +375,8 @@ def run(config: dict):
     question_data_path = config.get("question_data_path", "./data/benchmark")
     interval_seconds = config_generator.get("interval_seconds", 120)
     enable_follow_up = config_generator.get("enable_follow_up", True)
+    start_group = config_generator.get("start_group", None)
+    end_group = config_generator.get("end_group", None)
     
     if enable_follow_up:
         logging.info(f"[{os.getpid()}](GEN) 启用 follow-up 模式，后续问题将每隔 {interval_seconds} 秒发送一个")
@@ -389,16 +391,49 @@ def run(config: dict):
     
     # 查找并处理所有YAML文件
     yaml_files = scan_question_files(question_data_path)
-    
-    # TODO: 在这里指定某一个group
-    # yaml_files = sorted(yaml_files)  # 按文件名排序
-    # yaml_files = sorted(yaml_files)[0:30]
-    sorted_files = sorted(yaml_files)
-    selected_indices = {3, 9, 11, 14, 25}
-    yaml_files = [f for i, f in enumerate(sorted_files) if i in selected_indices or i >= 30]
-    
-    if not yaml_files:
+    yaml_files = sorted(yaml_files)  # 按文件名排序
+
+    # 根据start_group和end_group选择要处理的文件
+    total_groups = len(yaml_files)
+    if total_groups == 0:
         logging.error(f"[{os.getpid()}](GEN) 未找到问题文件，退出服务")
+        send_system_shutdown(redis_conn)
+        return
+
+    # 处理start_group和end_group参数
+    if start_group is None and end_group is None:
+        # 处理所有组
+        selected_files = yaml_files
+    elif start_group is None:
+        # 从头开始，到end_group结束
+        if end_group >= total_groups or end_group < 0:
+            logging.warning(f"[{os.getpid()}](GEN) 配置的end_group ({end_group}) 超出了有效范围 [0, {total_groups-1}]，将调整为 {total_groups-1}")
+            end_group = total_groups - 1
+        selected_files = yaml_files[:end_group+1]  # +1是因为切片不包含结束索引
+    elif end_group is None:
+        # 从start_group开始，到最后
+        if start_group >= total_groups or start_group < 0:
+            logging.warning(f"[{os.getpid()}](GEN) 配置的start_group ({start_group}) 超出了有效范围 [0, {total_groups-1}]，将调整为 0")
+            start_group = 0
+        selected_files = yaml_files[start_group:]
+    else:
+        # start_group和end_group都有值
+        if start_group >= total_groups or start_group < 0:
+            logging.warning(f"[{os.getpid()}](GEN) 配置的start_group ({start_group}) 超出了有效范围 [0, {total_groups-1}]，将调整为 0")
+            start_group = 0
+        if end_group >= total_groups or end_group < 0:
+            logging.warning(f"[{os.getpid()}](GEN) 配置的end_group ({end_group}) 超出了有效范围 [0, {total_groups-1}]，将调整为 {total_groups-1}")
+            end_group = total_groups - 1
+        if start_group > end_group:
+            logging.warning(f"[{os.getpid()}](GEN) 配置的start_group ({start_group}) 大于 end_group ({end_group})，将互换它们")
+            start_group, end_group = end_group, start_group
+        selected_files = yaml_files[start_group:end_group+1]  # +1是因为切片不包含结束索引
+
+    yaml_files = selected_files
+    logging.info(f"[{os.getpid()}](GEN) 将处理 {len(yaml_files)} 个问题组（从索引 {start_group if start_group is not None else 0} 到 {end_group if end_group is not None else total_groups-1}）")
+
+    if not yaml_files:
+        logging.error(f"[{os.getpid()}](GEN) 选择的组范围内没有问题文件，退出服务")
         send_system_shutdown(redis_conn)
         return
     

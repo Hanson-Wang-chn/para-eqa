@@ -88,6 +88,32 @@ def select_question(redis_conn):
             time.sleep(1)  # 发生错误时短暂等待后继续
 
 
+def clear_memory(redis_conn):
+    """
+    向Memory Service发送清空知识库的请求
+    
+    Args:
+        redis_conn: Redis连接对象
+        
+    Returns:
+        bool: 操作是否成功
+    """
+    # 生成请求ID
+    request_id = str(uuid.uuid4())
+    
+    # 创建请求
+    request = {
+        "id": request_id,
+        "operation": "clear"
+    }
+    
+    # 发送请求
+    redis_conn.xadd(STREAMS["memory_requests"], {"data": json.dumps(request)})
+    logging.info(f"[{os.getpid()}](PLA) 向Memory Service发送清空知识库请求: {request_id}")
+    
+    return True
+
+
 def run(config: dict):
     """
     Planner Service 的主运行函数。
@@ -124,7 +150,13 @@ def run(config: dict):
                 logging.info(f"[{os.getpid()}](PLA) No available questions, waiting for new questions...")
                 time.sleep(1)
                 continue
+            
+            # 处理问题
             para_eqa.run(question, question["id"])
+            
+            # 处理完成后清空记忆
+            clear_memory(redis_conn)
+            logging.info(f"[{os.getpid()}](PLA) 问题 {question['id']} 处理完成，已清空知识库")
                 
         except Exception as e:
             logging.exception(f"[{os.getpid()}](PLA) Error in Planner service: {e}")

@@ -123,7 +123,6 @@ class KnowledgeBase:
     def update_memory(self, text, image):
         # 通过 replace_memory 决定是直接添加记忆还是替换相似记忆
         if self.replace_memory:
-            # 先忽略这一部分
             pass
         
         else:

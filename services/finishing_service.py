@@ -31,6 +31,7 @@ def run(config: dict):
     )
     
     # 读取配置
+    use_parallel = config.get("use_parallel", True)
     finishing_config = config.get("finishing", {})
     retrieval_num = finishing_config.get("retrieval_num", 5)
     confidence_threshold = finishing_config.get("confidence_threshold", 0.7)
@@ -97,6 +98,30 @@ def run(config: dict):
                     question_desc = question.get('description', '')
                     
                     logging.info(f"[{os.getpid()}](FIN) 收到问题: {question_id} - '{question_desc[:40]}...'")
+                    
+                    # use_parallel = False 时，直接转发到Question Pool
+                    if not use_parallel:
+                        request_id = str(uuid.uuid4())
+                        request = {
+                            "request_id": request_id,
+                            "sender": "finishing",
+                            "type": "add_question",
+                            "data": question
+                        }
+                        
+                        redis_conn.xadd(to_pool_stream, {"data": json.dumps(request)})
+                        forwarded_count += 1
+                        logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 转发到Question Pool")
+                        
+                        # 在跳过后续处理前，先更新统计并确认消息已处理（xack）
+                        pipe = redis_conn.pipeline()
+                        pipe.hset(STATS_KEYS["finishing"], "answered", answered_count)
+                        pipe.hset(STATS_KEYS["finishing"], "forwarded", forwarded_count)
+                        pipe.hset(STATS_KEYS["finishing"], "total", answered_count + forwarded_count)
+                        pipe.execute()
+                        
+                        redis_conn.xack(parser_to_finishing_stream, group_name, message_id)
+                        continue
                     
                     # 1. 向Memory发送搜索请求
                     memory_request_id = str(uuid.uuid4())
@@ -234,8 +259,6 @@ def run(config: dict):
                             logging.info(f"[{os.getpid()}](FIN) 问题 {question_id} 置信度: {confidence}")
                             
                             # 根据置信度决定去向
-                            # FIXME:
-                            # confidence = 0.1
                             if confidence >= confidence_threshold:
                                 # 置信度高，发送到Answering服务
                                 

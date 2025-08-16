@@ -9,7 +9,7 @@ questions_init:
 - question: In the bathroom, is the toilet lid closed? A) Yes B) No C) (Do not choose this option)
     D) (Do not choose this option).
   answer: A
-  urgency: 0.2
+  urgency: 0.5
 - question: Is there any chairs around the wooden table? A) Yes B) No C) (Do not choose
     this option) D) (Do not choose this option).
   answer: A

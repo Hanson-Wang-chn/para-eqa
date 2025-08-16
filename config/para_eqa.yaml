@@ -1,7 +1,6 @@
 # General
 seed: 42
 exp_name: ParaEQA
-result_parent_dir: results
 logs_parent_dir: logs
 question_data_path: ./data/benchmark
 scene_data_path: ./data/HM3D
@@ -11,8 +10,121 @@ save_freq: 20
 device: 'cuda'
 detector: '/home/whs/eqa/para-eqa/data/yolo11x.pt' # 替换为实际的绝对路径
 # FIXME:
-use_parallel: true
+use_parallel: false # 是否有 group memory 和 finishing service
 
+
+# Memory
+memory:
+  device: 'cuda'
+  # FIXME:
+  use_rag: true
+  dimension: 768
+  weight_image: 0.5
+  weight_text: 0.5
+  max_retrieval_num: 3
+  replace_memory: false  # 是否替换相似的记忆
+  lambda_sim: 0.5
+
+
+# Priority
+priority:
+  w_urgency: 1.0
+  w_scope: 1.0
+  w_cost: -1.0
+  w_reward: 1.0
+  w_dependency: 3.0
+
+
+# Redis
+redis:
+  host: "localhost"
+  # TODO:
+  port: 6379
+  db: 0
+
+
+# Services
+generator:
+  # FIXME:
+  enable_follow_up: true
+  # TODO:
+  interval_seconds: 60
+  # TODO:
+  start_group: 1
+  end_group: 1
+
+finishing:
+  retrieval_num: 3
+  confidence_threshold: 0.5
+  enable_tryout_answer: false
+
+stopping:
+  retrieval_num: 3
+  confidence_threshold: 0.5
+  enable_tryout_answer: false
+
+updater:
+  enable_cost_estimate: false
+  # TODO:
+  enable_reward_estimate: false
+
+answering:
+  # TODO:
+  result_dir: results/answers-sequential
+
+planner:
+  dist_T: 10
+  unexplored_T: 0.2
+  unoccupied_T: 2.0
+  val_T: 0.5
+  val_dir_T: 0.5
+  max_val_check_frontier: 3
+  smooth_sigma: 5
+  eps: 1
+  min_dist_from_cur: 0.5
+  max_dist_from_cur: 3
+  frontier_spacing: 1.5
+  frontier_min_neighbors: 3
+  frontier_max_neighbors: 4
+  max_unexplored_check_frontier: 3
+  max_unoccupied_check_frontier: 1
+
+
+# ParaEQA
+
+# Camera, image
+camera_height: 1.5
+camera_tilt_deg: -30
+img_width: 640
+img_height: 480
+hfov: 120
+tsdf_grid_size: 0.1
+margin_w_ratio: 0.25
+margin_h_ratio: 0.6
+
+# Navigation
+init_clearance: 0.5
+max_step_room_size_ratio: 3
+black_pixel_ratio: 0.7
+min_random_init_steps: 2
+
+# Semantic map
+use_active: true
+use_lsv: true
+use_gsv: true
+gsv_T: 0.5
+gsv_F: 3
+
+visual_prompt:
+  cluster_threshold: 1.0
+  num_prompt_points: 3
+  num_max_unoccupied: 300
+  min_points_for_clustering: 3
+  point_min_dist: 2
+  point_max_dist: 10
+  cam_offset: 0.6
+  min_num_prompt_points: 2
+  circle_radius: 18
 
 
 # VLM
@@ -123,116 +235,6 @@ vlm:
   #   server: ollama
   #   base_url: "http://100.88.238.80:11434/v1"
   #   api_key:
-
-
-# Memory
-memory:
-  device: 'cuda'
-  # FIXME:
-  use_rag: true
-  dimension: 768
-  weight_image: 0.5
-  weight_text: 0.5
-  max_retrieval_num: 3
-  replace_memory: false  # 是否替换相似的记忆
-  lambda_sim: 0.5
-
-
-# Priority
-priority:
-  w_urgency: 1.0
-  w_scope: 1.0
-  w_cost: -1.0
-  w_reward: 1.0
-  w_dependency: 3.0
-
-
-# Redis
-redis:
-  host: "localhost"
-  port: 6379
-  db: 0
-
-
-# Services
-generator:
-  # FIXME:
-  enable_follow_up: true
-  # FIXME:
-  interval_seconds: 120
-  shuffle: false
-
-finishing:
-  retrieval_num: 3
-  confidence_threshold: 0.5
-  enable_tryout_answer: false
-
-stopping:
-  retrieval_num: 3
-  confidence_threshold: 0.5
-  enable_tryout_answer: false
-
-updater:
-  enable_cost_estimate: false
-  # FIXME:
-  enable_reward_estimate: true
-
-answering:
-  result_dir: results/answers
-
-planner:
-  dist_T: 10
-  unexplored_T: 0.2
-  unoccupied_T: 2.0
-  val_T: 0.5
-  val_dir_T: 0.5
-  max_val_check_frontier: 3
-  smooth_sigma: 5
-  eps: 1
-  min_dist_from_cur: 0.5
-  max_dist_from_cur: 3
-  frontier_spacing: 1.5
-  frontier_min_neighbors: 3
-  frontier_max_neighbors: 4
-  max_unexplored_check_frontier: 3
-  max_unoccupied_check_frontier: 1
-
-
-# ParaEQA
-
-# Camera, image
-camera_height: 1.5
-camera_tilt_deg: -30
-img_width: 640
-img_height: 480
-hfov: 120
-tsdf_grid_size: 0.1
-margin_w_ratio: 0.25
-margin_h_ratio: 0.6
-
-# Navigation
-init_clearance: 0.5
-max_step_room_size_ratio: 3
-black_pixel_ratio: 0.7
-min_random_init_steps: 2
-
-# Semantic map
-use_active: true
-use_lsv: true
-use_gsv: true
-gsv_T: 0.5
-gsv_F: 3
-
-visual_prompt:
-  cluster_threshold: 1.0
-  num_prompt_points: 3
-  num_max_unoccupied: 300
-  min_points_for_clustering: 3
-  point_min_dist: 2
-  point_max_dist: 10
-  cam_offset: 0.6
-  min_num_prompt_points: 2
-  circle_radius: 18
 
 
 # Prompts
