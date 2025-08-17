@@ -36,8 +36,8 @@ memory:
 priority:
   w_urgency: 1.0
   w_scope: 1.0
-  w_cost: -2.0
-  w_reward: 2.0
+  w_cost: -1.0
+  w_reward: 1.0
   w_dependency: 3.0
 
 
@@ -176,15 +176,15 @@ vlm:
     api_key:
 
   planner:
-    model: qwen2.5vl:72b
-    server: ollama
-    base_url: "http://58.198.176.200:11434/v1"
+    model: qwen2.5-vl-72b-instruct
+    server: dashscope
+    base_url: 
     api_key:
 
   planner_lite:
-    model: qwen2.5vl:72b
-    server: ollama
-    base_url: "http://58.198.176.200:11434/v1"
+    model: qwen2.5-vl-72b-instruct
+    server: dashscope
+    base_url: 
     api_key:
 
   planner_tiny:
