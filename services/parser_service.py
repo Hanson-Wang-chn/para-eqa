@@ -151,7 +151,7 @@ def run(config: dict):
                         "reward_estimate": -1.0, # 待Updater更新
                         "dependency": [],
                         "answer": "",
-                        "max_steps": 0,
+                        "max_steps": -1,
                         "used_steps": 0,
                         "time": {
                             "request": question_data.get("time", {}).get("request", 0)

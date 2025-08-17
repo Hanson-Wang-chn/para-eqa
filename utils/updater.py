@@ -154,7 +154,7 @@ class Updater:
         """
         question["status"] = "answered"
         question.setdefault("max_steps", 0)
-        question.setdefault("used_steps", 0)
+        question.setdefault("used_steps", -1)
         question.setdefault("reward_estimate", 0.0)  # 添加默认奖励估计
         question.setdefault("cost_estimate", 0.0)    # 添加默认成本估计
         question.setdefault("dependency", [])        # 添加默认依赖关系

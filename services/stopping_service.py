@@ -308,7 +308,7 @@ def run(config: dict):
                         
                         # 4.3 合并Planner的图像和Memory的记忆数据
                         # 创建记忆项的副本，避免修改原始数据
-                        combined_memory_data = memory_data.copy()
+                        combined_memory_data = memory_data.copy() if use_rag else []
                         
                         combined_memory_data.append({
                             "id": "planner_image",

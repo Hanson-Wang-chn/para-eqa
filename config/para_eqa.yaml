@@ -57,7 +57,7 @@ generator:
   interval_seconds: 120
   # TODO:
   start_group: 0
-  end_group: 39
+  end_group: 1
 
 finishing:
   retrieval_num: 3
@@ -76,7 +76,7 @@ updater:
 
 answering:
   # TODO:
-  result_dir: results/answers-major
+  result_dir: results/answers-test
 
 planner:
   dist_T: 10

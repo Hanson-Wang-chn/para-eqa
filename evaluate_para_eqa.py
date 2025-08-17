@@ -63,7 +63,7 @@ def calculate_metrics(group_results, ground_truth):
         is_correct = (result['answer'] == gt_answer)
         
         # 是否为直接回答的问题
-        is_direct_answer = result['max_steps'] == 0 and result['used_steps'] == 0
+        is_direct_answer = result['max_steps'] == -1 and result['used_steps'] == 0
         
         # 计算normalized_steps
         norm_step = 0 if is_direct_answer else result['used_steps'] / result['max_steps']
