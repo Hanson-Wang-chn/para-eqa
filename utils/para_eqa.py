@@ -835,7 +835,7 @@ class ParaEQA:
 
             rgb_im = Image.fromarray(rgb, mode="RGBA").convert("RGB")
             
-            if self.use_rag:            
+            if self.use_rag:
                 # "What room are you most likely to be in at the moment? Answer with a phrase"
                 room = self.vlm_lite.request_with_retry(image=rgb_im, prompt="What room are you most likely to be in at the moment? Answer with a phrase")
 
@@ -859,8 +859,8 @@ class ParaEQA:
                     # 保存目标信息
                     objs_info.append({"room": room, "cls": cls ,"caption": obj_caption[0], "pos": world_pos.tolist()})
 
-                    # "Describe this image."
-                    caption = self.vlm_lite.request_with_retry(image=rgb_im, prompt=self.prompt_caption)
+                # "Describe this image."
+                caption = self.vlm_lite.request_with_retry(image=rgb_im, prompt=self.prompt_caption)
 
                 if self.config.get("save_obs", True):
                     save_rgbd(rgb, depth, os.path.join(episode_data_dir, f"{cnt_step}_rgbd.png"))
@@ -876,6 +876,7 @@ class ParaEQA:
             num_black_pixels = np.sum(
                 np.sum(rgb, axis=-1) == 0
             )  # sum over channel first
+            
             if num_black_pixels < self.config.get("black_pixel_ratio", 0.7) * self.img_width * self.img_height:
                 # TSDF fusion
                 tsdf_planner.integrate(

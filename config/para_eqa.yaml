@@ -56,8 +56,8 @@ generator:
   # TODO:
   interval_seconds: 120
   # TODO:
-  start_group: 1
-  end_group: 1
+  start_group: 0
+  end_group: 39
 
 finishing:
   retrieval_num: 3
