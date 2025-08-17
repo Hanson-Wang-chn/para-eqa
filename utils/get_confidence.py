@@ -13,7 +13,7 @@ def get_confidence(question_desc, kb, prompt_get_confidence, model_name="qwen/qw
     
     Args:
         question_desc (str): 问题描述
-        kb (list): 从记忆中检索到的项目列表
+        kb (list): 从记忆中检索到的项目列表，可以为空
         prompt_get_confidence (str): 提示模板
         model_name (str): 使用的模型名称
         server (str): 服务器类型
@@ -76,7 +76,7 @@ def get_tryout_confidence(question_desc, kb, prompt_get_tryout_answer, prompt_ge
     
     Args:
         question_desc (str): 问题描述
-        kb (list): 从记忆中检索到的项目列表
+        kb (list): 从记忆中检索到的项目列表，可以为空
         prompt_get_tryout_answer (str): 提示模板
         prompt_get_tryout_confidence (str): 提示模板
         model_name (str): 使用的模型名称

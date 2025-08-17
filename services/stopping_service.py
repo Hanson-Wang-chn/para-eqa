@@ -31,6 +31,8 @@ def run(config: dict):
     )
     
     # 读取配置
+    use_rag = config.get("memory", {}).get("use_rag", True)
+    
     stopping_config = config.get("stopping", {})
     retrieval_num = stopping_config.get("retrieval_num", 5)
     confidence_threshold = stopping_config.get("confidence_threshold", 0.7)
@@ -104,124 +106,178 @@ def run(config: dict):
                     
                     logging.info(f"[{os.getpid()}](STO) 收到来自Planner的请求: {question_id} - '{question_desc[:40]}...'")
                     
-                    # 1. 向Memory发送搜索请求
-                    memory_request_id = str(uuid.uuid4())
-                    memory_request = {
-                        "id": memory_request_id,
-                        "operation": "search",
-                        "text": question_desc,
-                        "image_data": planner_image, # planner_image只能是一张图片或None
-                        "top_k": retrieval_num
-                    }
+                    confidence = None
                     
-                    redis_conn.xadd(memory_requests_stream, {"data": json.dumps(memory_request)})
-                    logging.info(f"[{os.getpid()}](STO) 向Memory发送搜索请求: {memory_request_id}")
-                    
-                    # 2. 等待Memory响应
-                    memory_response = None
-                    wait_start_time = time.time()
-                    max_wait_time = 300  # 最长等待时间，单位秒
-
-                    while memory_response is None and (time.time() - wait_start_time < max_wait_time):
-                        try:
-                            # 使用block参数高效等待，一次读取多条消息以提高效率
-                            responses = redis_conn.xreadgroup(
-                                group_name, "stopping_worker", 
-                                {memory_responses_stream: '>'}, 
-                                count=20, block=100
-                            )
-                            
-                            # 定期日志，监控长时间等待
-                            if time.time() - wait_start_time > 30:
-                                logging.info(f"[{os.getpid()}](STO) 已等待Memory响应超过30秒，请求ID: {memory_request_id}")
-                                wait_start_time = time.time()  # 重置计时器，避免日志刷屏
-
-                            if not responses:
-                                # block超时，没有读到任何消息，继续下一次循环等待
-                                continue
-                            
-                            for stream, message_list in responses:
-                                for memory_msg_id, data in message_list:
-                                    try:
-                                        resp_data = json.loads(data.get('data', '{}'))
-                                        resp_request_id = resp_data.get('request_id')
-
-                                        # 检查是否是我们期望的响应
-                                        if resp_request_id == memory_request_id:
-                                            # 是我们等待的响应
-                                            memory_response = resp_data
-                                            
-                                            # 确认目标消息已处理
-                                            redis_conn.xack(memory_responses_stream, group_name, memory_msg_id)
-                                            
-                                            logging.info(f"[{os.getpid()}](STO) 收到匹配的Memory响应，请求ID: {memory_request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
-                                            
-                                            # 已找到响应，跳出循环
-                                            break
-                                        else:
-                                            # 不是我们等待的响应，忽略它
-                                            pass
-
-                                    except (json.JSONDecodeError, AttributeError) as e:
-                                        logging.warning(f"[{os.getpid()}](STO) 无法解析或处理Memory响应消息 (ID: {memory_msg_id}): {e}。确认此消息以防死循环。")
-                                        # 对于无法解析的消息，应该确认，防止反复处理
-                                        redis_conn.xack(memory_responses_stream, group_name, memory_msg_id)
-                                        continue
-                                
-                                if memory_response:
-                                    break  # 跳出外层for循环
-
-                        except Exception as e:
-                            logging.warning(f"[{os.getpid()}](STO) 等待Memory响应时发生错误: {e}，1秒后重试...")
-                            time.sleep(1)
-                    
-                    # 3. 处理Memory响应，计算置信度
-                    if not memory_response or memory_response.get('status') != 'success':
-                        logging.warning(f"[{os.getpid()}](STO) 未收到有效Memory响应或请求失败")
-                        # 默认置信度为0，表示需要继续探索
-                        confidence = 0.0 if not must_stop else 1.0
-                        memory_data = []
-                    
-                    else:
-                        # 提取记忆数据
-                        memory_data = memory_response.get('data', [])
+                    if use_rag:
+                        # 1. 向Memory发送搜索请求
+                        memory_request_id = str(uuid.uuid4())
+                        memory_request = {
+                            "id": memory_request_id,
+                            "operation": "search",
+                            "text": question_desc,
+                            "image_data": planner_image, # planner_image只能是一张图片或None
+                            "top_k": retrieval_num
+                        }
                         
-                        if not memory_data:
-                            # 没有相关记忆，置信度为0
+                        redis_conn.xadd(memory_requests_stream, {"data": json.dumps(memory_request)})
+                        logging.info(f"[{os.getpid()}](STO) 向Memory发送搜索请求: {memory_request_id}")
+                        
+                        # 2. 等待Memory响应
+                        memory_response = None
+                        wait_start_time = time.time()
+                        max_wait_time = 300  # 最长等待时间，单位秒
+
+                        while memory_response is None and (time.time() - wait_start_time < max_wait_time):
+                            try:
+                                # 使用block参数高效等待，一次读取多条消息以提高效率
+                                responses = redis_conn.xreadgroup(
+                                    group_name, "stopping_worker", 
+                                    {memory_responses_stream: '>'}, 
+                                    count=20, block=100
+                                )
+                                
+                                # 定期日志，监控长时间等待
+                                if time.time() - wait_start_time > 30:
+                                    logging.info(f"[{os.getpid()}](STO) 已等待Memory响应超过30秒，请求ID: {memory_request_id}")
+                                    wait_start_time = time.time()  # 重置计时器，避免日志刷屏
+
+                                if not responses:
+                                    # block超时，没有读到任何消息，继续下一次循环等待
+                                    continue
+                                
+                                for stream, message_list in responses:
+                                    for memory_msg_id, data in message_list:
+                                        try:
+                                            resp_data = json.loads(data.get('data', '{}'))
+                                            resp_request_id = resp_data.get('request_id')
+
+                                            # 检查是否是我们期望的响应
+                                            if resp_request_id == memory_request_id:
+                                                # 是我们等待的响应
+                                                memory_response = resp_data
+                                                
+                                                # 确认目标消息已处理
+                                                redis_conn.xack(memory_responses_stream, group_name, memory_msg_id)
+                                                
+                                                logging.info(f"[{os.getpid()}](STO) 收到匹配的Memory响应，请求ID: {memory_request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                                                
+                                                # 已找到响应，跳出循环
+                                                break
+                                            else:
+                                                # 不是我们等待的响应，忽略它
+                                                pass
+
+                                        except (json.JSONDecodeError, AttributeError) as e:
+                                            logging.warning(f"[{os.getpid()}](STO) 无法解析或处理Memory响应消息 (ID: {memory_msg_id}): {e}。确认此消息以防死循环。")
+                                            # 对于无法解析的消息，应该确认，防止反复处理
+                                            redis_conn.xack(memory_responses_stream, group_name, memory_msg_id)
+                                            continue
+                                    
+                                    if memory_response:
+                                        break  # 跳出外层for循环
+
+                            except Exception as e:
+                                logging.warning(f"[{os.getpid()}](STO) 等待Memory响应时发生错误: {e}，1秒后重试...")
+                                time.sleep(1)
+                        
+                        # 3.1 处理Memory响应，计算置信度
+                        if not memory_response or memory_response.get('status') != 'success':
+                            logging.warning(f"[{os.getpid()}](STO) 未收到有效Memory响应或请求失败")
+                            # 默认置信度为0，表示需要继续探索
                             confidence = 0.0 if not must_stop else 1.0
-                            logging.info(f"[{os.getpid()}](STO) 问题 {question_id} 没有相关记忆，置信度设为0")
+                            memory_data = []
+                        
+                        else:
+                            # 提取记忆数据
+                            memory_data = memory_response.get('data', [])
                             
-                        elif must_stop:
-                            # 强制停止探索，置信度设为1.0
+                            if must_stop:
+                                # 强制停止探索，置信度设为1.0
+                                confidence = 1.0
+                                logging.info(f"[{os.getpid()}](STO) 问题 {question_id} 强制停止探索，置信度设为1.0")
+                            
+                            elif not memory_data:
+                                if not enable_tryout_answer:
+                                    confidence = get_confidence(
+                                        question_desc=question_desc, 
+                                        kb=[],  # 没有记忆数据
+                                        prompt_get_confidence=prompt_get_confidence,
+                                        model_name=model_name,
+                                        server=server,
+                                        base_url=base_url,
+                                        api_key=api_key
+                                    )
+                            
+                                else:
+                                    confidence = get_tryout_confidence(
+                                        question_desc=question_desc, 
+                                        kb=[],  # 没有记忆数据
+                                        prompt_get_tryout_answer=prompt_get_tryout_answer,
+                                        prompt_get_tryout_confidence=prompt_get_tryout_confidence,
+                                        model_name=model_name,
+                                        server=server,
+                                        base_url=base_url,
+                                        api_key=api_key
+                                )
+                            
+                            else:
+                                # 计算置信度
+                                if not enable_tryout_answer:
+                                    confidence = get_confidence(
+                                        question_desc=question_desc, 
+                                        kb=memory_data,
+                                        prompt_get_confidence=prompt_get_confidence,
+                                        model_name=model_name,
+                                        server=server,
+                                        base_url=base_url,
+                                        api_key=api_key
+                                    )
+                                    
+                                else: 
+                                    confidence = get_tryout_confidence(
+                                        question_desc=question_desc, 
+                                        kb=memory_data,
+                                        prompt_get_tryout_answer=prompt_get_tryout_answer,
+                                        prompt_get_tryout_confidence=prompt_get_tryout_confidence,
+                                        model_name=model_name,
+                                        server=server,
+                                        base_url=base_url,
+                                        api_key=api_key
+                                    )
+                                
+                                logging.info(f"\n[{os.getpid()}](STO) 问题 {question_id} 置信度: {confidence}\n")
+                    
+                    # 3.2 处理 use_rag == False 的情况
+                    else:
+                        if must_stop:
                             confidence = 1.0
+                            memory_data = []
                             logging.info(f"[{os.getpid()}](STO) 问题 {question_id} 强制停止探索，置信度设为1.0")
                         
                         else:
-                            # 计算置信度
                             if not enable_tryout_answer:
                                 confidence = get_confidence(
-                                    question_desc, 
-                                    memory_data,
-                                    prompt_get_confidence,
-                                    model_name,
-                                    server=server,
-                                    base_url=base_url,
-                                    api_key=api_key
-                                )
-                                
-                            else:
-                                confidence = get_tryout_confidence(
-                                    question_desc, 
-                                    memory_data,
-                                    prompt_get_tryout_answer,
-                                    prompt_get_tryout_confidence,
-                                    model_name,
+                                    question_desc=question_desc, 
+                                    kb=[],  # 没有记忆数据
+                                    prompt_get_confidence=prompt_get_confidence,
+                                    model_name=model_name,
                                     server=server,
                                     base_url=base_url,
                                     api_key=api_key
                                 )
                             
-                            logging.info(f"\n[{os.getpid()}](STO) 问题 {question_id} 置信度: {confidence}\n")
+                            else:
+                                confidence = get_tryout_confidence(
+                                    question_desc=question_desc, 
+                                    kb=[],  # 没有记忆数据
+                                    prompt_get_tryout_answer=prompt_get_tryout_answer,
+                                    prompt_get_tryout_confidence=prompt_get_tryout_confidence,
+                                    model_name=model_name,
+                                    server=server,
+                                    base_url=base_url,
+                                    api_key=api_key
+                                )
+                    
                     
                     # 4. 根据置信度决定是否停止探索
                     if confidence >= confidence_threshold:

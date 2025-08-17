@@ -15,8 +15,9 @@ use_parallel: true # 是否有 group memory 和 finishing service
 # TODO:
 priority_scheduling: true
 # TODO:
-direct_answer: false
+direct_answer: true
 
+# NOTE: 不允许 use_parallel == True 且 use_rag == False 的情况
 
 # Memory
 memory:
@@ -35,8 +36,8 @@ memory:
 priority:
   w_urgency: 1.0
   w_scope: 1.0
-  w_cost: -1.0
-  w_reward: 1.0
+  w_cost: -2.0
+  w_reward: 2.0
   w_dependency: 3.0
 
 
@@ -53,10 +54,10 @@ generator:
   # TODO:
   enable_follow_up: true
   # TODO:
-  interval_seconds: 15
+  interval_seconds: 120
   # TODO:
-  start_group: 1
-  end_group: 1
+  start_group: 0
+  end_group: 39
 
 finishing:
   retrieval_num: 3
@@ -75,7 +76,7 @@ updater:
 
 answering:
   # TODO:
-  result_dir: results/answers-no-direct-answer
+  result_dir: results/answers-major
 
 planner:
   dist_T: 10
