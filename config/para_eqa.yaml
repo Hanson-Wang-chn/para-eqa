@@ -56,7 +56,7 @@ generator:
   # TODO:
   interval_seconds: 120
   # TODO:
-  start_group: 0
+  start_group: 1
   end_group: 1
 
 finishing:
@@ -72,7 +72,7 @@ stopping:
 updater:
   enable_cost_estimate: false
   # TODO:
-  enable_reward_estimate: false
+  enable_reward_estimate: true
 
 answering:
   # TODO:

@@ -157,7 +157,7 @@ def calculate_metrics(group_results, ground_truth):
 def main():
     benchmark_dir = 'data/benchmark'
     # TODO:
-    results_dir = 'results/answers'
+    results_dir = 'results/answers-test'
     output_file = 'results/evaluation.json'
 
     benchmark_files = glob.glob(os.path.join(benchmark_dir, 'G*.yaml'))
