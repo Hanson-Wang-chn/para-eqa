@@ -144,7 +144,6 @@ vlm:
   # RTX 4090 * 4: "http://58.198.176.200:11434/v1"
   # RTX 4090 D * 1: "http://49.52.18.227:11434/v1"
 
-  # 稳定高成本
   answering:
     model: openai/gpt-5-mini
     server: openrouter
@@ -176,120 +175,22 @@ vlm:
     api_key:
 
   planner:
-    model: qwen2.5-vl-72b-instruct
-    server: dashscope
-    base_url: 
+    model: qwen2.5vl:72b
+    server: ollama
+    base_url: "http://58.198.176.200:11434/v1"
     api_key:
 
   planner_lite:
-    model: qwen2.5-vl-72b-instruct
-    server: dashscope
-    base_url: 
+    model: qwen2.5vl:72b
+    server: ollama
+    base_url: "http://58.198.176.200:11434/v1"
     api_key:
 
   planner_tiny:
-    model: qwen2.5-vl-7b-instruct
-    server: dashscope
-    base_url: 
+    model: qwen2.5vl:7b
+    server: ollama
+    base_url: "http://100.88.238.80:11434/v1"
     api_key:
-
-  # # 适中成本
-  # answering:
-  #   model: openai/gpt-5-mini
-  #   server: openrouter
-  #   base_url: 
-  #   api_key:
-
-  # finishing:
-  #   model: openai/gpt-5-mini
-  #   server: openrouter
-  #   base_url: 
-  #   api_key:
-
-  # parser:
-  #   model: gpt-oss:20b
-  #   server: ollama
-  #   base_url: "http://100.81.140.32:11434/v1"
-  #   api_key:
-
-  # stopping:
-  #   model: openai/gpt-5-mini
-  #   server: openrouter
-  #   base_url: 
-  #   api_key:
-
-  # updater:
-  #   model: gpt-oss:20b
-  #   server: ollama
-  #   base_url: "http://100.81.140.32:11434/v1"
-  #   api_key:
-
-  # planner:
-  #   model: qwen2.5vl:72b
-  #   server: ollama
-  #   base_url: "http://58.198.176.200:11434/v1"
-  #   api_key:
-
-  # planner_lite:
-  #   model: qwen2.5vl:72b
-  #   server: ollama
-  #   base_url: "http://58.198.176.200:11434/v1"
-  #   api_key:
-
-  # planner_tiny:
-  #   model: qwen2.5vl:7b
-  #   server: ollama
-  #   base_url: "http://100.88.238.80:11434/v1"
-  #   api_key:
-  
-  # 零成本高性能
-  # answering:
-  #   model: qwen2.5vl:72b
-  #   server: ollama
-  #   base_url: "http://58.198.176.200:11434/v1"
-  #   api_key:
-
-  # finishing:
-  #   model: qwen2.5vl:72b
-  #   server: ollama
-  #   base_url: "http://58.198.176.200:11434/v1"
-  #   api_key:
-
-  # parser:
-  #   model: gpt-oss:20b
-  #   server: ollama
-  #   base_url: "http://100.81.140.32:11434/v1"
-  #   api_key:
-
-  # stopping:
-  #   model: qwen2.5vl:72b
-  #   server: ollama
-  #   base_url: "http://58.198.176.200:11434/v1"
-  #   api_key:
-
-  # updater:
-  #   model: gpt-oss:20b
-  #   server: ollama
-  #   base_url: "http://100.81.140.32:11434/v1"
-  #   api_key:
-
-  # planner:
-  #   model: qwen2.5vl:72b
-  #   server: ollama
-  #   base_url: "http://58.198.176.200:11434/v1"
-  #   api_key:
-
-  # planner_lite:
-  #   model: qwen2.5vl:72b
-  #   server: ollama
-  #   base_url: "http://58.198.176.200:11434/v1"
-  #   api_key:
-
-  # planner_tiny:
-  #   model: qwen2.5vl:7b
-  #   server: ollama
-  #   base_url: "http://100.88.238.80:11434/v1"
-  #   api_key:
 
 
 # Prompts
