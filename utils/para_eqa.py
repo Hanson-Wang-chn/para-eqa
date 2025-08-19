@@ -18,6 +18,7 @@ import time
 import base64
 from io import BytesIO
 import re
+import concurrent.futures
 
 from habitat_sim.utils.common import quat_to_coeffs, quat_from_angle_axis
 from utils.habitat import (
@@ -544,6 +545,8 @@ class ParaEQA:
         self.prompt_gsv = prompt.get("global_sem", "")
         
         # init VLM model
+        self.num_workers = self.config.get("planner", {}).get("num_workers", 8)
+        
         config_vlm = config.get("vlm", {}).get("planner", {})
         model_name = config_vlm.get("model", "qwen/qwen2.5-vl-72b-instruct")
         server = config_vlm.get("server", "openrouter")
@@ -736,6 +739,25 @@ class ParaEQA:
         }
 
         return metadata, agent, agent_state, tsdf_planner, episode_data_dir
+    
+    
+    def annotate_object(self, box, cls, rgb_im, depth, cam_pose, room):
+        """处理单个检测对象，包括裁剪、调用大模型、坐标转换等"""
+        # 裁剪目标区域
+        box_xyxy = box.xyxy[0].cpu()
+        x1, y1, x2, y2 = int(box_xyxy[0]), int(box_xyxy[1]), int(box_xyxy[2]), int(box_xyxy[3])
+        obj_im = rgb_im.crop((x1, y1, x2, y2))
+        
+        # 调用大模型描述
+        obj_caption = self.vlm_tiny.request_with_retry(image=obj_im, prompt=self.prompt_caption)
+        
+        # 中心点转换世界坐标
+        x, y = (x1 + x2) / 2, (y1 + y2) / 2
+        world_pos = pixel2world(x, y, depth[int(y), int(x)], cam_pose)
+        world_pos = pos_normal_to_habitat(world_pos)
+        
+        # 返回目标信息
+        return {"room": room, "cls": cls, "caption": obj_caption[0], "pos": world_pos.tolist()}
 
 
     # 输入的question_data类似下面这样：
@@ -841,23 +863,19 @@ class ParaEQA:
 
                 objects = self.detector(rgb_im)[0]
                 objs_info = []
-                for box in objects.boxes:
-                    cls = objects.names[box.cls.item()]
-                    box = box.xyxy[0].cpu()
+                
+                # 并行处理对象
+                logging.info(f"[{os.getpid()}](PLA) 开始使用 {self.num_workers} 个线程并行处理检测到的 {len(objects.boxes)} 个对象")
+                with concurrent.futures.ThreadPoolExecutor(max_workers=self.num_workers) as executor:
+                    futures = []
+                    for box in objects.boxes:
+                        cls = objects.names[box.cls.item()]
+                        futures.append(executor.submit(self.annotate_object, box, cls, rgb_im, depth, cam_pose, room))
                     
-                    # 裁剪目标区域进行描述
-                    x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
-                    obj_im = rgb_im.crop((x1, y1, x2, y2))
-                    # "Describe this image."
-                    obj_caption = self.vlm_tiny.request_with_retry(image=obj_im, prompt=self.prompt_caption)
-                    
-                    # 中心点转换世界坐标
-                    x, y = (x1 + x2) / 2, (y1 + y2) / 2
-                    world_pos = pixel2world(x, y, depth[int(y), int(x)], cam_pose)
-                    world_pos = pos_normal_to_habitat(world_pos)
-                    
-                    # 保存目标信息
-                    objs_info.append({"room": room, "cls": cls ,"caption": obj_caption[0], "pos": world_pos.tolist()})
+                    # 收集结果
+                    for future in concurrent.futures.as_completed(futures):
+                        objs_info.append(future.result())
+                logging.info(f"[{os.getpid()}](PLA) 并行处理完成，共处理 {len(objs_info)} 个对象")
 
                 # "Describe this image."
                 caption = self.vlm_lite.request_with_retry(image=rgb_im, prompt=self.prompt_caption)

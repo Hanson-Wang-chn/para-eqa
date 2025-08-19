@@ -237,22 +237,24 @@ def run(config: dict):
                             # 计算置信度
                             if not enable_tryout_answer:
                                 confidence = get_confidence(
-                                    question_desc, 
-                                    memory_data,
-                                    prompt_get_confidence,
-                                    model_name,
-                                    server,
-                                    base_url,
-                                    api_key
+                                    question_desc=question_desc, 
+                                    image=None,
+                                    kb=memory_data,
+                                    prompt_get_confidence=prompt_get_confidence,
+                                    model_name=model_name,
+                                    server=server,
+                                    base_url=base_url,
+                                    api_key=api_key
                                 )
                             
                             else:
                                 confidence = get_tryout_confidence(
-                                    question_desc, 
-                                    memory_data,
-                                    prompt_get_tryout_answer,
-                                    prompt_get_tryout_confidence,
-                                    model_name,
+                                    question_desc=question_desc, 
+                                    image=None,
+                                    kb=memory_data,
+                                    prompt_get_tryout_answer=prompt_get_tryout_answer,
+                                    prompt_get_tryout_confidence=prompt_get_tryout_confidence,
+                                    model_name=model_name,
                                     server=server,
                                     base_url=base_url,
                                     api_key=api_key

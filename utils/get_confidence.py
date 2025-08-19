@@ -5,7 +5,7 @@ from utils.vlm_api import VLM_API
 from utils.image_processor import decode_image
 
 
-def get_confidence(question_desc, kb, prompt_get_confidence, model_name="qwen/qwen2.5-vl-72b-instruct", server="openrouter", base_url=None, api_key=None):
+def get_confidence(question_desc, image, kb, prompt_get_confidence, model_name="qwen/qwen2.5-vl-72b-instruct", server="openrouter", base_url=None, api_key=None):
     # FIXME:
     # return 1.0
     """
@@ -13,6 +13,7 @@ def get_confidence(question_desc, kb, prompt_get_confidence, model_name="qwen/qw
     
     Args:
         question_desc (str): 问题描述
+        image (str): 图片数据，base64编码的字符串，可以为空
         kb (list): 从记忆中检索到的项目列表，可以为空
         prompt_get_confidence (str): 提示模板
         model_name (str): 使用的模型名称
@@ -44,7 +45,7 @@ def get_confidence(question_desc, kb, prompt_get_confidence, model_name="qwen/qw
     for attempt in range(max_retries):
         try:
             # 调用VLM
-            response = vlm.request_with_retry(image=None, prompt=prompt, kb=kb)[0]
+            response = vlm.request_with_retry(image=image, prompt=prompt, kb=kb)[0]
             
             # 解析响应获取置信度
             confidence = choices_mapping.get(response.strip().upper(), -1.0)
@@ -70,12 +71,13 @@ def get_confidence(question_desc, kb, prompt_get_confidence, model_name="qwen/qw
     return 0.0
 
 
-def get_tryout_confidence(question_desc, kb, prompt_get_tryout_answer, prompt_get_tryout_confidence, model_name="qwen/qwen2.5-vl-72b-instruct", server="openrouter", base_url=None, api_key=None):
+def get_tryout_confidence(question_desc, image, kb, prompt_get_tryout_answer, prompt_get_tryout_confidence, model_name="qwen/qwen2.5-vl-72b-instruct", server="openrouter", base_url=None, api_key=None):
     """
     先让大模型尝试回答该问题，然后根据猜测的回答判断置信度
     
     Args:
         question_desc (str): 问题描述
+        image (str): 图片数据，base64编码的字符串，可以为空
         kb (list): 从记忆中检索到的项目列表，可以为空
         prompt_get_tryout_answer (str): 提示模板
         prompt_get_tryout_confidence (str): 提示模板
@@ -111,7 +113,7 @@ def get_tryout_confidence(question_desc, kb, prompt_get_tryout_answer, prompt_ge
     for attempt in range(max_retries):
         try:
             # 调用VLM获取猜测答案
-            response = vlm.request_with_retry(image=None, prompt=prompt_answer, kb=kb)[0]
+            response = vlm.request_with_retry(image=image, prompt=prompt_answer, kb=kb)[0]
             
             if response is None:
                 logging.warning(f"第{attempt + 1}次尝试获取猜测答案时，VLM响应为None")
@@ -144,7 +146,7 @@ def get_tryout_confidence(question_desc, kb, prompt_get_tryout_answer, prompt_ge
     for attempt in range(max_retries):
         try:
             # 调用VLM获取置信度
-            response = vlm.request_with_retry(image=None, prompt=prompt_confidence, kb=kb)[0]
+            response = vlm.request_with_retry(image=image, prompt=prompt_confidence, kb=kb)[0]
             
             if response is None:
                 logging.warning(f"第{attempt + 1}次尝试获取置信度时，VLM响应为None")

@@ -6,6 +6,7 @@ import json
 import time
 import logging
 
+from utils.image_processor import decode_image
 from common.redis_client import get_redis_connection, STREAMS, STATS_KEYS
 from utils.get_confidence import get_confidence, get_tryout_confidence
 
@@ -104,6 +105,8 @@ def run(config: dict):
                     question_id = question.get('id')
                     question_desc = question.get('description', '')
                     
+                    processed_image = decode_image(planner_image) if planner_image else None
+                    
                     logging.info(f"[{os.getpid()}](STO) 收到来自Planner的请求: {question_id} - '{question_desc[:40]}...'")
                     
                     confidence = None
@@ -200,6 +203,7 @@ def run(config: dict):
                                 if not enable_tryout_answer:
                                     confidence = get_confidence(
                                         question_desc=question_desc, 
+                                        image=processed_image,
                                         kb=[],  # 没有记忆数据
                                         prompt_get_confidence=prompt_get_confidence,
                                         model_name=model_name,
@@ -211,6 +215,7 @@ def run(config: dict):
                                 else:
                                     confidence = get_tryout_confidence(
                                         question_desc=question_desc, 
+                                        image=processed_image,
                                         kb=[],  # 没有记忆数据
                                         prompt_get_tryout_answer=prompt_get_tryout_answer,
                                         prompt_get_tryout_confidence=prompt_get_tryout_confidence,
@@ -225,6 +230,7 @@ def run(config: dict):
                                 if not enable_tryout_answer:
                                     confidence = get_confidence(
                                         question_desc=question_desc, 
+                                        image=processed_image,
                                         kb=memory_data,
                                         prompt_get_confidence=prompt_get_confidence,
                                         model_name=model_name,
@@ -236,6 +242,7 @@ def run(config: dict):
                                 else: 
                                     confidence = get_tryout_confidence(
                                         question_desc=question_desc, 
+                                        image=processed_image,
                                         kb=memory_data,
                                         prompt_get_tryout_answer=prompt_get_tryout_answer,
                                         prompt_get_tryout_confidence=prompt_get_tryout_confidence,
@@ -258,6 +265,7 @@ def run(config: dict):
                             if not enable_tryout_answer:
                                 confidence = get_confidence(
                                     question_desc=question_desc, 
+                                    image=processed_image,
                                     kb=[],  # 没有记忆数据
                                     prompt_get_confidence=prompt_get_confidence,
                                     model_name=model_name,
@@ -269,6 +277,7 @@ def run(config: dict):
                             else:
                                 confidence = get_tryout_confidence(
                                     question_desc=question_desc, 
+                                    image=processed_image,
                                     kb=[],  # 没有记忆数据
                                     prompt_get_tryout_answer=prompt_get_tryout_answer,
                                     prompt_get_tryout_confidence=prompt_get_tryout_confidence,

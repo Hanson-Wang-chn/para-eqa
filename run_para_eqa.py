@@ -61,11 +61,12 @@ def load_config(config_file):
         return yaml.safe_load(f)
 
 
-def initialize_system(config):
+def clear_redis(config):
     """清空Redis"""
     redis_conn = get_redis_connection(config)
     logging.info("Flushing Redis DB...")
     redis_conn.flushdb()
+    logging.info("Redis DB flushed successfully.")
 
 
 def listen_for_shutdown(config, processes, shutdown_event):
@@ -166,8 +167,8 @@ if __name__ == "__main__":
         ],
     )
     
-    # Initialize the system
-    initialize_system(config)
+    # Clear Redis
+    clear_redis(config)
 
     # Run all services
     services_to_run = {
@@ -202,11 +203,13 @@ if __name__ == "__main__":
             # 如果关闭事件被触发，优雅关闭服务
             if shutdown_event.is_set():
                 logging.info("\nShutdown signal received. Terminating all services...")
+                clear_redis(config)
                 shutdown_services(processes)
                 break
             time.sleep(1)
     
     except KeyboardInterrupt:
         logging.info("\nKeyboardInterrupt received. Terminating all services...")
+        clear_redis(config)
         shutdown_event.set()  # 设置事件，让监听线程也能退出
         shutdown_services(processes)
