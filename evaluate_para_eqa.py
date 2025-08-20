@@ -20,7 +20,7 @@ import warnings
 from collections import OrderedDict
 
 
-def calculate_metrics(group_results, ground_truth):
+def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
     """计算单个问题组的评估指标"""
     
     # 将ground_truth问题映射到description以便快速查找
@@ -40,7 +40,6 @@ def calculate_metrics(group_results, ground_truth):
     direct_answers = 0
     direct_answers_correct = 0
     normalized_steps = []
-    urgency_weighted_latency_sum = 0.0
     
     # 用于计算nuwl_time和nuwl_step
     urgency_weighted_time_sum = 0.0
@@ -109,17 +108,41 @@ def calculate_metrics(group_results, ground_truth):
         urgency_weighted_time_sum += urgency * wait_time
 
     # 第二遍处理：计算nuwl_step
-    for q in questions_info:
-        # 找出所有start时间大于该问题request时间的其他问题
-        waiting_steps = q['normalized_steps']  # 自身的步数
+    if enable_follow_up:
+        # 原始逻辑，基于时间依赖关系
+        for q in questions_info:
+            # FIXME:
+            # 找出所有start时间小于该问题request时间的其他问题
+            waiting_steps = q['normalized_steps']  # 自身的步数
+            
+            for other_q in questions_info:
+                # 如果另一个问题的开始时间小于当前问题的请求时间，则它的步数也要算入等待
+                if other_q != q and other_q['start_time'] < q['request_time']:
+                    waiting_steps += other_q['normalized_steps']
+            
+            # 计算该问题的urgency加权步数
+            urgency_weighted_step_sum += q['urgency'] * waiting_steps
+    
+    else:
+        # 新逻辑，所有问题视为同一时刻进入
+        # 创建一个字典，将description映射到questions_info中的问题
+        desc_to_question = {q['description']: q for q in questions_info}
         
-        for other_q in questions_info:
-            # 如果另一个问题的开始时间大于当前问题的请求时间，则它的步数也要算入等待
-            if other_q != q and other_q['start_time'] > q['request_time']:
-                waiting_steps += other_q['normalized_steps']
-        
-        # 计算该问题的urgency加权步数
-        urgency_weighted_step_sum += q['urgency'] * waiting_steps
+        # 按照group_results的顺序处理问题
+        cumulative_steps = 0
+        for result in group_results:
+            desc = result['description']
+            if desc not in desc_to_question:
+                continue
+            
+            q = desc_to_question[desc]
+            
+            # 等待步数是累积步数加上自身步数
+            waiting_steps = cumulative_steps + q['normalized_steps']
+            urgency_weighted_step_sum += q['urgency'] * waiting_steps
+            
+            # 更新累积步数
+            cumulative_steps += q['normalized_steps']
 
     # 检查是否有问题在基准中但不在结果中
     for gt_q in all_gt_questions:
@@ -157,8 +180,25 @@ def calculate_metrics(group_results, ground_truth):
 def main():
     benchmark_dir = 'data/benchmark'
     # TODO:
-    results_dir = 'results/answers-test'
-    output_file = 'results/evaluation.json'
+    # Parallel EQA
+    results_dir = 'results/answers-major'
+    output_file = 'results/evaluation-major.json'
+    enable_follow_up = True
+    
+    # # Explore EQA
+    # results_dir = 'results/answers-explore-eqa'
+    # output_file = 'results/evaluation-explore-eqa.json'
+    # enable_follow_up = False
+    
+    # # Memory EQA
+    # results_dir = 'results/answers-memory-eqa'
+    # output_file = 'results/evaluation-memory-eqa.json'
+    # enable_follow_up = False
+    
+    # # Parallel EQA without priority
+    # results_dir = 'results/answers-no-priority'
+    # output_file = 'results/evaluation-no-priority.json'
+    # enable_follow_up = True
 
     benchmark_files = glob.glob(os.path.join(benchmark_dir, 'G*.yaml'))
     
@@ -204,7 +244,7 @@ def main():
                 continue
         
         print(f"正在评估组: {group_id}")
-        group_metrics = calculate_metrics(results_data, ground_truth_data)
+        group_metrics = calculate_metrics(results_data, ground_truth_data, enable_follow_up)
         
         if group_metrics:
             evaluation_results[group_id] = group_metrics
