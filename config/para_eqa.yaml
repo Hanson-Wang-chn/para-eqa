@@ -9,11 +9,8 @@ save_obs: true
 save_freq: 20
 device: 'cuda'
 detector: './data/yolo11x.pt'
-# TODO:
 use_parallel: true # 是否有 group memory 和 finishing service
-# TODO:
 priority_scheduling: true
-# TODO:
 direct_answer: true
 
 # NOTE: 不允许 use_parallel == True 且 use_rag == False 的情况
@@ -21,7 +18,6 @@ direct_answer: true
 # Memory
 memory:
   device: 'cuda'
-  # TODO:
   use_rag: true # 是否有 question memory
   dimension: 768
   weight_image: 0.5
@@ -43,20 +39,16 @@ priority:
 # Redis
 redis:
   host: "localhost"
-  # TODO:
   port: 6379
   db: 0
 
 
 # Services
 generator:
-  # TODO:
   enable_follow_up: true
-  # TODO:
   interval_seconds: 120
-  # TODO:
-  start_group: 0
-  end_group: 39
+  start_group: 1
+  end_group: 1
 
 finishing:
   retrieval_num: 3
@@ -70,11 +62,12 @@ stopping:
 
 updater:
   enable_cost_estimate: false
-  # TODO:
   enable_reward_estimate: true
+  enable_urgency: false
+  enable_scope_type: false
+  enable_dependency: false
 
 answering:
-  # TODO:
   result_dir: results/answers-test
 
 planner:

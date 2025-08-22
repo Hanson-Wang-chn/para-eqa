@@ -111,7 +111,6 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
     if enable_follow_up:
         # 原始逻辑，基于时间依赖关系
         for q in questions_info:
-            # FIXME:
             # 找出所有start时间小于该问题request时间的其他问题
             waiting_steps = q['normalized_steps']  # 自身的步数
             
@@ -155,7 +154,7 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
         return None
 
     # 计算nuwl_time和nuwl_step
-    nuwl_time = urgency_weighted_time_sum / total_evaluated if total_evaluated > 0 else 0
+    # nuwl_time = urgency_weighted_time_sum / total_evaluated if total_evaluated > 0 else 0
     nuwl_step = urgency_weighted_step_sum / total_evaluated if total_evaluated > 0 else 0
 
     metrics = {
@@ -167,7 +166,7 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
         'avg_normalized_steps': np.mean(normalized_steps) if normalized_steps else 0,
         'max_normalized_steps': np.max(normalized_steps) if normalized_steps else 0,
         'min_normalized_steps': np.min([s for s in normalized_steps if s > 0]) if any(s > 0 for s in normalized_steps) else 0,
-        'nuwl_time': nuwl_time,
+        # 'nuwl_time': nuwl_time,
         'nuwl_step': nuwl_step,
         'evaluated_question_count': total_evaluated,
         'direct_answer_count': direct_answers,
@@ -177,29 +176,8 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
     return metrics
 
 
-def main():
+def main(results_dir, output_file, enable_follow_up):
     benchmark_dir = 'data/benchmark'
-    # TODO:
-    # Parallel EQA
-    results_dir = 'results/answers-major'
-    output_file = 'results/evaluation-major.json'
-    enable_follow_up = True
-    
-    # # Explore EQA
-    # results_dir = 'results/answers-explore-eqa'
-    # output_file = 'results/evaluation-explore-eqa.json'
-    # enable_follow_up = False
-    
-    # # Memory EQA
-    # results_dir = 'results/answers-memory-eqa'
-    # output_file = 'results/evaluation-memory-eqa.json'
-    # enable_follow_up = False
-    
-    # # Parallel EQA without priority
-    # results_dir = 'results/answers-no-priority'
-    # output_file = 'results/evaluation-no-priority.json'
-    # enable_follow_up = True
-
     benchmark_files = glob.glob(os.path.join(benchmark_dir, 'G*.yaml'))
     
     # 按组号字典序排序文件
@@ -253,7 +231,7 @@ def main():
             total_questions += group_metrics['evaluated_question_count']
             total_direct_answers += group_metrics['direct_answer_count']
             total_direct_answers_correct += group_metrics['direct_answer_correct_count']
-            total_urgency_weighted_time_sum += group_metrics['nuwl_time'] * group_metrics['evaluated_question_count']
+            # total_urgency_weighted_time_sum += group_metrics['nuwl_time'] * group_metrics['evaluated_question_count']
             total_urgency_weighted_step_sum += group_metrics['nuwl_step'] * group_metrics['evaluated_question_count']
 
     # 计算总体指标
@@ -269,7 +247,7 @@ def main():
             total_accuracy_sum += metrics['total_accuracy']
             total_norm_steps_sum += metrics['avg_normalized_steps']
             total_direct_answer_rate_sum += metrics['direct_answer_rate']
-            total_nuwl_time_sum += metrics['nuwl_time']
+            # total_nuwl_time_sum += metrics['nuwl_time']
             total_nuwl_step_sum += metrics['nuwl_step']
             num_groups += 1
             
@@ -278,7 +256,7 @@ def main():
             'overall_avg_normalized_steps': total_norm_steps_sum / num_groups if num_groups > 0 else 0,
             'overall_direct_answer_rate': total_direct_answer_rate_sum / num_groups if num_groups > 0 else 0,
             'overall_direct_answer_accuracy': total_direct_answers_correct / total_direct_answers if total_direct_answers > 0 else 0,
-            'overall_nuwl_time': total_urgency_weighted_time_sum / total_questions if total_questions > 0 else 0,
+            # 'overall_nuwl_time': total_urgency_weighted_time_sum / total_questions if total_questions > 0 else 0,
             'overall_nuwl_step': total_urgency_weighted_step_sum / total_questions if total_questions > 0 else 0,
             'evaluated_group_count': num_groups,
             'total_questions': total_questions,
@@ -300,4 +278,26 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # Parallel EQA
+    results_dir_major = 'results/answers-major'
+    output_file_major = 'results/evaluation-major.json'
+    enable_follow_up_major = True
+    main(results_dir_major, output_file_major, enable_follow_up_major)
+    
+    # Explore EQA
+    results_dir_explore_eqa = 'results/answers-explore-eqa'
+    output_file_explore_eqa = 'results/evaluation-explore-eqa.json'
+    enable_follow_up_explore_eqa = False
+    main(results_dir_explore_eqa, output_file_explore_eqa, enable_follow_up_explore_eqa)
+    
+    # Memory EQA
+    results_dir_memory_eqa = 'results/answers-memory-eqa'
+    output_file_memory_eqa = 'results/evaluation-memory-eqa.json'
+    enable_follow_up_memory_eqa = False
+    main(results_dir_memory_eqa, output_file_memory_eqa, enable_follow_up_memory_eqa)
+    
+    # Parallel EQA without priority
+    results_dir_no_priority = 'results/answers-no-priority'
+    output_file_no_priority = 'results/evaluation-no-priority.json'
+    enable_follow_up_no_priority = True
+    main(results_dir_no_priority, output_file_no_priority, enable_follow_up_no_priority)

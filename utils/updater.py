@@ -19,6 +19,9 @@ class Updater:
         updater_config = self.config.get("updater", {})
         self.enable_cost_estimate = updater_config.get("enable_cost_estimate", False)
         self.enable_reward_estimate = updater_config.get("enable_reward_estimate", False)
+        self.enable_urgency = updater_config.get("enable_urgency", True)
+        self.enable_scope_type = updater_config.get("enable_scope_type", True)
+        self.enable_dependency = updater_config.get("enable_dependency", True)
         
         # 从配置中读取权重参数
         priority_config = config.get("priority", {})
@@ -213,17 +216,13 @@ class Updater:
         if not self.priority_scheduling:
             return 0.0
         
-        # 提取必要的参数
-        urgency = question["urgency"]
-        scope_type = question["scope_type"]
-        cost = question["cost_estimate"]
-        reward = question["reward_estimate"]
-        status = question["status"]
+        urgency = question["urgency"] if self.enable_urgency else 0.0
+        scope_type = question["scope_type"] if self.enable_scope_type else "nan"
+        cost = question["cost_estimate"] if self.enable_cost_estimate else 0.0
+        reward = question["reward_estimate"] if self.enable_reward_estimate else 0.0
+        status = question["status"] if self.enable_dependency else "nan"
         
-        # 计算Scope_q: 0 if global, 1 if local
         scope_score = 1 if scope_type == "local" else 0
-        
-        # 计算Dep_q: 0 if pending, 1 if ready
         dep_score = 1 if status == "ready" else 0
         
         # 应用联合优化公式
@@ -351,8 +350,6 @@ class Updater:
     
     
     def _get_new_dependency(self, all_questions, qid):
-        # FIXME:
-        return {"depends_on": [], "required_by": []}
         """
         为目标问题生成依赖关系
         
@@ -363,6 +360,8 @@ class Updater:
         Returns:
             dict: 包含depends_on和required_by的依赖关系字典
         """
+        if not self.enable_dependency:
+            return {"depends_on": [], "required_by": []}
         
         # 获取prompt模板
         prompt_get_dependency = self.prompt_updater.get("get_dependency", "")
