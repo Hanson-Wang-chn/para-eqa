@@ -301,3 +301,27 @@ if __name__ == '__main__':
     output_file_no_priority = 'results/evaluation-no-priority.json'
     enable_follow_up_no_priority = True
     main(results_dir_no_priority, output_file_no_priority, enable_follow_up_no_priority)
+    
+    # Parallel EQA without urgency
+    results_dir_no_urgency = 'results/answers-no-urgency'
+    output_file_no_urgency = 'results/evaluation-no-urgency.json'
+    enable_follow_up_no_urgency = True
+    main(results_dir_no_urgency, output_file_no_urgency, enable_follow_up_no_urgency)
+    
+    # Parallel EQA without scope
+    results_dir_no_scope = 'results/answers-no-scope'
+    output_file_no_scope = 'results/evaluation-no-scope.json'
+    enable_follow_up_no_scope = True
+    main(results_dir_no_scope, output_file_no_scope, enable_follow_up_no_scope)
+    
+    # Parallel EQA without reward
+    results_dir_no_reward = 'results/answers-no-reward'
+    output_file_no_reward = 'results/evaluation-no-reward.json'
+    enable_follow_up_no_reward = True
+    main(results_dir_no_reward, output_file_no_reward, enable_follow_up_no_reward)
+    
+    # Parallel EQA without dependency
+    results_dir_no_dependency = 'results/answers-no-dependency'
+    output_file_no_dependency = 'results/evaluation-no-dependency.json'
+    enable_follow_up_no_dependency = True
+    main(results_dir_no_dependency, output_file_no_dependency, enable_follow_up_no_dependency)
