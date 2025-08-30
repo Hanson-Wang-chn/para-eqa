@@ -9,21 +9,21 @@ save_obs: true
 save_freq: 20
 device: 'cuda'
 detector: './data/yolo11x.pt'
-use_parallel: true # 是否有 group memory 和 finishing service
+use_parallel: true # whether to have group memory and finishing service
 priority_scheduling: true
 direct_answer: true
 
-# NOTE: 不允许 use_parallel == True 且 use_rag == False 的情况
+# NOTE: The situation where use_parallel == True and use_rag == False is not allowed
 
 # Memory
 memory:
   device: 'cuda'
-  use_rag: true # 是否有 question memory
+  use_rag: true # whether to have question memory
   dimension: 768
   weight_image: 0.5
   weight_text: 0.5
   max_retrieval_num: 3
-  replace_memory: false  # 是否替换相似的记忆
+  replace_memory: false
   lambda_sim: 0.5
 
 
@@ -131,11 +131,6 @@ vlm:
   device: 'cuda'
 
   # chose server from {"openai", "openrouter", "dashscope", "ollama", "other"}
-  # RTX 5090 * 1: "http://100.115.177.101:11434/v1"
-  # RTX 5090 * 1 (1): "http://100.81.140.32:11434/v1"
-  # RTX 5090 * 1 (2): "http://100.88.238.80:11434/v1"
-  # RTX 4090 * 4: "http://58.198.176.200:11434/v1"
-  # RTX 4090 D * 1: "http://49.52.18.227:11434/v1"
 
   answering:
     model: openai/gpt-5-mini

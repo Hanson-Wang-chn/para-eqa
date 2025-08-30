@@ -57,21 +57,21 @@ os.environ["MAGNUM_LOG"] = "quiet"
 
 def search(redis_conn, text, image=None, top_k=5):
     """
-    向Memory Service发送搜索请求并等待响应
+    Send search request to Memory Service and wait for response
     
     Args:
-        redis_conn: Redis连接对象
-        text: 查询文本
-        image: PIL图像对象或None
-        top_k: 返回的最大结果数量
+        redis_conn: Redis connection object
+        text: Query text
+        image: PIL image object or None
+        top_k: Maximum number of results to return
     
     Returns:
-        list: 知识库搜索结果列表
+        list: Knowledge base search results list
     """
-    # 编码图像
+    # Encode image
     image_data = encode_image(image) if image else None
     
-    # 创建请求
+    # Create request
     request_id = str(uuid.uuid4())
     request = {
         "id": request_id,
@@ -81,11 +81,11 @@ def search(redis_conn, text, image=None, top_k=5):
         "top_k": top_k
     }
     
-    # 定义流
+    # Define streams
     requests_stream = STREAMS["memory_requests"]
     responses_stream = STREAMS["memory_responses"]
     
-    # 创建消费者组(如果不存在)
+    # Create consumer group (if not exists)
     group_name = f"memory_client_{os.getpid()}"
     try:
         redis_conn.xgroup_create(responses_stream, group_name, id='0', mkstream=True)
@@ -93,31 +93,31 @@ def search(redis_conn, text, image=None, top_k=5):
         # logging.info(f"[{os.getpid()}](PLA) Memory response group already exists: {e}")
         pass
     
-    # 发送请求
+    # Send request
     redis_conn.xadd(requests_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}](PLA) 向Memory发送搜索请求: {request_id}")
+    logging.info(f"[{os.getpid()}](PLA) Sending search request to Memory: {request_id}")
     
-    # 等待响应
+    # Wait for response
     memory_response = None
     wait_start_time = time.time()
-    max_wait_time = 300  # 最长等待时间，单位秒
+    max_wait_time = 300  # Maximum wait time in seconds
 
     while memory_response is None and (time.time() - wait_start_time < max_wait_time):
         try:
-            # 使用block参数高效等待
+            # Use block parameter for efficient waiting
             responses = redis_conn.xreadgroup(
                 group_name, f"client_worker_{os.getpid()}", 
                 {responses_stream: '>'}, 
                 count=20, block=100
             )
             
-            # 定期日志，监控长时间等待
+            # Periodic logging to monitor long waits
             if time.time() - wait_start_time > 30:
-                logging.info(f"[{os.getpid()}](PLA) 已等待Memory响应超过30秒，请求ID: {request_id}")
-                wait_start_time = time.time()  # 重置计时器，避免日志刷屏
+                logging.info(f"[{os.getpid()}](PLA) Waiting for Memory response over 30 seconds, request ID: {request_id}")
+                wait_start_time = time.time()  # Reset timer to avoid log spam
 
             if not responses:
-                # block超时，没有读到任何消息，继续下一次循环等待
+                # Block timeout, no messages read, continue to next loop iteration
                 continue
             
             for stream, message_list in responses:
@@ -126,60 +126,60 @@ def search(redis_conn, text, image=None, top_k=5):
                         resp_data = json.loads(data.get('data', '{}'))
                         resp_request_id = resp_data.get('request_id')
 
-                        # 检查是否是我们期望的响应
+                        # Check if this is the expected response
                         if resp_request_id == request_id:
-                            # 是我们等待的响应
+                            # This is the response we're waiting for
                             memory_response = resp_data
                             
-                            # 确认消息已处理
+                            # Acknowledge message as processed
                             redis_conn.xack(responses_stream, group_name, message_id)
                             
-                            logging.info(f"[{os.getpid()}](PLA) 收到匹配的Memory响应，请求ID: {request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                            logging.info(f"[{os.getpid()}](PLA) Received matching Memory response, request ID: {request_id}, total wait time: {time.time() - wait_start_time:.2f} seconds")
                             
-                            # 已找到响应，跳出循环
+                            # Found response, break out of loop
                             break
                         else:
-                            # 不是我们等待的响应，忽略它
+                            # Not the response we're waiting for, ignore it
                             pass
 
                     except (json.JSONDecodeError, AttributeError) as e:
-                        logging.warning(f"[{os.getpid()}](PLA) 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
-                        # 对于无法解析的消息，应该确认，防止反复处理
+                        logging.warning(f"[{os.getpid()}](PLA) Unable to parse or process Memory response message (ID: {message_id}): {e}. Acknowledging this message to prevent infinite loop.")
+                        # For unparseable messages, should acknowledge to prevent repeated processing
                         redis_conn.xack(responses_stream, group_name, message_id)
                         continue
                 
                 if memory_response:
-                    break  # 跳出外层for循环
+                    break  # Break out of outer for loop
         
         except Exception as e:
-            logging.warning(f"[{os.getpid()}](PLA) 等待Memory响应时发生错误: {e}，1秒后重试...")
+            logging.warning(f"[{os.getpid()}](PLA) Error occurred while waiting for Memory response: {e}, retrying in 1 second...")
             time.sleep(1)
     
-    # 检查响应状态
+    # Check response status
     if not memory_response or memory_response.get('status') != 'success':
-        logging.warning(f"[{os.getpid()}](PLA) 未收到有效Memory响应或请求失败")
+        logging.warning(f"[{os.getpid()}](PLA) Did not receive valid Memory response or request failed")
         return []
     
-    # 提取并返回搜索结果
+    # Extract and return search results
     return memory_response.get('data', [])
 
 
 def update(redis_conn, text, image=None):
     """
-    向Memory Service发送更新请求并等待响应
+    Send update request to Memory Service and wait for response
     
     Args:
-        redis_conn: Redis连接对象
-        text: 要添加的文本描述
-        image: PIL图像对象或None
+        redis_conn: Redis connection object
+        text: Text description to add
+        image: PIL image object or None
     
     Returns:
-        bool: 操作是否成功
+        bool: Whether the operation was successful
     """
-    # 编码图像
+    # Encode image
     image_data = encode_image(image) if image else None
     
-    # 创建请求
+    # Create request
     request_id = str(uuid.uuid4())
     request = {
         "id": request_id,
@@ -188,11 +188,11 @@ def update(redis_conn, text, image=None):
         "image_data": image_data
     }
     
-    # 定义流
+    # Define streams
     requests_stream = STREAMS["memory_requests"]
     responses_stream = STREAMS["memory_responses"]
     
-    # 创建消费者组(如果不存在)
+    # Create consumer group (if not exists)
     group_name = f"memory_client_{os.getpid()}"
     try:
         redis_conn.xgroup_create(responses_stream, group_name, id='0', mkstream=True)
@@ -200,31 +200,31 @@ def update(redis_conn, text, image=None):
         # logging.info(f"[{os.getpid()}](PLA) Memory response group already exists: {e}")
         pass
     
-    # 发送请求
+    # Send request
     redis_conn.xadd(requests_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}](PLA) 向Memory发送更新请求: {request_id}")
+    logging.info(f"[{os.getpid()}](PLA) Sending update request to Memory: {request_id}")
     
-    # 等待响应
+    # Wait for response
     memory_response = None
     wait_start_time = time.time()
-    max_wait_time = 300  # 最长等待时间，单位秒
+    max_wait_time = 300  # Maximum wait time in seconds
 
     while memory_response is None and (time.time() - wait_start_time < max_wait_time):
         try:
-            # 使用block参数高效等待
+            # Use block parameter for efficient waiting
             responses = redis_conn.xreadgroup(
                 group_name, f"client_worker_{os.getpid()}", 
                 {responses_stream: '>'}, 
                 count=20, block=100
             )
             
-            # 定期日志，监控长时间等待
+            # Periodic logging to monitor long waits
             if time.time() - wait_start_time > 30:
-                logging.info(f"[{os.getpid()}](PLA) 已等待Memory响应超过30秒，请求ID: {request_id}")
-                wait_start_time = time.time()  # 重置计时器，避免日志刷屏
+                logging.info(f"[{os.getpid()}](PLA) Waiting for Memory response over 30 seconds, request ID: {request_id}")
+                wait_start_time = time.time()  # Reset timer to avoid log spam
 
             if not responses:
-                # block超时，没有读到任何消息，继续下一次循环等待
+                # Block timeout, no messages read, continue to next loop iteration
                 continue
             
             for stream, message_list in responses:
@@ -233,62 +233,62 @@ def update(redis_conn, text, image=None):
                         resp_data = json.loads(data.get('data', '{}'))
                         resp_request_id = resp_data.get('request_id')
 
-                        # 检查是否是我们期望的响应
+                        # Check if this is the expected response
                         if resp_request_id == request_id:
-                            # 是我们等待的响应
+                            # This is the response we're waiting for
                             memory_response = resp_data
                             
-                            # 确认消息已处理
+                            # Acknowledge message as processed
                             redis_conn.xack(responses_stream, group_name, message_id)
                             
-                            logging.info(f"[{os.getpid()}](PLA) 收到匹配的Memory响应，请求ID: {request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                            logging.info(f"[{os.getpid()}](PLA) Received matching Memory response, request ID: {request_id}, total wait time: {time.time() - wait_start_time:.2f} seconds")
                             
-                            # 已找到响应，跳出循环
+                            # Found response, break out of loop
                             break
                         else:
-                            # 不是我们等待的响应，忽略它
+                            # Not the response we're waiting for, ignore it
                             pass
 
                     except (json.JSONDecodeError, AttributeError) as e:
-                        logging.warning(f"[{os.getpid()}](PLA) 无法解析或处理Memory响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
-                        # 对于无法解析的消息，应该确认，防止反复处理
+                        logging.warning(f"[{os.getpid()}](PLA) Unable to parse or process Memory response message (ID: {message_id}): {e}. Acknowledging this message to prevent infinite loop.")
+                        # For unparseable messages, should acknowledge to prevent repeated processing
                         redis_conn.xack(responses_stream, group_name, message_id)
                         continue
                 
                 if memory_response:
-                    break  # 跳出外层for循环
+                    break  # Break out of outer for loop
         
         except Exception as e:
-            logging.warning(f"[{os.getpid()}](PLA) 等待Memory响应时发生错误: {e}，1秒后重试...")
+            logging.warning(f"[{os.getpid()}](PLA) Error occurred while waiting for Memory response: {e}, retrying in 1 second...")
             time.sleep(1)
     
-    # 检查响应状态
+    # Check response status
     if not memory_response or memory_response.get('status') != 'success':
-        logging.warning(f"[{os.getpid()}](PLA) 未收到有效Memory响应或请求失败")
+        logging.warning(f"[{os.getpid()}](PLA) Did not receive valid Memory response or request failed")
         return False
     
-    # 操作成功
+    # Operation successful
     return True
 
 
 def can_stop(redis_conn, question, rgb_im=None, must_stop=False, used_steps=0):
     """
-    向Stopping Service发送请求，询问是否可以停止探索
+    Send request to Stopping Service asking whether exploration can be stopped
     
     Args:
-        redis_conn: Redis连接对象
-        question: 问题对象
-        images: 图像数据列表，可选
-        must_stop: 是否达到最大步数限制，必须停止探索
-        used_steps: 已使用的步数，默认为0
+        redis_conn: Redis connection object
+        question: Question object
+        images: Image data list, optional
+        must_stop: Whether maximum step limit is reached and exploration must stop
+        used_steps: Number of steps used, default is 0
     
     Returns:
-        dict: 停止服务的响应，包含status和confidence等信息
+        dict: Stopping service response, including status and confidence information
     """
-    # 编码图像
+    # Encode image
     image_data = encode_image(rgb_im) if rgb_im else None
     
-    # 创建请求
+    # Create request
     request_id = str(uuid.uuid4())
     request = {
         "question": question,
@@ -297,11 +297,11 @@ def can_stop(redis_conn, question, rgb_im=None, must_stop=False, used_steps=0):
         "used_steps": used_steps
     }
     
-    # 定义流
+    # Define streams
     planner_to_stopping_stream = STREAMS["planner_to_stopping"]
     stopping_to_planner_stream = STREAMS["stopping_to_planner"]
     
-    # 创建消费者组(如果不存在)
+    # Create consumer group (if not exists)
     group_name = f"planner_client_{os.getpid()}"
     try:
         redis_conn.xgroup_create(stopping_to_planner_stream, group_name, id='0', mkstream=True)
@@ -309,31 +309,31 @@ def can_stop(redis_conn, question, rgb_im=None, must_stop=False, used_steps=0):
         # logging.info(f"[{os.getpid()}](PLA) Stopping response group already exists: {e}")
         pass
     
-    # 发送请求
+    # Send request
     redis_conn.xadd(planner_to_stopping_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}](PLA) 向Stopping Service发送请求: {request_id}")
+    logging.info(f"[{os.getpid()}](PLA) Sending request to Stopping Service: {request_id}")
     
-    # 等待响应
+    # Wait for response
     stopping_response = None
     wait_start_time = time.time()
-    max_wait_time = 300  # 最长等待时间，单位秒
+    max_wait_time = 300  # Maximum wait time in seconds
 
     while stopping_response is None and (time.time() - wait_start_time < max_wait_time):
         try:
-            # 使用block参数高效等待
+            # Use block parameter for efficient waiting
             responses = redis_conn.xreadgroup(
                 group_name, f"client_worker_{os.getpid()}", 
                 {stopping_to_planner_stream: '>'}, 
                 count=20, block=100
             )
             
-            # 定期日志，监控长时间等待
+            # Periodic logging to monitor long waits
             if time.time() - wait_start_time > 30:
-                logging.info(f"[{os.getpid()}](PLA) 已等待Stopping Service响应超过30秒，请求ID: {request_id}")
-                wait_start_time = time.time()  # 重置计时器，避免日志刷屏
+                logging.info(f"[{os.getpid()}](PLA) Waiting for Stopping Service response over 30 seconds, request ID: {request_id}")
+                wait_start_time = time.time()  # Reset timer to avoid log spam
 
             if not responses:
-                # block超时，没有读到任何消息，继续下一次循环等待
+                # Block timeout, no messages read, continue to next loop iteration
                 continue
             
             for stream, message_list in responses:
@@ -341,54 +341,54 @@ def can_stop(redis_conn, question, rgb_im=None, must_stop=False, used_steps=0):
                     try:
                         resp_data = json.loads(data.get('data', '{}'))
                         
-                        # 是我们等待的响应
+                        # This is the response we're waiting for
                         stopping_response = resp_data
                         
-                        # 确认消息已处理
+                        # Acknowledge message as processed
                         redis_conn.xack(stopping_to_planner_stream, group_name, message_id)
                         
-                        logging.info(f"[{os.getpid()}](PLA) 收到Stopping Service响应，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                        logging.info(f"[{os.getpid()}](PLA) Received Stopping Service response, total wait time: {time.time() - wait_start_time:.2f} seconds")
                         
-                        # 已找到响应，跳出循环
+                        # Found response, break out of loop
                         break
 
                     except (json.JSONDecodeError, AttributeError) as e:
-                        logging.warning(f"[{os.getpid()}](PLA) 无法解析或处理Stopping响应消息 (ID: {message_id}): {e}。确认此消息以防死循环。")
-                        # 对于无法解析的消息，应该确认，防止反复处理
+                        logging.warning(f"[{os.getpid()}](PLA) Unable to parse or process Stopping response message (ID: {message_id}): {e}. Acknowledging this message to prevent infinite loop.")
+                        # For unparseable messages, should acknowledge to prevent repeated processing
                         redis_conn.xack(stopping_to_planner_stream, group_name, message_id)
                         continue
                 
                 if stopping_response:
-                    break  # 跳出外层for循环
+                    break  # Break out of outer for loop
         
         except Exception as e:
-            logging.warning(f"[{os.getpid()}](PLA) 等待Stopping响应时发生错误: {e}，1秒后重试...")
+            logging.warning(f"[{os.getpid()}](PLA) Error occurred while waiting for Stopping response: {e}, retrying in 1 second...")
             time.sleep(1)
     
-    # 检查响应状态
+    # Check response status
     if not stopping_response:
-        logging.warning(f"[{os.getpid()}](PLA) 未收到有效Stopping响应")
-        # 返回一个默认响应，表示继续探索
+        logging.warning(f"[{os.getpid()}](PLA) Did not receive valid Stopping response")
+        # Return a default response indicating to continue exploration
         return {"status": "continue", "confidence": 0.0}
     
-    # 返回stopping service的响应
+    # Return stopping service response
     return stopping_response
 
 
 def get_group_info(redis_conn, group_id):
     """
-    从Redis中读取指定组的信息
+    Read information for specified group from Redis
     
     Args:
-        redis_conn: Redis连接对象
-        group_id: 组ID
+        redis_conn: Redis connection object
+        group_id: Group ID
         
     Returns:
-        dict: 组信息字典
+        dict: Group information dictionary
     """
     group_info = {}
     
-    # 读取基本信息（使用get命令存储的字符串值）
+    # Read basic information (string values stored using get command)
     group_info["group_id"] = redis_conn.get(f"{GROUP_INFO['group_id']}{group_id}")
     group_info["scene"] = redis_conn.get(f"{GROUP_INFO['scene']}{group_id}")
     
@@ -396,7 +396,7 @@ def get_group_info(redis_conn, group_id):
     if angle:
         group_info["angle"] = float(angle)
     
-    # 可选值，如果存在则读取
+    # Optional values, read if exists
     floor = redis_conn.get(f"{GROUP_INFO['floor']}{group_id}")
     if floor:
         group_info["floor"] = floor
@@ -413,7 +413,7 @@ def get_group_info(redis_conn, group_id):
     if scene_size:
         group_info["scene_size"] = float(scene_size)
     
-    # 读取坐标信息（使用hget命令存储的哈希值）
+    # Read coordinate information (hash values stored using hget command)
     pts = redis_conn.hgetall(f"{GROUP_INFO['pts']}{group_id}")
     if pts:
         group_info["pts"] = {
@@ -428,7 +428,7 @@ def get_group_info(redis_conn, group_id):
         for k, v in rotation_data.items():
             group_info["rotation"][k] = float(v)
     
-    # 读取问题数量
+    # Read number of questions
     num_questions_init = redis_conn.get(f"{GROUP_INFO['num_questions_init']}{group_id}")
     if num_questions_init:
         group_info["num_questions_init"] = int(num_questions_init)
@@ -437,7 +437,7 @@ def get_group_info(redis_conn, group_id):
     if num_questions_follow_up:
         group_info["num_questions_follow_up"] = int(num_questions_follow_up)
     
-    # 读取答案映射
+    # Read answer mapping
     correct_answers = redis_conn.hgetall(f"{GROUP_INFO['correct_answers']}{group_id}")
     if correct_answers:
         group_info["correct_answers"] = correct_answers
@@ -447,20 +447,20 @@ def get_group_info(redis_conn, group_id):
 
 def set_group_info(redis_conn, group_id, group_info):
     """
-    将组信息写入Redis
+    Write group information to Redis
     
     Args:
-        redis_conn: Redis连接对象
-        group_id: 组ID
-        group_info: 组信息字典
+        redis_conn: Redis connection object
+        group_id: Group ID
+        group_info: Group information dictionary
         
     Returns:
-        bool: 操作是否成功
+        bool: Whether the operation was successful
     """
     try:
         pipe = redis_conn.pipeline()
         
-        # 设置基本信息
+        # Set basic information
         if "group_id" in group_info:
             pipe.set(f"{GROUP_INFO['group_id']}{group_id}", group_info["group_id"])
         
@@ -482,34 +482,34 @@ def set_group_info(redis_conn, group_id, group_info):
         if "scene_size" in group_info:
             pipe.set(f"{GROUP_INFO['scene_size']}{group_id}", group_info["scene_size"])
         
-        # 设置坐标信息
+        # Set coordinate information
         if "pts" in group_info and isinstance(group_info["pts"], dict):
             pipe.hset(f"{GROUP_INFO['pts']}{group_id}", mapping=group_info["pts"])
         
         if "rotation" in group_info and isinstance(group_info["rotation"], dict):
             pipe.hset(f"{GROUP_INFO['rotation']}{group_id}", mapping=group_info["rotation"])
         elif "rotation" in group_info and isinstance(group_info["rotation"], list):
-            # 如果rotation是列表，转换为字典格式
+            # If rotation is a list, convert to dictionary format
             rotation_dict = {str(i): val for i, val in enumerate(group_info["rotation"])}
             pipe.hset(f"{GROUP_INFO['rotation']}{group_id}", mapping=rotation_dict)
         
-        # 设置问题数量
+        # Set number of questions
         if "num_questions_init" in group_info:
             pipe.set(f"{GROUP_INFO['num_questions_init']}{group_id}", group_info["num_questions_init"])
         
         if "num_questions_follow_up" in group_info:
             pipe.set(f"{GROUP_INFO['num_questions_follow_up']}{group_id}", group_info["num_questions_follow_up"])
         
-        # 设置答案映射
+        # Set answer mapping
         if "correct_answers" in group_info and isinstance(group_info["correct_answers"], dict):
             pipe.hset(f"{GROUP_INFO['correct_answers']}{group_id}", mapping=group_info["correct_answers"])
         
-        # 执行所有命令
+        # Execute all commands
         pipe.execute()
         return True
     
     except Exception as e:
-        logging.error(f"[{os.getpid()}](PLA) 设置组信息时出错: {e}")
+        logging.error(f"[{os.getpid()}](PLA) Error occurred while setting group information: {e}")
         return False
 
 
@@ -568,7 +568,7 @@ class ParaEQA:
         api_key_tiny = config_vlm_tiny.get("api_key", None)
         self.vlm_tiny = VLM_API(model_name_tiny, server_tiny, base_url_tiny, api_key_tiny)
         
-        # 连接Redis
+        # Connect to Redis
         self.redis_conn = get_redis_connection(config)
         
         # init detector 'yolov12{n/s/m/l/x}.pt'
@@ -631,18 +631,18 @@ class ParaEQA:
     
     
     def prepare_data(self, question_data, question_ind):
-        # 从 Redis 获取当前 group_id
+        # Get current group_id from Redis
         group_id = get_current_group_id(self.redis_conn)
         if not group_id:
-            raise ValueError("无法找到当前活跃的 group_id")
+            raise ValueError("Unable to find current active group_id")
         
-        # 从 GROUP_INFO 获取组信息
+        # Get group information from GROUP_INFO
         group_info = get_group_info(self.redis_conn, group_id)
         
-        # 从 description 提取问题和选项
+        # Extract question and options from description
         description = question_data.get('description', '')
         
-        # 使用正则表达式提取问题和选项
+        # Use regular expression to extract question and options
         match = re.match(r'(.*?)\s*A\)(.*?)\s*B\)(.*?)\s*C\)(.*?)\s*D\)(.*?)(?:\.|\s*$)', description, re.DOTALL)
         if match:
             question = match.group(1).strip()
@@ -653,23 +653,23 @@ class ParaEQA:
                 match.group(5).strip()
             ]
         else:
-            # 如果无法匹配，报告错误
-            raise ValueError(f"无法从描述中提取问题和选项: {description}")
+            # If unable to match, report error
+            raise ValueError(f"Unable to extract question and options from description: {description}")
         
-        # 将选项格式化为字符串列表
+        # Format options as string list
         # choices = str(choices)
         
-        # 获取答案 (A、B、C、D)
+        # Get answer (A, B, C, D)
         answer = question_data.get('answer', None)
         if answer is None:
-            raise ValueError("问题数据中未提供答案")
+            raise ValueError("No answer provided in question data")
         
-        # 从 GROUP_INFO 获取场景和楼层信息
+        # Get scene and floor information from GROUP_INFO
         scene = group_info.get('scene')
-        floor = group_info.get('floor', '0')  # 默认为 0
+        floor = group_info.get('floor', '0')  # Default to 0
         scene_floor = scene + "_" + floor
         
-        # 获取初始位置和角度
+        # Get initial position and angle
         if 'pts' in group_info:
             pts = [
                 float(group_info['pts'].get('x', 0)),
@@ -677,7 +677,7 @@ class ParaEQA:
                 float(group_info['pts'].get('z', 0))
             ]
         else:
-            # 如果没有在 GROUP_INFO 中找到，使用默认值
+            # If not found in GROUP_INFO, use default values
             pts = self.init_pose_data[scene_floor]["init_pts"]
         
         angle = float(group_info.get('angle', 0))
@@ -742,43 +742,43 @@ class ParaEQA:
     
     
     def annotate_object(self, box, cls, rgb_im, depth, cam_pose, room):
-        """处理单个检测对象，包括裁剪、调用大模型、坐标转换等"""
-        # 裁剪目标区域
+        """Process single detected object, including cropping, calling large model, coordinate transformation, etc."""
+        # Crop target region
         box_xyxy = box.xyxy[0].cpu()
         x1, y1, x2, y2 = int(box_xyxy[0]), int(box_xyxy[1]), int(box_xyxy[2]), int(box_xyxy[3])
         obj_im = rgb_im.crop((x1, y1, x2, y2))
         
-        # 调用大模型描述
+        # Call large model for description
         obj_caption = self.vlm_tiny.request_with_retry(image=obj_im, prompt=self.prompt_caption)
         
-        # 中心点转换世界坐标
+        # Convert center point to world coordinates
         x, y = (x1 + x2) / 2, (y1 + y2) / 2
         world_pos = pixel2world(x, y, depth[int(y), int(x)], cam_pose)
         world_pos = pos_normal_to_habitat(world_pos)
         
-        # 返回目标信息
+        # Return object information
         return {"room": room, "cls": cls, "caption": obj_caption[0], "pos": world_pos.tolist()}
 
 
-    # 输入的question_data类似下面这样：
+    # Input question_data is similar to the following:
     """
     {'scene': '00797-99ML7CGPqsQ', 'floor': '0', 'question': 'Is the door color darker than the ceiling color?', 'choices': "['Yes', 'No', 'They are the same color', 'The ceiling is darker']", 'question_formatted': 'Is the door color darker than the ceiling color? A) Yes B) No C) They are the same color D) The ceiling is darker. Answer:', 'answer': 'A', 'label': 'Comparison', 'source_image': '00797-99ML7CGPqsQ_0.png'}
     """
     def run(self, question_data, question_ind):
-        # 从 Redis 获取当前 group_id
+        # Get current group_id from Redis
         group_id = get_current_group_id(self.redis_conn)
         if not group_id:
-            raise ValueError("无法找到当前活跃的 group_id")
+            raise ValueError("Unable to find current active group_id")
         
-        # 从 GROUP_INFO 获取组信息
+        # Get group information from GROUP_INFO
         group_info = get_group_info(self.redis_conn, group_id)
         
-        # 在开始探索之前，先询问stopping service是否可以直接回答问题
+        # Before starting exploration, first ask stopping service if question can be answered directly
         stopping_response = can_stop(self.redis_conn, question_data)
         if stopping_response.get("status") == "stop":
-            # 可以直接回答问题，无需探索
-            logging.info(f"[{os.getpid()}](PLA) Stopping Service决定直接回答问题，置信度: {stopping_response.get('confidence', 0.0)}")
-            # 创建一个基本的结果对象
+            # Can answer question directly, no need for exploration
+            logging.info(f"[{os.getpid()}](PLA) Stopping Service decided to answer question directly, confidence: {stopping_response.get('confidence', 0.0)}")
+            # Create a basic result object
             result = {
                 "meta": {
                     "question_ind": question_ind,
@@ -793,10 +793,10 @@ class ParaEQA:
                 },
             }
             
-            # 直接回答问题后，不需要更新GROUP_INFO
+            # After answering question directly, no need to update GROUP_INFO
             return result
         
-        # 准备数据，开始新的探索
+        # Prepare data, start new exploration
         meta, agent, agent_state, tsdf_planner, episode_data_dir = self.prepare_data(question_data, question_ind)
 
         result = {
@@ -864,18 +864,18 @@ class ParaEQA:
                 objects = self.detector(rgb_im)[0]
                 objs_info = []
                 
-                # 并行处理对象
-                logging.info(f"[{os.getpid()}](PLA) 开始使用 {self.num_workers} 个线程并行处理检测到的 {len(objects.boxes)} 个对象")
+                # Parallel processing of objects
+                logging.info(f"[{os.getpid()}](PLA) Starting parallel processing of {len(objects.boxes)} detected objects using {self.num_workers} threads")
                 with concurrent.futures.ThreadPoolExecutor(max_workers=self.num_workers) as executor:
                     futures = []
                     for box in objects.boxes:
                         cls = objects.names[box.cls.item()]
                         futures.append(executor.submit(self.annotate_object, box, cls, rgb_im, depth, cam_pose, room))
                     
-                    # 收集结果
+                    # Collect results
                     for future in concurrent.futures.as_completed(futures):
                         objs_info.append(future.result())
-                logging.info(f"[{os.getpid()}](PLA) 并行处理完成，共处理 {len(objs_info)} 个对象")
+                logging.info(f"[{os.getpid()}](PLA) Parallel processing completed, processed {len(objs_info)} objects in total")
 
                 # "Describe this image."
                 caption = self.vlm_lite.request_with_retry(image=rgb_im, prompt=self.prompt_caption)
@@ -885,10 +885,10 @@ class ParaEQA:
                     rgb_path = os.path.join(episode_data_dir, "{}.png".format(cnt_step))
                     plt.imsave(rgb_path, rgb)
                 
-                # 构建目标信息
+                # Build object information
                 objs_str = json.dumps(objs_info)
                 
-                # 向Memory添加知识
+                # Add knowledge to Memory
                 update(self.redis_conn, f"{step_name}: agent position is {pts}. {caption}. Objects: {objs_str}", rgb_im)
 
             num_black_pixels = np.sum(
@@ -907,13 +907,13 @@ class ParaEQA:
                     margin_w=int(self.config.get("margin_w_ratio", 0.25) * self.img_width),
                 )
 
-                # 在每一步后询问stopping service是否可以停止探索
-                # 如果可以结束，把更新后的信息存储到GROUP_INFO中
+                # After each step, ask stopping service whether exploration can be stopped
+                # If can be ended, store updated information to GROUP_INFO
                 # "... How confident are you in answering this question from your current perspective? ..."
                 stopping_response = can_stop(self.redis_conn, question_data, rgb_im, used_steps=cnt_step + 1)
                 if stopping_response.get("status") == "stop":
-                    # 可以停止探索，结束循环
-                    logging.info(f"[{os.getpid()}](PLA) Stopping Service决定停止探索，置信度: {stopping_response.get('confidence', 0.0)}")
+                    # Can stop exploration, end loop
+                    logging.info(f"[{os.getpid()}](PLA) Stopping Service decided to stop exploration, confidence: {stopping_response.get('confidence', 0.0)}")
                     break
 
                 # Get frontier candidates
@@ -1018,7 +1018,7 @@ class ParaEQA:
                 logging.info("Skipping black image!")
 
             # Determine next point
-            if cnt_step < num_step - 1:  # 避免在最后一步计算下一个位置
+            if cnt_step < num_step - 1:  # Avoid calculating next position on the last step
                 pts_normal, angle, cur_angle, pts_pix, fig = tsdf_planner.find_next_pose(
                     pts=pts_normal,
                     angle=angle,
@@ -1045,16 +1045,16 @@ class ParaEQA:
                 quat_from_angle_axis(angle, np.array([0, 1, 0]))
             ).tolist()
             
-            # 当达到最大探索步数时，强制结束探索
+            # When maximum exploration steps reached, force end exploration
             if cnt_step == num_step - 1:
-                logging.info(f"达到最大探索步数 {num_step}，强制结束探索")
+                logging.info(f"Reached maximum exploration steps {num_step}, forcing end of exploration")
                 stopping_response = can_stop(self.redis_conn, question_data, rgb_im, must_stop=True, used_steps=cnt_step + 1)
                 if stopping_response.get("status") == "stop":
-                    # 可以停止探索，结束循环
-                    logging.info(f"[{os.getpid()}](PLA) Stopping Service决定停止探索，置信度设置为1.0")
+                    # Can stop exploration, end loop
+                    logging.info(f"[{os.getpid()}](PLA) Stopping Service decided to stop exploration, confidence set to 1.0")
                 else:
                     raise RuntimeError(
-                        f"达到最大探索步数 {num_step}，但Stopping Service未能确认停止探索"
+                        f"Reached maximum exploration steps {num_step}, but Stopping Service failed to confirm stopping exploration"
                     )
                 
                 
@@ -1064,10 +1064,10 @@ class ParaEQA:
         logging.info(f"Scene: {scene}, Floor: {floor}")
         logging.info(f"Explored steps: {cnt_step + 1}")
         
-        # 记录探索的步数
+        # Record the number of exploration steps
         result["summary"]["explored_steps"] = cnt_step + 1
         
-        # 更新 GROUP_INFO
+        # Update GROUP_INFO
         updated_group_info = {
             'group_id': group_id,
             'scene': scene,
@@ -1086,7 +1086,7 @@ class ParaEQA:
             'correct_answers': group_info.get('correct_answers', {})
         }
         
-        # 只有当 use_parallel 为 True 时才更新 GROUP_INFO
+        # Only update GROUP_INFO when use_parallel is True
         if self.use_parallel:
             set_group_info(self.redis_conn, group_id, updated_group_info)
 

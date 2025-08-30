@@ -13,10 +13,10 @@ from utils.get_confidence import get_confidence, get_tryout_confidence
 
 def run(config: dict):
     """
-    Stopping Service 的主运行函数。
-    负责判断是否应该停止探索，并将问题路由到适当的服务。
+    Main running function for Stopping Service.
+    Responsible for determining whether to stop exploration and routing questions to appropriate services.
     """
-    # 设置日志
+    # Setup logging
     parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "stopping_logs")
     if not os.path.exists(logs_dir):
@@ -31,7 +31,7 @@ def run(config: dict):
         ],
     )
     
-    # 读取配置
+    # Read configuration
     use_rag = config.get("memory", {}).get("use_rag", True)
     
     stopping_config = config.get("stopping", {})
@@ -39,7 +39,7 @@ def run(config: dict):
     confidence_threshold = stopping_config.get("confidence_threshold", 0.7)
     enable_tryout_answer = stopping_config.get("enable_tryout_answer", False)
     
-    # VLM配置
+    # VLM configuration
     prompt_get_confidence = config.get("prompt", {}).get("stopping", {}).get("get_confidence", "")
     prompt_get_tryout_answer = config.get("prompt", {}).get("stopping", {}).get("get_tryout_answer", "")
     prompt_get_tryout_confidence = config.get("prompt", {}).get("stopping", {}).get("get_tryout_confidence", "")
@@ -50,18 +50,18 @@ def run(config: dict):
     base_url = config_vlm.get("base_url", None)
     api_key = config_vlm.get("api_key", None)
     
-    # Redis初始化
+    # Redis initialization
     redis_conn = get_redis_connection(config)
     
-    # 流定义
-    planner_to_stopping_stream = STREAMS.get("planner_to_stopping", "stream:planner_to_stopping")  # 从Planner接收请求
-    memory_requests_stream = STREAMS["memory_requests"]     # 向Memory发送请求
-    memory_responses_stream = STREAMS["memory_responses"]  # 从Memory接收响应
-    stopping_to_planner_stream = STREAMS["stopping_to_planner"]  # 向Planner发送消息
-    to_pool_stream = STREAMS["pool_requests"]  # 向Question Pool发送完成请求
-    to_answering_stream = STREAMS["to_answering"]  # 向Answering发送问题
+    # Stream definitions
+    planner_to_stopping_stream = STREAMS.get("planner_to_stopping", "stream:planner_to_stopping")  # Receive requests from Planner
+    memory_requests_stream = STREAMS["memory_requests"]     # Send requests to Memory
+    memory_responses_stream = STREAMS["memory_responses"]  # Receive responses from Memory
+    stopping_to_planner_stream = STREAMS["stopping_to_planner"]  # Send messages to Planner
+    to_pool_stream = STREAMS["pool_requests"]  # Send completion requests to Question Pool
+    to_answering_stream = STREAMS["to_answering"]  # Send questions to Answering
     
-    # 创建消费者组
+    # Create consumer groups
     group_name = "stopping_group"
     try:
         redis_conn.xgroup_create(planner_to_stopping_stream, group_name, id='0', mkstream=True)
@@ -77,13 +77,13 @@ def run(config: dict):
     
     logging.info(f"[{os.getpid()}](STO) Stopping service started. Waiting for planner requests...")
     
-    # 初始化统计计数器
+    # Initialize statistics counters
     stop_count = 0
     continue_count = 0
     
     while True:
         try:
-            # 从Planner接收消息
+            # Receive messages from Planner
             messages = redis_conn.xreadgroup(
                 group_name, "stopping_worker", 
                 {planner_to_stopping_stream: '>'}, 
@@ -107,45 +107,45 @@ def run(config: dict):
                     
                     processed_image = decode_image(planner_image) if planner_image else None
                     
-                    logging.info(f"[{os.getpid()}](STO) 收到来自Planner的请求: {question_id} - '{question_desc[:40]}...'")
+                    logging.info(f"[{os.getpid()}](STO) Received request from Planner: {question_id} - '{question_desc[:40]}...'")
                     
                     confidence = None
                     
                     if use_rag:
-                        # 1. 向Memory发送搜索请求
+                        # 1. Send search request to Memory
                         memory_request_id = str(uuid.uuid4())
                         memory_request = {
                             "id": memory_request_id,
                             "operation": "search",
                             "text": question_desc,
-                            "image_data": planner_image, # planner_image只能是一张图片或None
+                            "image_data": planner_image, # planner_image can only be one image or None
                             "top_k": retrieval_num
                         }
                         
                         redis_conn.xadd(memory_requests_stream, {"data": json.dumps(memory_request)})
-                        logging.info(f"[{os.getpid()}](STO) 向Memory发送搜索请求: {memory_request_id}")
+                        logging.info(f"[{os.getpid()}](STO) Sent search request to Memory: {memory_request_id}")
                         
-                        # 2. 等待Memory响应
+                        # 2. Wait for Memory response
                         memory_response = None
                         wait_start_time = time.time()
-                        max_wait_time = 300  # 最长等待时间，单位秒
+                        max_wait_time = 300  # Maximum wait time in seconds
 
                         while memory_response is None and (time.time() - wait_start_time < max_wait_time):
                             try:
-                                # 使用block参数高效等待，一次读取多条消息以提高效率
+                                # Use block parameter to wait efficiently, read multiple messages at once to improve efficiency
                                 responses = redis_conn.xreadgroup(
                                     group_name, "stopping_worker", 
                                     {memory_responses_stream: '>'}, 
                                     count=20, block=100
                                 )
                                 
-                                # 定期日志，监控长时间等待
+                                # Regular logging to monitor long waits
                                 if time.time() - wait_start_time > 30:
-                                    logging.info(f"[{os.getpid()}](STO) 已等待Memory响应超过30秒，请求ID: {memory_request_id}")
-                                    wait_start_time = time.time()  # 重置计时器，避免日志刷屏
+                                    logging.info(f"[{os.getpid()}](STO) Waiting for Memory response for more than 30 seconds, request ID: {memory_request_id}")
+                                    wait_start_time = time.time()  # Reset timer to avoid log spam
 
                                 if not responses:
-                                    # block超时，没有读到任何消息，继续下一次循环等待
+                                    # Block timeout, no messages read, continue to next loop iteration
                                     continue
                                 
                                 for stream, message_list in responses:
@@ -154,57 +154,57 @@ def run(config: dict):
                                             resp_data = json.loads(data.get('data', '{}'))
                                             resp_request_id = resp_data.get('request_id')
 
-                                            # 检查是否是我们期望的响应
+                                            # Check if this is the expected response
                                             if resp_request_id == memory_request_id:
-                                                # 是我们等待的响应
+                                                # This is the response we're waiting for
                                                 memory_response = resp_data
                                                 
-                                                # 确认目标消息已处理
+                                                # Acknowledge the target message as processed
                                                 redis_conn.xack(memory_responses_stream, group_name, memory_msg_id)
                                                 
-                                                logging.info(f"[{os.getpid()}](STO) 收到匹配的Memory响应，请求ID: {memory_request_id}，总等待时间: {time.time() - wait_start_time:.2f}秒")
+                                                logging.info(f"[{os.getpid()}](STO) Received matching Memory response, request ID: {memory_request_id}, total wait time: {time.time() - wait_start_time:.2f}s")
                                                 
-                                                # 已找到响应，跳出循环
+                                                # Response found, break out of loop
                                                 break
                                             else:
-                                                # 不是我们等待的响应，忽略它
+                                                # Not the response we're waiting for, ignore it
                                                 pass
 
                                         except (json.JSONDecodeError, AttributeError) as e:
-                                            logging.warning(f"[{os.getpid()}](STO) 无法解析或处理Memory响应消息 (ID: {memory_msg_id}): {e}。确认此消息以防死循环。")
-                                            # 对于无法解析的消息，应该确认，防止反复处理
+                                            logging.warning(f"[{os.getpid()}](STO) Unable to parse or process Memory response message (ID: {memory_msg_id}): {e}. Acknowledging this message to prevent infinite loop.")
+                                            # For unparseable messages, should acknowledge to prevent repeated processing
                                             redis_conn.xack(memory_responses_stream, group_name, memory_msg_id)
                                             continue
                                     
                                     if memory_response:
-                                        break  # 跳出外层for循环
+                                        break  # Break out of outer for loop
 
                             except Exception as e:
-                                logging.warning(f"[{os.getpid()}](STO) 等待Memory响应时发生错误: {e}，1秒后重试...")
+                                logging.warning(f"[{os.getpid()}](STO) Error occurred while waiting for Memory response: {e}, retrying in 1 second...")
                                 time.sleep(1)
                         
-                        # 3.1 处理Memory响应，计算置信度
+                        # 3.1 Process Memory response, calculate confidence
                         if not memory_response or memory_response.get('status') != 'success':
-                            logging.warning(f"[{os.getpid()}](STO) 未收到有效Memory响应或请求失败")
-                            # 默认置信度为0，表示需要继续探索
+                            logging.warning(f"[{os.getpid()}](STO) Did not receive valid Memory response or request failed")
+                            # Default confidence is 0, indicating need to continue exploration
                             confidence = 0.0 if not must_stop else 1.0
                             memory_data = []
                         
                         else:
-                            # 提取记忆数据
+                            # Extract memory data
                             memory_data = memory_response.get('data', [])
                             
                             if must_stop:
-                                # 强制停止探索，置信度设为1.0
+                                # Force stop exploration, set confidence to 1.0
                                 confidence = 1.0
-                                logging.info(f"[{os.getpid()}](STO) 问题 {question_id} 强制停止探索，置信度设为1.0")
+                                logging.info(f"[{os.getpid()}](STO) Question {question_id} forced to stop exploration, confidence set to 1.0")
                             
                             elif not memory_data:
                                 if not enable_tryout_answer:
                                     confidence = get_confidence(
                                         question_desc=question_desc, 
                                         image=processed_image,
-                                        kb=[],  # 没有记忆数据
+                                        kb=[],  # No memory data
                                         prompt_get_confidence=prompt_get_confidence,
                                         model_name=model_name,
                                         server=server,
@@ -216,7 +216,7 @@ def run(config: dict):
                                     confidence = get_tryout_confidence(
                                         question_desc=question_desc, 
                                         image=processed_image,
-                                        kb=[],  # 没有记忆数据
+                                        kb=[],  # No memory data
                                         prompt_get_tryout_answer=prompt_get_tryout_answer,
                                         prompt_get_tryout_confidence=prompt_get_tryout_confidence,
                                         model_name=model_name,
@@ -226,7 +226,7 @@ def run(config: dict):
                                 )
                             
                             else:
-                                # 计算置信度
+                                # Calculate confidence
                                 if not enable_tryout_answer:
                                     confidence = get_confidence(
                                         question_desc=question_desc, 
@@ -252,21 +252,21 @@ def run(config: dict):
                                         api_key=api_key
                                     )
                                 
-                                logging.info(f"\n[{os.getpid()}](STO) 问题 {question_id} 置信度: {confidence}\n")
+                                logging.info(f"\n[{os.getpid()}](STO) Question {question_id} confidence: {confidence}\n")
                     
-                    # 3.2 处理 use_rag == False 的情况
+                    # 3.2 Handle case when use_rag == False
                     else:
                         if must_stop:
                             confidence = 1.0
                             memory_data = []
-                            logging.info(f"[{os.getpid()}](STO) 问题 {question_id} 强制停止探索，置信度设为1.0")
+                            logging.info(f"[{os.getpid()}](STO) Question {question_id} forced to stop exploration, confidence set to 1.0")
                         
                         else:
                             if not enable_tryout_answer:
                                 confidence = get_confidence(
                                     question_desc=question_desc, 
                                     image=processed_image,
-                                    kb=[],  # 没有记忆数据
+                                    kb=[],  # No memory data
                                     prompt_get_confidence=prompt_get_confidence,
                                     model_name=model_name,
                                     server=server,
@@ -278,7 +278,7 @@ def run(config: dict):
                                 confidence = get_tryout_confidence(
                                     question_desc=question_desc, 
                                     image=processed_image,
-                                    kb=[],  # 没有记忆数据
+                                    kb=[],  # No memory data
                                     prompt_get_tryout_answer=prompt_get_tryout_answer,
                                     prompt_get_tryout_confidence=prompt_get_tryout_confidence,
                                     model_name=model_name,
@@ -288,15 +288,15 @@ def run(config: dict):
                                 )
                     
                     
-                    # 4. 根据置信度决定是否停止探索
+                    # 4. Decide whether to stop exploration based on confidence
                     if confidence >= confidence_threshold:
-                        # 置信度高，可以停止探索并回答问题
+                        # High confidence, can stop exploration and answer question
                         
-                        # 更新 used_step
+                        # Update used_step
                         if used_steps > 0:
                             question["used_steps"] = used_steps
                         
-                        # 4.1 向Question Pool发送完成问题的请求
+                        # 4.1 Send completion request to Question Pool
                         answer_request = {
                             "request_id": str(uuid.uuid4()),
                             "sender": "stopping",
@@ -304,19 +304,19 @@ def run(config: dict):
                             "data": question
                         }
                         redis_conn.xadd(to_pool_stream, {"data": json.dumps(answer_request)})
-                        logging.info(f"[{os.getpid()}](STO) 已向Question Pool发送完成问题请求，问题: {question_id}")
+                        logging.info(f"[{os.getpid()}](STO) Sent question completion request to Question Pool, question: {question_id}")
                         
-                        # 4.2 向Planner发送停止探索的消息
+                        # 4.2 Send stop exploration message to Planner
                         stop_message = {
                             "status": "stop",
                             "question": question,
                             "confidence": confidence
                         }
                         redis_conn.xadd(stopping_to_planner_stream, {"data": json.dumps(stop_message)})
-                        logging.info(f"[{os.getpid()}](STO) 已向Planner发送停止探索消息，问题: {question_id}")
+                        logging.info(f"[{os.getpid()}](STO) Sent stop exploration message to Planner, question: {question_id}")
                         
-                        # 4.3 合并Planner的图像和Memory的记忆数据
-                        # 创建记忆项的副本，避免修改原始数据
+                        # 4.3 Combine Planner's image and Memory's memory data
+                        # Create a copy of memory items to avoid modifying original data
                         combined_memory_data = memory_data.copy() if use_rag else []
                         
                         combined_memory_data.append({
@@ -325,32 +325,32 @@ def run(config: dict):
                             "image_data": planner_image
                         })
                         
-                        # 4.4 向Answering服务发送回答问题的请求
+                        # 4.4 Send answering request to Answering service
                         answering_request = {
                             "question": question,
                             "memory_data": combined_memory_data
                         }
                         redis_conn.xadd(to_answering_stream, {"data": json.dumps(answering_request)})
-                        logging.info(f"[{os.getpid()}](STO) 已向Answering服务发送问题，问题: {question_id}")
+                        logging.info(f"[{os.getpid()}](STO) Sent question to Answering service, question: {question_id}")
                         
-                        # 更新统计计数
+                        # Update statistics count
                         stop_count += 1
                     else:
-                        # 置信度低，需要继续探索
+                        # Low confidence, need to continue exploration
                         
-                        # 向Planner发送继续探索的消息
+                        # Send continue exploration message to Planner
                         continue_message = {
                             "status": "continue",
                             "question": question,
                             "confidence": confidence
                         }
                         redis_conn.xadd(stopping_to_planner_stream, {"data": json.dumps(continue_message)})
-                        logging.info(f"[{os.getpid()}](STO) 已向Planner发送继续探索消息，问题: {question_id}")
+                        logging.info(f"[{os.getpid()}](STO) Sent continue exploration message to Planner, question: {question_id}")
                         
-                        # 更新统计计数
+                        # Update statistics count
                         continue_count += 1
                     
-                    # 更新统计信息
+                    # Update statistics information
                     if "stopping" in STATS_KEYS:
                         pipe = redis_conn.pipeline()
                         pipe.hset(STATS_KEYS["stopping"], "stop_count", stop_count)
@@ -358,9 +358,9 @@ def run(config: dict):
                         pipe.hset(STATS_KEYS["stopping"], "total", stop_count + continue_count)
                         pipe.execute()
                     
-                    # 确认消息处理完毕
+                    # Acknowledge message processing completion
                     redis_conn.xack(planner_to_stopping_stream, group_name, message_id)
         
         except Exception as e:
-            logging.exception(f"[{os.getpid()}](STO) Stopping service发生错误: {e}")
-            time.sleep(5)  # 发生错误时等待一段时间再重试
+            logging.exception(f"[{os.getpid()}](STO) Stopping service error occurred: {e}")
+            time.sleep(5)  # Wait for a while before retrying when error occurs

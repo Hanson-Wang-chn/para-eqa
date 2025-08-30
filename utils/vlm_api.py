@@ -17,7 +17,7 @@ class VLM_API:
     def __init__(self, model_name="openai/gpt-4o", server="openrouter", base_url=None, api_key=None):
         self.model_name = model_name
         
-        # 初始化OpenAI客户端，显式设置代理
+        # Initialize OpenAI client with explicit proxy settings
         proxies = {
             "http://": "socks5://127.0.0.1:7897",
             "https://": "socks5://127.0.0.1:7897"
@@ -91,7 +91,7 @@ class VLM_API:
         if image is None:
             return None
         
-        # 检查图片尺寸，若长或宽小于32，则缩放（适配Ollama）
+        # Check image dimensions, if width or height is less than 32, scale it (adapted for Ollama)
         min_size = 32
         w, h = image.size
         if w < min_size or h < min_size:
@@ -193,14 +193,14 @@ class VLM_API:
 
 
     def has_valid_images(self, image):
-        """检查是否有有效的图片"""
+        """Check if there are valid images"""
         if image is None:
             return False
         elif isinstance(image, list):
-            # 检查列表中是否有非None的图片
+            # Check if there are non-None images in the list
             return any(img is not None for img in image)
         else:
-            # 单张图片
+            # Single image
             return True
 
 
@@ -209,7 +209,7 @@ class VLM_API:
             return min(2 ** attempt, 60)
         
         if not self.has_valid_images(image) and not kb:
-            # 没有有效图片，使用纯文本API
+            # No valid images, use text-only API
             for attempt in range(retries):
                 try:
                     return self.requests_api_only_text(prompt)
@@ -264,7 +264,7 @@ class VLM_API:
             }
         ]
         
-        # 使用OpenAI官方客户端发送请求
+        # Send request using OpenAI official client
         response = self.client.chat.completions.create(
             model=self.model_name,
             messages=message,
@@ -272,12 +272,12 @@ class VLM_API:
             temperature=0.0
         )
         
-        # 提取响应内容
+        # Extract response content
         return [response.choices[0].message.content]
     
     
 if __name__ == "__main__":
-    # 测试API调用是否正常
+    # Test if API call works normally
     model_name = "qwen2.5-vl-7b-instruct"
     server = "dashscope"
     base_url = None
@@ -288,12 +288,12 @@ if __name__ == "__main__":
 
 
 """
-kb格式：
+kb format:
 [
     {
         "id": str,
         "text": str,
-        "image": str,  # base64编码的图片字符串
+        "image": str,  # base64 encoded image string
     },
     ...
 ]

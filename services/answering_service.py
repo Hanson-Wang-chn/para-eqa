@@ -14,21 +14,21 @@ from utils.get_current_group_id import get_current_group_id
 
 def get_vlm_answer(question, kb, prompt_get_answer, model_name="qwen/qwen2.5-vl-72b-instruct", server="openrouter", base_url=None, api_key=None):
     """
-    根据问题和记忆数据，使用VLM生成答案
+    Generate answer using VLM based on question and memory data
     
     Args:
-        question (dict): 问题对象，包含描述等信息
-        memory_data (list): 从记忆中检索到的数据
-        model_api (str): 使用的OpenAI模型名称
+        question (dict): Question object containing description and other information
+        memory_data (list): Data retrieved from memory
+        model_api (str): OpenAI model name to use
         
     Returns:
-        str: 生成的答案
+        str: Generated answer
     """
-    # 构建提示词
+    # Build prompt
     question_desc = question.get('description', '')
     prompt = prompt_get_answer.format(question_desc)
     
-    # 实例化VLM并请求回答
+    # Instantiate VLM and request answer
     vlm = VLM_API(model_name=model_name, server="openrouter", base_url=base_url, api_key=api_key)
     response = vlm.request_with_retry(image=None, prompt=prompt, kb=kb)[0]
     
@@ -37,10 +37,10 @@ def get_vlm_answer(question, kb, prompt_get_answer, model_name="qwen/qwen2.5-vl-
 
 def run(config: dict):
     """
-    Answering Service 的主运行函数。
-    负责接收问题，生成答案，并将答案发送到Question Pool。
+    Main run function for Answering Service.
+    Responsible for receiving questions, generating answers, and sending answers to Question Pool.
     """
-    # 设置日志
+    # Setup logging
     parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "answering_logs")
     if not os.path.exists(logs_dir):
@@ -55,14 +55,14 @@ def run(config: dict):
         ],
     )
     
-    # 读取配置
+    # Read configuration
     answering_config = config.get("answering", {})
     result_dir = answering_config.get("result_dir", "results/answers")
     
-    # 确保结果目录存在
+    # Ensure result directory exists
     os.makedirs(result_dir, exist_ok=True)
 
-    # VLM配置
+    # VLM configuration
     prompt_get_answer = config.get("prompt", {}).get("answering", {}).get("get_answer", "")
     
     config_vlm = config.get("vlm", {}).get("answering", {})
@@ -71,14 +71,14 @@ def run(config: dict):
     base_url = config_vlm.get("base_url", None)
     api_key = config_vlm.get("api_key", None)
     
-    # Redis初始化
+    # Redis initialization
     redis_conn = get_redis_connection(config)
     
-    # 流定义
-    to_answering_stream = STREAMS["to_answering"]  # 从Finishing接收问题
-    to_pool_stream = STREAMS["pool_requests"]  # 向Question Pool发送答案
+    # Stream definition
+    to_answering_stream = STREAMS["to_answering"]  # Receive questions from Finishing
+    to_pool_stream = STREAMS["pool_requests"]  # Send answers to Question Pool
     
-    # 创建消费者组
+    # Create consumer group
     group_name = "answering_group"
     try:
         redis_conn.xgroup_create(to_answering_stream, group_name, id='0', mkstream=True)
@@ -88,12 +88,12 @@ def run(config: dict):
     
     logging.info(f"[{os.getpid()}](ANS) Answering service started. Waiting for questions...")
     
-    # 初始化统计计数器
+    # Initialize statistics counter
     answered_count = 0
     
     while True:
         try:
-            # 从to_answering流中读取消息
+            # Read messages from to_answering stream
             messages = redis_conn.xreadgroup(
                 group_name, "answering_worker", 
                 {to_answering_stream: '>'}, 
@@ -107,7 +107,7 @@ def run(config: dict):
             for stream, message_list in messages:
                 for message_id, data in message_list:
                     try:
-                        # 解析请求数据
+                        # Parse request data
                         request_data = json.loads(data.get('data', '{}'))
                         question = request_data.get('question', {})
                         memory_data = request_data.get('memory_data', [])
@@ -115,30 +115,30 @@ def run(config: dict):
                         question_id = question.get('id')
                         question_desc = question.get('description', '')
                         
-                        logging.info(f"[{os.getpid()}](ANS) 收到问题: {question_id} - '{question_desc[:40]}...'")
+                        logging.info(f"[{os.getpid()}](ANS) Received question: {question_id} - '{question_desc[:40]}...'")
                         
                         # What colors are the cushions on the white sofa on the first floor? A) Blue and orange B) Red and green C) Black and gray D) Yellow and pink.
                         
-                        # 获取答案
+                        # Get answer
                         answer = get_vlm_answer(question, memory_data, prompt_get_answer, model_name, server, base_url, api_key)
-                        logging.info(f"[{os.getpid()}](ANS) 已生成问题 {question_id} 的答案")
+                        logging.info(f"[{os.getpid()}](ANS) Generated answer for question {question_id}")
                         
-                        # 更新问题元数据
+                        # Update question metadata
                         question['answer'] = answer
                         
-                        # 设置finish时间
+                        # Set finish time
                         if "time" not in question:
                             question["time"] = {}
                         question["time"]["finish"] = time.time()
                         
-                        # 将答案保存到文件
+                        # Save answer to file
                         try:
-                            # 获取当前的 group_id
+                            # Get current group_id
                             group_id = get_current_group_id(redis_conn)
                             
                             if not group_id:
-                                logging.error(f"[{os.getpid()}](ANS) 无法获取当前 group_id，无法保存答案")
-                                continue  # 跳过保存
+                                logging.error(f"[{os.getpid()}](ANS) Unable to get current group_id, cannot save answer")
+                                continue  # Skip saving
                             
                             else:
                                 group_id_str = group_id.decode('utf-8') if isinstance(group_id, bytes) else str(group_id)
@@ -152,12 +152,12 @@ def run(config: dict):
                                         existing_answers = json.load(f)
                                 
                                 else:
-                                    logging.info(f"[{os.getpid()}](ANS) 为组 {group_id_str} 创建新的答案文件")
+                                    logging.info(f"[{os.getpid()}](ANS) Creating new answer file for group {group_id_str}")
                             
                             except (json.JSONDecodeError, FileNotFoundError):
-                                logging.warning(f"[{os.getpid()}](ANS) 无法读取现有答案文件，将创建新文件")
+                                logging.warning(f"[{os.getpid()}](ANS) Unable to read existing answer file, will create new file")
                             
-                            # 检查是否已存在相同ID的问题
+                            # Check if question with same ID already exists
                             for i, existing_answer in enumerate(existing_answers):
                                 if existing_answer.get('id') == question_id:
                                     existing_answers[i] = question
@@ -169,12 +169,12 @@ def run(config: dict):
                             with open(group_specific_result_path, 'w', encoding='utf-8') as f:
                                 json.dump(existing_answers, f, ensure_ascii=False, indent=2)
                                 
-                            logging.info(f"[{os.getpid()}](ANS) 问题 {question_id} 的答案已保存到文件 {os.path.basename(group_specific_result_path)}")
+                            logging.info(f"[{os.getpid()}](ANS) Answer for question {question_id} saved to file {os.path.basename(group_specific_result_path)}")
                         
                         except Exception as e:
-                            logging.error(f"[{os.getpid()}](ANS) 保存答案到文件时出错: {e}")
+                            logging.error(f"[{os.getpid()}](ANS) Error saving answer to file: {e}")
                         
-                        # 向Question Pool发送完成的问题
+                        # Send completed question to Question Pool
                         answer_request = {
                             "request_id": str(uuid.uuid4()),
                             "sender": "answering",
@@ -182,18 +182,18 @@ def run(config: dict):
                             "data": question
                         }
                         redis_conn.xadd(to_pool_stream, {"data": json.dumps(answer_request)})
-                        logging.info(f"[{os.getpid()}](ANS) 问题 {question_id} 的答案已发送到Question Pool")
+                        logging.info(f"[{os.getpid()}](ANS) Answer for question {question_id} sent to Question Pool")
                         
-                        # 更新统计信息
+                        # Update statistics
                         answered_count += 1
                         redis_conn.hset(STATS_KEYS["answering"], "answered", answered_count)
                         
                     except Exception as e:
-                        logging.error(f"[{os.getpid()}](ANS) 处理问题时出错: {e}")
+                        logging.error(f"[{os.getpid()}](ANS) Error processing question: {e}")
                     
-                    # 确认消息处理完毕
+                    # Acknowledge message processing complete
                     redis_conn.xack(to_answering_stream, group_name, message_id)
         
         except Exception as e:
-            logging.error(f"[{os.getpid()}](ANS) Answering service发生错误: {e}")
-            time.sleep(5)  # 发生错误时等待一段时间再重试
+            logging.error(f"[{os.getpid()}](ANS) Answering service error: {e}")
+            time.sleep(5)  # Wait for a while before

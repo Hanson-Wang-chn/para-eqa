@@ -72,13 +72,13 @@ def make_simple_config(settings):
 
     agent_config.action_space = {
         "move_forward": habitat_sim.agent.ActionSpec(
-            "move_forward", habitat_sim.agent.ActuationSpec(amount=0.25) # 向前进0.25m
+            "move_forward", habitat_sim.agent.ActuationSpec(amount=0.25) # move forward 0.25m
         ),
         "turn_left": habitat_sim.agent.ActionSpec(
-            "turn_left", habitat_sim.agent.ActuationSpec(amount=30.0) # 向左转30度
+            "turn_left", habitat_sim.agent.ActuationSpec(amount=30.0) # turn left 30 degrees
         ),
         "turn_right": habitat_sim.agent.ActionSpec(
-            "turn_right", habitat_sim.agent.ActuationSpec(amount=30.0) # 向右转30度
+            "turn_right", habitat_sim.agent.ActuationSpec(amount=30.0) # turn right 30 degrees
         ),
     }
 

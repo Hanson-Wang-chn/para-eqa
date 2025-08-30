@@ -390,7 +390,7 @@ class TSDFPlanner:
 
     def save_ply(self, verts, faces, colors, filename):
         with open(filename, 'w') as f:
-            # 写入头部信息
+            # Write header information
             f.write("ply\n")
             f.write("format ascii 1.0\n")
             f.write(f"element vertex {len(verts)}\n")
@@ -404,13 +404,13 @@ class TSDFPlanner:
             f.write("property list uchar int vertex_index\n")
             f.write("end_header\n")
             
-            # 写入顶点和颜色
+            # Write vertices and colors
             for v, c in zip(verts, colors):
                 f.write(f"{v[0]} {v[1]} {v[2]} {c[0]} {c[1]} {c[2]}\n")
             
-            # 写入面
+            # Write faces
             for face in faces:
-                f.write(f"3 {face[0]} {face[1]} {face[2]}\n")  # PLY格式的面是以3开头表示三角面
+                f.write(f"3 {face[0]} {face[1]} {face[2]}\n")  # PLY format faces start with 3 indicating triangular faces
 
     ############# For building semantic map and exploration #############
 

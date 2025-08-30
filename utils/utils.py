@@ -15,10 +15,10 @@ from PIL import ImageFont
 
 
 def interpolate_position_and_rotation(points, start_rot, end_rot, num_intermediate_points=10):
-    # 初始化结果路径
+    # Initialize result path
     dense_path = []
     
-    # 转换起点和终点旋转为 scipy 的 Rotation 对象以便插值
+    # Convert start and end rotations to scipy Rotation objects for interpolation
     start_rot = np.array([start_rot.x, start_rot.y, start_rot.z, start_rot.w])
     end_rot = np.array(end_rot)
     rotations = R.from_quat([start_rot, end_rot])
@@ -26,19 +26,19 @@ def interpolate_position_and_rotation(points, start_rot, end_rot, num_intermedia
 
     for i in range(len(points) - 1):
         start, end = points[i], points[i + 1]
-        dense_path.append((start, slerp(i).as_quat()))  # 添加起点及其旋转
+        dense_path.append((start, slerp(i).as_quat()))  # Add start point and its rotation
         for j in range(1, num_intermediate_points + 1):
-            # 位置插值
+            # Position interpolation
             interpolated_position = start + (end - start) * (j / (num_intermediate_points + 1))
-            # 旋转插值
+            # Rotation interpolation
             interpolated_rotation = slerp(i + j / (num_intermediate_points + 1)).as_quat()
             dense_path.append((interpolated_position, interpolated_rotation))
-    dense_path.append((points[-1], end_rot))  # 添加终点及其旋转
+    dense_path.append((points[-1], end_rot))  # Add end point and its rotation
     return dense_path
 
 
 def quaternion_to_yaw(quat):
-    # 计算 yaw 角度
+    # Calculate yaw angle
     w, x, y, z = quat[0], quat[1], quat[2], quat[3]
     yaw = np.arctan2(2 * (w * z + x * y), 1 - 2 * (x**2 + y**2))
     return yaw
@@ -48,54 +48,17 @@ def pts_to_distance(pts, dst_pts):
     return np.linalg.norm(dst_pts - pts)
 
 
-# def get_vlm_loss(image, prompt, tokens):
-#     # 调用这个方法需要先启动vlm服务
-#     img_byte_arr = io.BytesIO()
-#     image.save(img_byte_arr, format="PNG")  # 可以指定图片格式
-#     img_byte_arr.seek(0)
-
-#     files = {'image': img_byte_arr}
-#     data = {
-#         "text": prompt,
-#         "str_list": json.dumps(tokens)
-#     }
-
-#     response = requests.post("http://127.0.0.1:5000/get_loss", files=files, data=data)
-    
-#     result = json.loads(response.text)
-#     return np.array(result['result'])
-
-
-# def get_vlm_response(image, prompt, kb=None):
-#     # 调用这个方法需要先启动vlm服务
-#     img_byte_arr = io.BytesIO()
-#     image.save(img_byte_arr, format="PNG")  # 可以指定图片格式
-#     img_byte_arr.seek(0)
-
-#     kb = json.dumps(kb) if kb is not None else json.dumps([])
-#     files = {'image': img_byte_arr}
-#     data = {
-#         "text": prompt,
-#         "kb": kb
-#     }
-
-#     response = requests.post("http://127.0.0.1:5000/get_response", files=files, data=data)
-
-#     result = json.loads(response.text)
-#     return np.array(result['result'])
-
-
 def calculate_angle(a, b):
-    # 计算点积
+    # Calculate dot product
     dot_product = np.dot(a, b)
-    # 计算向量模
+    # Calculate vector magnitude
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
-    # 计算余弦值
+    # Calculate cosine value
     cos_theta = max(-1, min(1, dot_product / (norm_a * norm_b)))
-    # 通过反余弦函数求夹角（单位：弧度）
+    # Calculate angle through arccosine function (unit: radians)
     angle_rad = np.arccos(cos_theta)
-    # 转换为角度
+    # Convert to degrees
     angle_deg = np.degrees(angle_rad)
 
     return angle_rad, angle_deg
@@ -152,23 +115,23 @@ def move_to_xy(pts, dst_pts, v=0.3):
 
 
 def display_sample(rgb, depth, save_path="sample.png"):
-    # 创建一个包含3列的子图
+    # Create subplots with 3 columns
     fig, axes = plt.subplots(2, 1, figsize=(5, 8))
 
-    # 显示RGB图像
+    # Display RGB image
     axes[0].imshow(rgb)
     axes[0].set_title("RGB Image")
-    axes[0].axis('off')  # 关闭坐标轴
+    axes[0].axis('off')  # Turn off coordinate axes
 
-    # 显示深度图像
-    axes[1].imshow(depth, cmap='jet')  # 使用 'jet' 配色方案
+    # Display depth image
+    axes[1].imshow(depth, cmap='jet')  # Use 'jet' color scheme
     axes[1].set_title("Depth Image")
-    axes[1].axis('off')  # 关闭坐标轴
+    axes[1].axis('off')  # Turn off coordinate axes
 
-    # 调整子图布局
+    # Adjust subplot layout
     plt.tight_layout()
 
-    # 保存图像为PNG文件
+    # Save image as PNG file
     plt.savefig(save_path, format="png")
 
     plt.close()

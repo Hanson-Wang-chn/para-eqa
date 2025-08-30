@@ -3,9 +3,9 @@
 import redis
 
 
-# ----------------- Key 前缀与名称设计 -----------------
+# ----------------- Key Prefix and Name Design -----------------
 
-# 统计信息
+# Statistics information
 STATS_KEYS = {
     "parser":   "stats:parser",
     "finishing": "stats:finishing",
@@ -16,11 +16,11 @@ STATS_KEYS = {
 }
 
 
-# 单独记录当前问题的组ID
+# Separately record the group ID of the current question
 CURRENT_GROUP_ID = "current_group_id"
 
 
-# 用于存储一组问题的元信息
+# Used to store metadata for a group of questions
 GROUP_INFO = {
     "group_id": "group_id:",
     "num_questions_init": "num_questions_init:",
@@ -30,14 +30,14 @@ GROUP_INFO = {
     "floor": "floor:",
     "max_steps": "max_steps:",
     "angle": "angle:",
-    "pts": "pts:", # 包含x、y、z坐标
+    "pts": "pts:", # Contains x, y, z coordinates
     "rotation": "rotation:",
     "floor_height": "floor_height:",
     "scene_size": "scene_size:"
 }
 
 
-# 用于持久化任务队列的 Stream 名称
+# Stream names for persistent task queues
 STREAMS = {
     "generator_to_parser": "stream:generator_to_parser", # Generator -> Parser
     "parser_to_finishing": "stream:parser_to_finishing", # Parser -> Finishing Module
@@ -54,11 +54,11 @@ STREAMS = {
 }
 
 
-# ----------------- 连接函数 -----------------
+# ----------------- Connection Function -----------------
 
 def get_redis_connection(config: dict) -> redis.Redis:
     """
-    根据配置文件创建并返回一个Redis连接实例。
+    Create and return a Redis connection instance based on the configuration file.
     """
     redis_config = config.get('redis', {})
     pool = redis.ConnectionPool(
@@ -68,4 +68,3 @@ def get_redis_connection(config: dict) -> redis.Redis:
         decode_responses=True
     )
     return redis.Redis(connection_pool=pool)
-  

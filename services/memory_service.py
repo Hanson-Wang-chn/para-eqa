@@ -12,19 +12,19 @@ from utils.image_processor import decode_image, encode_image
 
 
 def process_search_request(kb, request_data):
-    """处理搜索请求"""
+    """Process search request"""
     text = request_data.get('text', '')
     image_data = request_data.get('image_data')
     top_k = int(request_data.get('top_k', 5))
     
-    # 解码图像
+    # Decode image
     image = decode_image(image_data) if image_data else None
     
-    # 执行搜索
+    # Execute search
     try:
         results = kb.search(text, image, top_k)
         
-        # 将搜索结果处理为可序列化的格式
+        # Process search results into serializable format
         serialized_results = []
         for item in results:
             serialized_item = {
@@ -39,7 +39,7 @@ def process_search_request(kb, request_data):
             "data": serialized_results
         }
     except Exception as e:
-        logging.error(f"搜索操作失败: {e}")
+        logging.error(f"Search operation failed: {e}")
         return {
             "status": "error",
             "error": str(e)
@@ -47,21 +47,21 @@ def process_search_request(kb, request_data):
 
 
 def process_update_request(kb, request_data):
-    """处理更新请求"""
+    """Process update request"""
     text = request_data.get('text', '')
     image_data = request_data.get('image_data')
     
-    # 解码图像
+    # Decode image
     image = decode_image(image_data) if image_data else None
     
-    # 执行更新
+    # Execute update
     try:
         kb.update_memory(text, image)
         return {
             "status": "success"
         }
     except Exception as e:
-        logging.error(f"更新操作失败: {e}")
+        logging.error(f"Update operation failed: {e}")
         return {
             "status": "error",
             "error": str(e)
@@ -70,10 +70,10 @@ def process_update_request(kb, request_data):
 
 def run(config: dict):
     """
-    Memory Service 的主运行函数。
-    负责初始化知识库并处理来自其他模块的记忆检索和更新请求。
+    Main function for Memory Service.
+    Responsible for initializing knowledge base and processing memory retrieval and update requests from other modules.
     """
-    # 设置日志
+    # Setup logging
     parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "memory_logs")
     if not os.path.exists(logs_dir):
@@ -88,18 +88,18 @@ def run(config: dict):
         ],
     )
     
-    # 初始化知识库
+    # Initialize knowledge base
     kb = KnowledgeBase(config)
     device = config.get("memory", {}).get("device", "cuda" if torch.cuda.is_available() else "cpu")
-    logging.info(f"[{os.getpid()}](MEM) 知识库初始化完成，使用设备: {device}")
+    logging.info(f"[{os.getpid()}](MEM) Knowledge base initialization completed, using device: {device}")
     
-    # Redis初始化
+    # Redis initialization
     redis_conn = get_redis_connection(config)
     requests_stream = STREAMS["memory_requests"]
     responses_stream = STREAMS["memory_responses"]
     group_name = "memory_group"
     
-    # 尝试创建消费者组，如果已存在则会报错，但可以安全地忽略
+    # Try to create consumer group, if it already exists it will raise an error, but can be safely ignored
     try:
         redis_conn.xgroup_create(requests_stream, group_name, id='0', mkstream=True)
     except Exception as e:
@@ -108,13 +108,13 @@ def run(config: dict):
     
     logging.info(f"[{os.getpid()}](MEM) Memory service started. Waiting for requests...")
     
-    # 初始化统计计数器
+    # Initialize statistics counters
     search_count = 0
     update_count = 0
     
     while True:
         try:
-            # 阻塞式地从请求流中读取消息
+            # Blocking read from request stream
             messages = redis_conn.xreadgroup(group_name, "memory_worker", {requests_stream: '>'}, count=1, block=None)
             
             if not messages:
@@ -127,9 +127,9 @@ def run(config: dict):
                     request_id = request_data.get('id')
                     operation = request_data.get('operation')
                     
-                    logging.info(f"[{os.getpid()}](MEM) 收到请求 {request_id}, 操作类型: {operation}")
+                    logging.info(f"[{os.getpid()}](MEM) Received request {request_id}, operation type: {operation}")
 
-                    # 处理请求
+                    # Process request
                     if operation == "search":
                         result = process_search_request(kb, request_data)
                         search_count += 1
@@ -146,7 +146,7 @@ def run(config: dict):
                             "data": []
                         }
                         
-                        logging.info(f"[{os.getpid()}](MEM) KnowledgeBase 已清空")
+                        logging.info(f"[{os.getpid()}](MEM) KnowledgeBase has been cleared")
                         
                         search_count = 0
                         update_count = 0
@@ -154,31 +154,31 @@ def run(config: dict):
                     else:
                         result = {
                             "status": "error",
-                            "error": f"不支持的操作: {operation}"
+                            "error": f"Unsupported operation: {operation}"
                         }
                     
-                    # 发送响应
+                    # Send response
                     response = {
                         "request_id": request_id,
                         **result
                     }
                     redis_conn.xadd(responses_stream, {"data": json.dumps(response)})
                     
-                    # 更新统计信息
+                    # Update statistics
                     pipe = redis_conn.pipeline()
                     pipe.hset(STATS_KEYS["memory"], "search_requests", search_count)
                     pipe.hset(STATS_KEYS["memory"], "update_requests", update_count)
                     pipe.hset(STATS_KEYS["memory"], "total_requests", search_count + update_count)
                     pipe.execute()
                     
-                    logging.info(f"[{os.getpid()}](MEM) 请求 {request_id} 处理完成，状态: {result['status']}")
+                    logging.info(f"[{os.getpid()}](MEM) Request {request_id} processing completed, status: {result['status']}")
                     
-                    # 确认消息处理完毕
+                    # Acknowledge message processing completion
                     redis_conn.xack(requests_stream, group_name, message_id)
         
         except Exception as e:
-            logging.error(f"[{os.getpid()}](MEM) Memory service发生错误: {e}")
-            time.sleep(5)  # 发生错误时等待一段时间再重试
+            logging.error(f"[{os.getpid()}](MEM) Memory service error occurred: {e}")
+            time.sleep(5)  # Wait for a while before retrying when error occurs
 
 
 """
@@ -188,8 +188,8 @@ Search Request:
 {
     "id": "unique-request-id(uuid)",
     "operation": "search",
-    "text": "查询文本描述",
-    "image_data": "base64编码的图像数据或null",
+    "text": "Query text description",
+    "image_data": "base64 encoded image data or null",
     "top_k": 5
 }
 
@@ -197,8 +197,8 @@ Update Request:
 {
     "id": "unique-request-id(uuid)", 
     "operation": "update",
-    "text": "要添加的文本描述",
-    "image_data": "base64编码的图像数据或null"
+    "text": "Text description to add",
+    "image_data": "base64 encoded image data or null"
 }
 
 Clear Request:
@@ -209,22 +209,22 @@ Clear Request:
 
 Successful Response:
 {
-    "request_id": "原请求ID",
+    "request_id": "Original request ID",
     "status": "success",
     "data": [
         {
             "id": "memory-item-id",
-            "text": "记忆文本",
-            "image_data": "base64编码图像或null"
+            "text": "Memory text",
+            "image_data": "base64 encoded image or null"
         }
     ]
 }
 
 Error Response:
 {
-    "request_id": "原请求ID", 
+    "request_id": "Original request ID", 
     "status": "error",
-    "error": "错误描述"
+    "error": "Error description"
 }
 
 """

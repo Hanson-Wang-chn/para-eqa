@@ -1,14 +1,14 @@
 # evaluate_para_eqa.py
 
 """
-1. 在run_para_eqa.py运行完成后，根据results统计EQA信息
-2. 统计questions_init正确率、questions_follow_up正确率、总正确率、直接回答率、直接回答问题的正确率
-3. 统计每一组问题的平均规范化步数、最大步数、最小步数
-4. 统计每一组问题的nuwl_time和nuwl_step
-   - nuwl_time：每一个问题的urgency值与其等待时间（"finish"与"request"之差）之积的总和，除以该组问题总数
-   - nuwl_step：每一个问题的urgency值与其等待step数之积的总和，除以该组问题总数
-5. 针对数据集中的所有问题组，计算总体正确率、步数、直接回答率、直接回答正确率等指标
-6. 输出统计结果到一个新的文件中
+1. After run_para_eqa.py is completed, collect EQA information based on results
+2. Calculate accuracy of questions_init, accuracy of questions_follow_up, total accuracy, direct answer rate, and accuracy of direct answer questions
+3. Calculate average normalized steps, maximum steps, and minimum steps for each question group
+4. Calculate nuwl_time and nuwl_step for each question group
+   - nuwl_time: Sum of the product of each question's urgency value and its waiting time (difference between "finish" and "request"), divided by the total number of questions in the group
+   - nuwl_step: Sum of the product of each question's urgency value and its waiting step count, divided by the total number of questions in the group
+5. Calculate overall accuracy, steps, direct answer rate, direct answer accuracy and other metrics for all question groups in the dataset
+6. Output statistical results to a new file
 """
 
 import os
@@ -21,9 +21,9 @@ from collections import OrderedDict
 
 
 def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
-    """计算单个问题组的评估指标"""
+    """Calculate evaluation metrics for a single question group"""
     
-    # 将ground_truth问题映射到description以便快速查找
+    # Map ground_truth questions to description for quick lookup
     gt_map = {}
     init_questions_gt = {q['question']: {'answer': q['answer'], 'urgency': q['urgency']} 
                          for q in ground_truth.get('questions_init', []) or []}
@@ -32,7 +32,7 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
     
     all_gt_questions = {**init_questions_gt, **follow_up_questions_gt}
 
-    # 初始化统计变量
+    # Initialize statistical variables
     init_correct = 0
     init_total = 0
     follow_up_correct = 0
@@ -41,38 +41,38 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
     direct_answers_correct = 0
     normalized_steps = []
     
-    # 用于计算nuwl_time和nuwl_step
+    # For calculating nuwl_time and nuwl_step
     urgency_weighted_time_sum = 0.0
     urgency_weighted_step_sum = 0.0
     
-    # 存储所有问题的信息，用于计算nuwl_step
+    # Store information of all questions for calculating nuwl_step
     questions_info = []
 
-    # 第一遍处理：收集问题基本信息
+    # First pass: collect basic question information
     for result in group_results:
         desc = result['description']
         
-        # 检查这个问题是否存在于ground truth中
+        # Check if this question exists in ground truth
         if desc not in all_gt_questions:
-            warnings.warn(f"问题 '{desc[:50]}...' 在结果文件中找到，但在基准文件中未找到。")
+            warnings.warn(f"Question '{desc[:50]}...' found in result file but not found in benchmark file.")
             continue
             
         gt_answer = all_gt_questions[desc]['answer']
         urgency = all_gt_questions[desc]['urgency']
         is_correct = (result['answer'] == gt_answer)
         
-        # 是否为直接回答的问题
+        # Whether it's a direct answer question
         is_direct_answer = result['max_steps'] == -1 and result['used_steps'] == 0
         
-        # 计算normalized_steps
+        # Calculate normalized_steps
         norm_step = 0 if is_direct_answer else result['used_steps'] / result['max_steps']
         
-        # 获取时间信息
+        # Get time information
         request_time = result.get('time', {}).get('request', 0)
         start_time = result.get('time', {}).get('start', 0)
         finish_time = result.get('time', {}).get('finish', 0)
         
-        # 添加到问题信息列表
+        # Add to question information list
         questions_info.append({
             'description': desc,
             'urgency': urgency,
@@ -85,7 +85,7 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
             'finish_time': finish_time
         })
         
-        # 判断是初始问题还是跟进问题
+        # Determine if it's an initial question or follow-up question
         if desc in init_questions_gt:
             init_total += 1
             if is_correct:
@@ -95,7 +95,7 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
             if is_correct:
                 follow_up_correct += 1
 
-        # 处理步数和直接回答
+        # Handle steps and direct answers
         if is_direct_answer:
             direct_answers += 1
             if is_correct:
@@ -103,31 +103,31 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
         else:
             normalized_steps.append(norm_step)
         
-        # 计算nuwl_time (基于时间)
+        # Calculate nuwl_time (based on time)
         wait_time = finish_time - request_time
         urgency_weighted_time_sum += urgency * wait_time
 
-    # 第二遍处理：计算nuwl_step
+    # Second pass: calculate nuwl_step
     if enable_follow_up:
-        # 原始逻辑，基于时间依赖关系
+        # Original logic, based on time dependencies
         for q in questions_info:
-            # 找出所有start时间小于该问题request时间的其他问题
-            waiting_steps = q['normalized_steps']  # 自身的步数
+            # Find all other questions whose start time is earlier than this question's request time
+            waiting_steps = q['normalized_steps']  # Its own steps
             
             for other_q in questions_info:
-                # 如果另一个问题的开始时间小于当前问题的请求时间，则它的步数也要算入等待
+                # If another question's start time is earlier than current question's request time, its steps should also be counted in waiting
                 if other_q != q and other_q['start_time'] < q['request_time']:
                     waiting_steps += other_q['normalized_steps']
             
-            # 计算该问题的urgency加权步数
+            # Calculate urgency weighted steps for this question
             urgency_weighted_step_sum += q['urgency'] * waiting_steps
     
     else:
-        # 新逻辑，所有问题视为同一时刻进入
-        # 创建一个字典，将description映射到questions_info中的问题
+        # New logic, all questions are considered to enter at the same time
+        # Create a dictionary mapping description to questions in questions_info
         desc_to_question = {q['description']: q for q in questions_info}
         
-        # 按照group_results的顺序处理问题
+        # Process questions in the order of group_results
         cumulative_steps = 0
         for result in group_results:
             desc = result['description']
@@ -136,24 +136,24 @@ def calculate_metrics(group_results, ground_truth, enable_follow_up=True):
             
             q = desc_to_question[desc]
             
-            # 等待步数是累积步数加上自身步数
+            # Waiting steps are cumulative steps plus its own steps
             waiting_steps = cumulative_steps + q['normalized_steps']
             urgency_weighted_step_sum += q['urgency'] * waiting_steps
             
-            # 更新累积步数
+            # Update cumulative steps
             cumulative_steps += q['normalized_steps']
 
-    # 检查是否有问题在基准中但不在结果中
+    # Check if there are questions in benchmark but not in results
     for gt_q in all_gt_questions:
         if not any(q['description'] == gt_q for q in questions_info):
-            warnings.warn(f"基准问题 '{gt_q[:50]}...' 在结果文件中缺失，将被忽略。")
+            warnings.warn(f"Benchmark question '{gt_q[:50]}...' is missing in result file and will be ignored.")
 
-    # 计算最终指标
+    # Calculate final metrics
     total_evaluated = init_total + follow_up_total
     if total_evaluated == 0:
         return None
 
-    # 计算nuwl_time和nuwl_step
+    # Calculate nuwl_time and nuwl_step
     # nuwl_time = urgency_weighted_time_sum / total_evaluated if total_evaluated > 0 else 0
     nuwl_step = urgency_weighted_step_sum / total_evaluated if total_evaluated > 0 else 0
 
@@ -180,19 +180,19 @@ def main(results_dir, output_file, enable_follow_up):
     benchmark_dir = 'data/benchmark'
     benchmark_files = glob.glob(os.path.join(benchmark_dir, 'G*.yaml'))
     
-    # 按组号字典序排序文件
+    # Sort files by group number in lexicographical order
     def extract_group_number(filename):
         basename = os.path.basename(filename)
         if basename.startswith('G') and basename.endswith('.yaml'):
-            group_part = basename[1:-5]  # 去掉'G'和'.yaml'
-            return group_part  # 返回字符串，按字典序排序
-        return basename  # 其他情况按完整文件名字典序
+            group_part = basename[1:-5]  # Remove 'G' and '.yaml'
+            return group_part  # Return string, sort by lexicographical order
+        return basename  # Other cases sort by complete filename lexicographically
     
     benchmark_files.sort(key=extract_group_number)
     
     evaluation_results = {}
     
-    # 用于计算总体指标的变量
+    # Variables for calculating overall metrics
     total_questions = 0
     total_direct_answers = 0
     total_direct_answers_correct = 0
@@ -205,36 +205,36 @@ def main(results_dir, output_file, enable_follow_up):
         
         group_id = ground_truth_data.get('group_id')
         if group_id is None:
-            warnings.warn(f"基准文件 {benchmark_file} 缺少 'group_id'。")
+            warnings.warn(f"Benchmark file {benchmark_file} is missing 'group_id'.")
             continue
 
         result_file = os.path.join(results_dir, f'answers_{group_id}.json')
 
         if not os.path.exists(result_file):
-            warnings.warn(f"未找到组 '{group_id}' 对应的结果文件 {result_file}。")
+            warnings.warn(f"Result file {result_file} for group '{group_id}' not found.")
             continue
 
         with open(result_file, 'r', encoding='utf-8') as f:
             try:
                 results_data = json.load(f)
             except json.JSONDecodeError:
-                warnings.warn(f"无法解析结果文件 {result_file}。")
+                warnings.warn(f"Cannot parse result file {result_file}.")
                 continue
         
-        print(f"正在评估组: {group_id}")
+        print(f"Evaluating group: {group_id}")
         group_metrics = calculate_metrics(results_data, ground_truth_data, enable_follow_up)
         
         if group_metrics:
             evaluation_results[group_id] = group_metrics
             
-            # 收集总体指标所需数据
+            # Collect data needed for overall metrics
             total_questions += group_metrics['evaluated_question_count']
             total_direct_answers += group_metrics['direct_answer_count']
             total_direct_answers_correct += group_metrics['direct_answer_correct_count']
             # total_urgency_weighted_time_sum += group_metrics['nuwl_time'] * group_metrics['evaluated_question_count']
             total_urgency_weighted_step_sum += group_metrics['nuwl_step'] * group_metrics['evaluated_question_count']
 
-    # 计算总体指标
+    # Calculate overall metrics
     if evaluation_results:
         total_accuracy_sum = 0
         total_norm_steps_sum = 0
@@ -263,18 +263,18 @@ def main(results_dir, output_file, enable_follow_up):
             'total_direct_answers': total_direct_answers
         }
         
-        # 按组号升序排序，'overall'放在最前面
+        # Sort by group number in ascending order, put 'overall' at the front
         sorted_results = OrderedDict()
         sorted_results['overall'] = overall_metrics
         for group_id in sorted([gid for gid in evaluation_results if gid != 'overall'], key=lambda x: int(x) if str(x).isdigit() else x):
             sorted_results[group_id] = evaluation_results[group_id]
         evaluation_results = sorted_results
 
-    # 保存结果
+    # Save results
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(evaluation_results, f, indent=2, ensure_ascii=False)
 
-    print(f"\n评估完成。结果已保存到 {output_file}")
+    print(f"\nEvaluation completed. Results saved to {output_file}")
 
 
 if __name__ == '__main__':

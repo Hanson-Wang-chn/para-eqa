@@ -16,7 +16,7 @@ class Buffer:
         if set(question.keys()) != required_keys:
             raise ValueError("Question must contain exactly the required keys: " + ", ".join(required_keys))
         
-        # 确保time字段是字典结构
+        # Ensure the time field is a dictionary structure
         if not isinstance(question["time"], dict):
             raise ValueError("The 'time' field must be a dictionary.")
             
@@ -66,7 +66,7 @@ class Buffer:
             if set(question.keys()) != required_keys:
                 raise ValueError("Each question must contain exactly the required keys: " + ", ".join(required_keys))
             
-            # 确保time字段是字典结构
+            # Ensure the time field is a dictionary structure
             if not isinstance(question["time"], dict):
                 raise ValueError("The 'time' field must be a dictionary.")
         
@@ -74,33 +74,33 @@ class Buffer:
             question_id = new_question["id"]
             found = False
             
-            # 查找是否已存在相同id的问题
+            # Check if a question with the same id already exists
             for i, existing_question in enumerate(self.buffer):
                 if existing_question["id"] == question_id:
-                    # 如果找到，更新现有问题
+                    # If found, update the existing question
                     self.buffer[i] = new_question
                     found = True
                     break
             
-            # 如果没有找到，直接添加到buffer
+            # If not found, add directly to buffer
             if not found:
                 self.buffer.append(new_question)
     
     
     def build_dag(self):
-        # 筛选等待的问题
+        # Filter waiting questions
         waiting_questions = [
             q for q in self.buffer if q.get("status") in {"pending", "ready"}
         ]
         waiting_qids = {q["id"] for q in waiting_questions}
 
-        # 使用邻接表，表达“问题A依赖于哪些问题”和“哪些问题依赖于问题A”
+        # Use adjacency list to express "which questions question A depends on" and "which questions depend on question A"
         self.dag = {
             "depends_on": {},  # question_id -> set of question_ids it depends on
             "required_by": {}  # question_id -> set of question_ids that depend on it
         }
 
-        # 初始化邻接表，只为符合条件的问题创建节点
+        # Initialize adjacency list, create nodes only for qualified questions
         for question in waiting_questions:
             qid = question["id"]
             
@@ -110,7 +110,7 @@ class Buffer:
             self.dag["depends_on"][qid] = valid_deps
             self.dag["required_by"].setdefault(qid, set())
 
-        # 构建 required_by 关系（反向边）
+        # Build required_by relationships (reverse edges)
         for question in waiting_questions:
             qid = question["id"]
             for dep_id in self.dag["depends_on"][qid]:
@@ -121,13 +121,13 @@ class Buffer:
     
     def calculate_status(self):
         """
-        基于DAG中的依赖关系，计算每个问题的状态（"pending"或"ready"）
+        Calculate the status of each question ("pending" or "ready") based on dependency relationships in the DAG
         """
-        # 确保DAG已经构建
+        # Ensure DAG has been built
         if not self.dag:
             self.build_dag()
         
-        # 遍历所有等待中的问题
+        # Iterate through all waiting questions
         waiting_questions = [
             q for q in self.buffer if q.get("status") in {"pending", "ready"}
         ]
@@ -135,10 +135,10 @@ class Buffer:
         for question in waiting_questions:
             qid = question["id"]
             
-            # 如果该问题在DAG中，检查其依赖
+            # If this question is in the DAG, check its dependencies
             if qid in self.dag["depends_on"]:
-                # 如果没有依赖，状态设为"ready"；否则设为"pending"
-                if not self.dag["depends_on"][qid]:  # 空集合表示没有依赖
+                # If no dependencies, set status to "ready"; otherwise set to "pending"
+                if not self.dag["depends_on"][qid]:  # Empty set means no dependencies
                     question["status"] = "ready"
                 else:
                     question["status"] = "pending"

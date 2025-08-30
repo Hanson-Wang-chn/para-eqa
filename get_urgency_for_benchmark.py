@@ -14,7 +14,7 @@ from PIL import Image
 
 
 class VLM_API:
-    """简化版的VLM API调用类，仅支持纯文本请求"""
+    """Simplified VLM API calling class, only supports pure text requests"""
     
     def __init__(self, model_name="gpt-oss:20b", server="ollama", base_url="http://100.88.238.80:11434/v1", api_key=None):
         self.model_name = model_name
@@ -22,13 +22,13 @@ class VLM_API:
         self.base_url = base_url
         self.api_key = api_key
         
-        # 初始化代理设置
+        # Initialize proxy settings
         proxies = {
             "http://": "socks5://127.0.0.1:7897",
             "https://": "socks5://127.0.0.1:7897"
         } if os.environ.get('ALL_PROXY') else None
         
-        # 初始化API客户端
+        # Initialize API client
         if self.server == "openai":
             self.api_key = os.environ.get('OPENAI_API_KEY') if not api_key else api_key
             self.client = openai.OpenAI(
@@ -58,7 +58,7 @@ class VLM_API:
             )
     
     def request_with_retry(self, prompt, retries=3):
-        """发送纯文本请求并支持重试"""
+        """Send pure text request with retry support"""
         def exponential_backoff(attempt):
             return min(2 ** attempt, 60)
         
@@ -68,14 +68,14 @@ class VLM_API:
             except Exception as e:
                 if attempt < retries - 1:
                     wait_time = exponential_backoff(attempt)
-                    print(f"请求失败，{wait_time}秒后重试... 错误: {e}")
+                    print(f"Request failed, retrying in {wait_time} seconds... Error: {e}")
                     time.sleep(wait_time)
                     continue
                 else:
                     raise e
     
     def requests_api_only_text(self, prompt):
-        """纯文本API请求"""
+        """Pure text API request"""
         message = [
             {
                 "role": "user",
@@ -88,7 +88,7 @@ class VLM_API:
             }
         ]
         
-        # 使用OpenAI官方客户端发送请求
+        # Use OpenAI official client to send request
         response = self.client.chat.completions.create(
             model=self.model_name,
             messages=message,
@@ -96,25 +96,25 @@ class VLM_API:
             temperature=0.0
         )
         
-        # 提取响应内容
+        # Extract response content
         return [response.choices[0].message.content]
 
 
 def get_urgency(desc, model_name="gpt-oss:20b", server="ollama", base_url="http://100.88.238.80:11434/v1", api_key=None):
     """
-    解析问题描述，使用大模型提取urgency值
+    Parse problem description and extract urgency value using large model
     
     Args:
-        desc (str): 问题的自然语言描述
-        model_name (str): 使用的模型名称
-        server (str): 服务器类型
-        base_url (str): 基础URL
-        api_key (str): API密钥
+        desc (str): Natural language description of the problem
+        model_name (str): Model name to use
+        server (str): Server type
+        base_url (str): Base URL
+        api_key (str): API key
         
     Returns:
-        float: urgency值，范围[0,1]
+        float: urgency value, range [0,1]
     """
-    # 提示词模板
+    # Prompt template
     prompt_template = """
     You are an AI assistant tasked with parsing natural language questions into structured data for an Embodied Question Answering (EQA) system in a multi-story residential environment. Your goal is to extract key information from a question and represent it in a JSON object containing an `urgency` field.
 
@@ -165,50 +165,50 @@ def get_urgency(desc, model_name="gpt-oss:20b", server="ollama", base_url="http:
     
     max_retries = 3
     
-    # 替换模板中的问题
+    # Replace question in template
     prompt = prompt_template.replace("{original_question}", desc)
     
-    # 实例化VLM API
+    # Instantiate VLM API
     vlm = VLM_API(model_name=model_name, server=server, base_url=base_url, api_key=api_key)
     
     for attempt in range(max_retries):
         try:
-            # 调用大模型获取回答
+            # Call large model to get response
             response = vlm.request_with_retry(prompt=prompt)[0]
             
-            # 提取JSON部分
+            # Extract JSON part
             json_match = re.search(r'\{.*?\}', response, re.DOTALL)
             if json_match:
                 json_str = json_match.group()
             else:
                 json_str = response.strip()
             
-            # 解析JSON
+            # Parse JSON
             parsed_data = json.loads(json_str)
             
-            # 提取urgency
+            # Extract urgency
             urgency = parsed_data.get('urgency')
             
-            # 验证取值范围
+            # Validate value range
             if not isinstance(urgency, (int, float)) or urgency < 0 or urgency > 1:
-                print(f"第{attempt + 1}次尝试: urgency值不符合规则 (应为[0,1]范围内的数值): {urgency}")
+                print(f"Attempt {attempt + 1}: urgency value does not meet rules (should be a numeric value in [0,1] range): {urgency}")
                 continue
             
-            # 返回有效的urgency值
+            # Return valid urgency value
             return float(urgency)
             
         except json.JSONDecodeError:
-            print(f"第{attempt + 1}次尝试失败，返回的不是有效JSON: {response}")
+            print(f"Attempt {attempt + 1} failed, returned invalid JSON: {response}")
         except Exception as e:
-            print(f"第{attempt + 1}次尝试发生错误: {e}")
+            print(f"Error occurred in attempt {attempt + 1}: {e}")
     
-    # 如果多次尝试都失败，返回默认值
-    print(f"经过{max_retries}次尝试，无法获得有效的urgency值，使用默认值0.5")
+    # If all attempts fail, return default value
+    print(f"After {max_retries} attempts, unable to get valid urgency value, using default value 0.5")
     return 0.5
 
 
 def process_yaml_files(benchmark_dir="data/benchmark", model_config=None, parse_from_scratch=False):
-    """处理所有YAML文件"""
+    """Process all YAML files"""
     if model_config is None:
         model_config = {
             "model_name": "gpt-oss:20b",
@@ -217,49 +217,49 @@ def process_yaml_files(benchmark_dir="data/benchmark", model_config=None, parse_
             "api_key": None
         }
     
-    # 获取所有YAML文件并按文件名排序
+    # Get all YAML files and sort by filename
     yaml_files = sorted(glob.glob(os.path.join(benchmark_dir, "*.yaml")))
     
-    # 选择要处理的文件
+    # Select files to process
     yaml_files = yaml_files[40:]
     
     if not yaml_files:
-        print(f"警告: 在{benchmark_dir}目录中未找到YAML文件")
+        print(f"Warning: No YAML files found in {benchmark_dir} directory")
         return
     
-    print(f"找到{len(yaml_files)}个YAML文件，按文件名顺序开始处理...")
+    print(f"Found {len(yaml_files)} YAML files, starting to process in filename order...")
     
-    # 处理每个文件
+    # Process each file
     for file_path in yaml_files:
-        print(f"\n处理文件: {file_path}")
+        print(f"\nProcessing file: {file_path}")
         
         try:
-            # 读取YAML文件
+            # Read YAML file
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
             
-            # 处理questions_init
+            # Process questions_init
             if 'questions_init' in data and data['questions_init']:
                 for i, question in enumerate(data['questions_init']):
-                    # 检查是否已有有效的urgency字段
+                    # Check if valid urgency field already exists
                     has_valid_urgency = False
                     if 'urgency' in question:
                         if isinstance(question['urgency'], (int, float)) and 0 <= question['urgency'] <= 1:
-                            print(f"Init问题{i+1}已有有效urgency值: {question['urgency']}")
+                            print(f"Init question {i+1} already has valid urgency value: {question['urgency']}")
                             has_valid_urgency = True
                         else:
-                            print(f"Init问题{i+1}的urgency值无效: {question['urgency']}，将重新计算")
+                            print(f"Init question {i+1} has invalid urgency value: {question['urgency']}, will recalculate")
                     
                     if parse_from_scratch or not has_valid_urgency:
-                        # 提取问题文本
+                        # Extract question text
                         question_text = question.get('question', '')
                         if not question_text:
-                            print(f"警告: Init问题{i+1}没有question字段或为空")
+                            print(f"Warning: Init question {i+1} has no question field or is empty")
                             question['urgency'] = 0.5
                             continue
                         
-                        print(f"为Init问题{i+1}获取urgency: {question_text[:50]}...")
-                        # 获取urgency值
+                        print(f"Getting urgency for Init question {i+1}: {question_text[:50]}...")
+                        # Get urgency value
                         urgency = get_urgency(
                             question_text,
                             model_name=model_config["model_name"],
@@ -268,32 +268,32 @@ def process_yaml_files(benchmark_dir="data/benchmark", model_config=None, parse_
                             api_key=model_config["api_key"]
                         )
                         
-                        # 更新问题对象
+                        # Update question object
                         question['urgency'] = urgency
-                        print(f"已设置Init问题{i+1}的urgency值为: {urgency}")
+                        print(f"Set urgency value for Init question {i+1} to: {urgency}")
             
-            # 处理questions_follow_up
+            # Process questions_follow_up
             if 'questions_follow_up' in data and data['questions_follow_up']:
                 for i, question in enumerate(data['questions_follow_up']):
-                    # 检查是否已有有效的urgency字段
+                    # Check if valid urgency field already exists
                     has_valid_urgency = False
                     if 'urgency' in question:
                         if isinstance(question['urgency'], (int, float)) and 0 <= question['urgency'] <= 1:
-                            print(f"Follow-up问题{i+1}已有有效urgency值: {question['urgency']}")
+                            print(f"Follow-up question {i+1} already has valid urgency value: {question['urgency']}")
                             has_valid_urgency = True
                         else:
-                            print(f"Follow-up问题{i+1}的urgency值无效: {question['urgency']}，将重新计算")
+                            print(f"Follow-up question {i+1} has invalid urgency value: {question['urgency']}, will recalculate")
                     
                     if parse_from_scratch or not has_valid_urgency:
-                        # 提取问题文本
+                        # Extract question text
                         question_text = question.get('question', '')
                         if not question_text:
-                            print(f"警告: Follow-up问题{i+1}没有question字段或为空")
+                            print(f"Warning: Follow-up question {i+1} has no question field or is empty")
                             question['urgency'] = 0.5
                             continue
                         
-                        print(f"为Follow-up问题{i+1}获取urgency: {question_text[:50]}...")
-                        # 获取urgency值
+                        print(f"Getting urgency for Follow-up question {i+1}: {question_text[:50]}...")
+                        # Get urgency value
                         urgency = get_urgency(
                             question_text,
                             model_name=model_config["model_name"],
@@ -302,37 +302,37 @@ def process_yaml_files(benchmark_dir="data/benchmark", model_config=None, parse_
                             api_key=model_config["api_key"]
                         )
                         
-                        # 更新问题对象
+                        # Update question object
                         question['urgency'] = urgency
-                        print(f"已设置Follow-up问题{i+1}的urgency值为: {urgency}")
+                        print(f"Set urgency value for Follow-up question {i+1} to: {urgency}")
             
-            # 保存更新后的YAML文件
+            # Save updated YAML file
             with open(file_path, 'w', encoding='utf-8') as f:
                 yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
             
-            print(f"已成功更新文件: {file_path}")
+            print(f"Successfully updated file: {file_path}")
             
         except Exception as e:
-            print(f"处理文件{file_path}时出错: {e}")
+            print(f"Error processing file {file_path}: {e}")
 
 
 def main():
-    """主函数"""
-    # 你可以在这里修改模型配置
+    """Main function"""
+    # You can modify model configuration here
     model_config = {
-        "model_name": "gpt-oss:20b",  # 模型名称
-        "server": "ollama",           # 服务器类型: openai, openrouter, dashscope, ollama
-        "base_url": "http://100.88.238.80:11434/v1",  # 基础URL
-        "api_key": None               # API密钥
+        "model_name": "gpt-oss:20b",  # Model name
+        "server": "ollama",           # Server type: openai, openrouter, dashscope, ollama
+        "base_url": "http://100.88.238.80:11434/v1",  # Base URL
+        "api_key": None               # API key
     }
     
-    benchmark_dir = "data/benchmark"  # 基准文件夹路径
+    benchmark_dir = "data/benchmark"  # Benchmark folder path
     
-    parse_from_scratch = False  # 是否从头解析所有文件
+    parse_from_scratch = False  # Whether to parse all files from scratch
     
-    # 开始处理文件
+    # Start processing files
     process_yaml_files(benchmark_dir, model_config, parse_from_scratch)
-    print("\n处理完成！")
+    print("\nProcessing completed!")
 
 
 if __name__ == "__main__":

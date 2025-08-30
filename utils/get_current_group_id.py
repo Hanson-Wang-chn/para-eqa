@@ -6,10 +6,10 @@ from common.redis_client import CURRENT_GROUP_ID
 
 
 def get_current_group_id(redis_conn):
-    """获取当前活跃的 group_id"""
+    """Get the current active group_id"""
     group_id = redis_conn.get(CURRENT_GROUP_ID)
     if not group_id:
-        logging.error(f"[{os.getpid()}] 无法在Redis中找到键 '{CURRENT_GROUP_ID}'")
+        logging.error(f"[{os.getpid()}] Unable to find key '{CURRENT_GROUP_ID}' in Redis")
         return None
     
     return group_id

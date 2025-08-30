@@ -12,15 +12,15 @@ from utils.para_eqa import ParaEQA
 
 def select_question(redis_conn):
     """
-    向Question Pool请求一个优先级最高的问题
+    Request a highest priority question from Question Pool
     
     Args:
-        redis_conn: Redis连接对象
+        redis_conn: Redis connection object
         
     Returns:
-        dict: 问题对象，如果没有可用问题则返回None
+        dict: Question object, returns None if no available questions
     """
-    # 创建消费者组（如果不存在）
+    # Create consumer group (if not exists)
     pool_responses_stream = STREAMS["pool_responses"]
     
     try:
@@ -29,10 +29,10 @@ def select_question(redis_conn):
         # logging.info(f"[{os.getpid()}](PLA) Planner response group already exists: {e}")
         pass
     
-    # 生成请求ID
+    # Generate request ID
     request_id = str(uuid.uuid4())
     
-    # 创建请求
+    # Create request
     request = {
         "request_id": request_id,
         "sender": "planner",
@@ -40,11 +40,11 @@ def select_question(redis_conn):
         "data": {}
     }
     
-    # 发送请求 - 只发送一次
+    # Send request - only send once
     redis_conn.xadd(STREAMS["pool_requests"], {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}](PLA) 发送问题选择请求: {request_id}")
+    logging.info(f"[{os.getpid()}](PLA) Sent question selection request: {request_id}")
     
-    # 无限循环等待响应，不再重复发送请求
+    # Infinite loop waiting for response, no longer repeatedly sending requests
     while True:
         try:
             responses = redis_conn.xreadgroup(
@@ -62,9 +62,9 @@ def select_question(redis_conn):
                         response = json.loads(data.get('data', '{}'))
                         response_request_id = response.get('request_id')
                         
-                        # 检查是否是我们请求的响应
+                        # Check if this is the response we requested
                         if response_request_id == request_id and response.get('type') == 'question_selected':
-                            # 确认匹配的消息
+                            # Acknowledge the matching message
                             redis_conn.xack(pool_responses_stream, "planner_group", msg_id)
                             
                             if response.get('status') == "success" and response.get('data'):
@@ -76,50 +76,50 @@ def select_question(redis_conn):
                                 return None
                         
                         else:
-                            # 不是我们的响应，不确认消息
-                            logging.debug(f"[{os.getpid()}](PLA) 收到非目标响应: {response_request_id}, 等待: {request_id}")
+                            # Not our response, don't acknowledge the message
+                            logging.debug(f"[{os.getpid()}](PLA) Received non-target response: {response_request_id}, waiting for: {request_id}")
                     
                     except Exception as e:
                         logging.error(f"[{os.getpid()}](PLA) Error processing response: {e}")
-                        # 处理错误但继续等待正确响应
+                        # Handle error but continue waiting for correct response
         
         except Exception as e:
             logging.error(f"[{os.getpid()}](PLA) Error while waiting for response: {e}")
-            time.sleep(1)  # 发生错误时短暂等待后继续
+            time.sleep(1)  # Wait briefly after error before continuing
 
 
 def clear_memory(redis_conn):
     """
-    向Memory Service发送清空知识库的请求
+    Send request to Memory Service to clear knowledge base
     
     Args:
-        redis_conn: Redis连接对象
+        redis_conn: Redis connection object
         
     Returns:
-        bool: 操作是否成功
+        bool: Whether the operation was successful
     """
-    # 生成请求ID
+    # Generate request ID
     request_id = str(uuid.uuid4())
     
-    # 创建请求
+    # Create request
     request = {
         "id": request_id,
         "operation": "clear"
     }
     
-    # 发送请求
+    # Send request
     redis_conn.xadd(STREAMS["memory_requests"], {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}](PLA) 向Memory Service发送清空知识库请求: {request_id}")
+    logging.info(f"[{os.getpid()}](PLA) Sent clear knowledge base request to Memory Service: {request_id}")
     
     return True
 
 
 def run(config: dict):
     """
-    Planner Service 的主运行函数。
-    负责规划探索路径并与环境交互。
+    Main run function of Planner Service.
+    Responsible for planning exploration paths and interacting with environment.
     """
-    # 设置日志
+    # Set up logging
     parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "planner_logs")
     if not os.path.exists(logs_dir):
@@ -134,15 +134,15 @@ def run(config: dict):
         ],
     )
     
-    # 连接 Redis
+    # Connect to Redis
     redis_conn = get_redis_connection(config)
     
     logging.info(f"[{os.getpid()}](PLA) Planner service started.")
     
-    # 实例化 ParaEQA
+    # Instantiate ParaEQA
     para_eqa = ParaEQA(config)
     
-    # 主循环
+    # Main loop
     while True:
         try:
             question = select_question(redis_conn)
@@ -151,13 +151,13 @@ def run(config: dict):
                 time.sleep(1)
                 continue
             
-            # 处理问题
+            # Process question
             para_eqa.run(question, question["id"])
             
-            # 处理完成后清空记忆
+            # Clear memory after processing is complete
             clear_memory(redis_conn)
-            logging.info(f"[{os.getpid()}](PLA) 问题 {question['id']} 处理完成，已清空知识库")
+            logging.info(f"[{os.getpid()}](PLA) Question {question['id']} processing completed, knowledge base cleared")
                 
         except Exception as e:
             logging.exception(f"[{os.getpid()}](PLA) Error in Planner service: {e}")
-            time.sleep(5)  # 发生错误时等待一段时间再重试
+            time.sleep(5)  # Wait for a while before retrying when error occurs

@@ -5,9 +5,9 @@ Before `python run_para_eqa.py`, run `docker run -d --name para-eqa-redis -p 637
 """
 
 """
-1. 读取配置文件
-2. 启动并初始化各个微服务
-3. 各个微服务的优雅退出
+1. Read configuration file
+2. Start and initialize each microservice
+3. Graceful shutdown of each microservice
 """
 
 import os
@@ -47,22 +47,22 @@ os.environ["MAGNUM_LOG"] = "quiet"
 
 
 def clear_record(result_dir="logs"):
-    """如果日志目录存在，则删除它"""
+    """Delete the log directory if it exists"""
     if os.path.exists(result_dir):
         shutil.rmtree(result_dir)
-        print(f"已删除结果目录: {result_dir}")
+        print(f"Deleted result directory: {result_dir}")
     else:
-        print(f"结果目录不存在，无需删除: {result_dir}")
+        print(f"Result directory does not exist, no need to delete: {result_dir}")
 
 
 def load_config(config_file):
-    """加载YAML配置文件"""
+    """Load YAML configuration file"""
     with open(config_file, 'r') as f:
         return yaml.safe_load(f)
 
 
 def clear_redis(config):
-    """清空Redis"""
+    """Clear Redis"""
     redis_conn = get_redis_connection(config)
     logging.info("Flushing Redis DB...")
     redis_conn.flushdb()
@@ -71,34 +71,34 @@ def clear_redis(config):
 
 def listen_for_shutdown(config, processes, shutdown_event):
     """
-    监听系统关闭请求并触发关闭事件
+    Listen for system shutdown requests and trigger shutdown event
     
     Args:
-        config: 配置字典
-        processes: 服务进程列表
-        shutdown_event: 关闭事件，用于通知主线程
+        config: Configuration dictionary
+        processes: List of service processes
+        shutdown_event: Shutdown event for notifying main thread
     """
-    # 连接Redis
+    # Connect to Redis
     redis_conn = get_redis_connection(config)
     system_shutdown_stream = STREAMS["system_shutdown"]
     
-    # 创建消费者组
+    # Create consumer group
     group_name = "main_shutdown_group"
     try:
         redis_conn.xgroup_create(system_shutdown_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        # 组可能已存在，忽略错误
+        # Group may already exist, ignore error
         pass
     
-    logging.info("主进程开始监听系统关闭请求...")
+    logging.info("Main process started listening for system shutdown requests...")
     
     while not shutdown_event.is_set():
         try:
-            # 从流中读取消息
+            # Read messages from stream
             messages = redis_conn.xreadgroup(
                 group_name, "main_worker", 
                 {system_shutdown_stream: '>'}, 
-                count=1, block=1000  # 1秒超时
+                count=1, block=1000  # 1 second timeout
             )
             
             if not messages:
@@ -108,31 +108,31 @@ def listen_for_shutdown(config, processes, shutdown_event):
                 for message_id, data in message_list:
                     try:
                         message = json.loads(data.get('data', '{}'))
-                        logging.info(f"收到系统关闭请求: {message}")
+                        logging.info(f"Received system shutdown request: {message}")
                         
-                        # 确认消息已处理
+                        # Acknowledge message as processed
                         redis_conn.xack(system_shutdown_stream, group_name, message_id)
                         
-                        # 设置关闭事件，通知主线程
+                        # Set shutdown event to notify main thread
                         shutdown_event.set()
                         return
                     
                     except Exception as e:
-                        logging.error(f"处理系统关闭请求时出错: {e}")
-                        # 确认消息，防止重复处理错误消息
+                        logging.error(f"Error processing system shutdown request: {e}")
+                        # Acknowledge message to prevent reprocessing error messages
                         redis_conn.xack(system_shutdown_stream, group_name, message_id)
         
         except Exception as e:
-            logging.error(f"监听系统关闭请求时出错: {e}")
+            logging.error(f"Error listening for system shutdown requests: {e}")
             time.sleep(1)
 
 
 def shutdown_services(processes):
     """
-    优雅地关闭所有服务
+    Gracefully shutdown all services
     
     Args:
-        processes: 服务进程列表
+        processes: List of service processes
     """
     for p in processes:
         p.terminate()
@@ -141,7 +141,7 @@ def shutdown_services(processes):
 
 
 if __name__ == "__main__":
-    # 设置多进程启动方式
+    # Set multiprocessing start method
     set_start_method("spawn", force=True)
     
     # Parse arguments
@@ -190,17 +190,17 @@ if __name__ == "__main__":
         processes.append(process)
         logging.info(f"[+] {name} service started (PID: {process.pid})")
     
-    # 创建关闭事件
+    # Create shutdown event
     shutdown_event = threading.Event()
     
-    # 启动监听线程
+    # Start listening thread
     shutdown_thread = threading.Thread(target=listen_for_shutdown, args=(config, processes, shutdown_event))
-    shutdown_thread.daemon = True  # 设为守护线程，主线程结束时自动结束
+    shutdown_thread.daemon = True  # Set as daemon thread, automatically ends when main thread ends
     shutdown_thread.start()
     
     try:
         while True:
-            # 如果关闭事件被触发，优雅关闭服务
+            # If shutdown event is triggered, gracefully shutdown services
             if shutdown_event.is_set():
                 logging.info("\nShutdown signal received. Terminating all services...")
                 clear_redis(config)
@@ -210,6 +210,7 @@ if __name__ == "__main__":
     
     except KeyboardInterrupt:
         logging.info("\nKeyboardInterrupt received. Terminating all services...")
-        clear_redis(config)
-        shutdown_event.set()  # 设置事件，让监听线程也能退出
+        shutdown_event.set()  # Set event so listening thread can also exit
+        time.sleep(1)
         shutdown_services(processes)
+        clear_redis(config)

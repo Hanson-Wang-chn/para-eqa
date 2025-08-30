@@ -47,21 +47,21 @@ class KnowledgeBase:
 
     def _add_to_memory(self, text, image):
         """
-        添加新的记忆到知识库中，可以是文本、图像或两者结合。
+        Add new memory to the knowledge base, which can be text, image, or both.
         
         Args:
-            text (str): 文本描述或None
-            image (PIL.Image): 图像或None
+            text (str): Text description or None
+            image (PIL.Image): Image or None
         """
-        # 为每个新记忆生成唯一ID
-        memory_id = int(uuid.uuid4().int & 0xFFFFFFFF)  # 生成32位整数ID
+        # Generate unique ID for each new memory
+        memory_id = int(uuid.uuid4().int & 0xFFFFFFFF)  # Generate 32-bit integer ID
         
-        # 计算text和image的embedding
+        # Calculate embeddings for text and image
         text_vector = None
         image_vector = None
         
         with torch.no_grad():
-            # 处理文本
+            # Process text
             if text:
                 inputs = self.preprocess(
                     text=text,
@@ -72,9 +72,9 @@ class KnowledgeBase:
                 text_features = self.text_embedder.get_text_features(**inputs)
                 text_vector = F.normalize(text_features, p=2, dim=1).cpu().numpy()[0]
             
-            # 处理图像
+            # Process image
             if image:
-                # 使用CLIP预处理器处理图像
+                # Use CLIP preprocessor to process image
                 image_inputs = self.preprocess(
                     images=image, 
                     return_tensors="pt",
@@ -84,30 +84,30 @@ class KnowledgeBase:
                 image_features = self.image_model.get_image_features(**image_inputs)
                 image_vector = F.normalize(image_features, p=2, dim=1).cpu().numpy()[0]
         
-        # 计算综合向量
+        # Calculate combined vector
         if text_vector is not None and image_vector is not None:
-            # 文本和图像都存在，进行加权融合
+            # Both text and image exist, perform weighted fusion
             combined_vector = (self.weight_image * image_vector + 
                                self.weight_text * text_vector)
-            # 重新归一化
+            # Re-normalize
             combined_vector = combined_vector / np.linalg.norm(combined_vector)
         elif text_vector is not None:
-            # 只有文本
+            # Only text
             combined_vector = text_vector
         elif image_vector is not None:
-            # 只有图像
+            # Only image
             combined_vector = image_vector
         else:
-            # 两者都没有，不添加
+            # Neither exists, do not add
             return
         
-        # 添加到FAISS索引
+        # Add to FAISS index
         self.index.add_with_ids(
             np.array([combined_vector], dtype=np.float32),
             np.array([memory_id], dtype=np.int64)
         )
         
-        # 保存记忆数据
+        # Save memory data
         memory_data = {
             "id": memory_id,
             "image": image,
@@ -121,7 +121,7 @@ class KnowledgeBase:
     
     
     def update_memory(self, text, image):
-        # 通过 replace_memory 决定是直接添加记忆还是替换相似记忆
+        # Decide whether to directly add memory or replace similar memory through replace_memory
         if self.replace_memory:
             pass
         
@@ -131,22 +131,22 @@ class KnowledgeBase:
 
     def search(self, text, image, top_k=5):
         """
-        在知识库中搜索与文本和/或图像相似的记忆。
+        Search for memories similar to text and/or image in the knowledge base.
         
         Args:
-            text (str): 文本查询或None
-            image (PIL.Image): 图像查询或None
-            top_k (int): 返回结果的数量
+            text (str): Text query or None
+            image (PIL.Image): Image query or None
+            top_k (int): Number of results to return
         
         Returns:
-            list: 包含匹配记忆的字典列表
+            list: List of dictionaries containing matching memories
         """
-        # 计算text和image的embedding
+        # Calculate embeddings for text and image
         text_vector = None
         image_vector = None
         
         with torch.no_grad():
-            # 处理文本
+            # Process text
             if text:
                 inputs = self.preprocess(
                     text=text,
@@ -157,9 +157,9 @@ class KnowledgeBase:
                 text_features = self.text_embedder.get_text_features(**inputs)
                 text_vector = F.normalize(text_features, p=2, dim=1).cpu().numpy()[0]
             
-            # 处理图像
+            # Process image
             if image:
-                # 使用CLIP预处理器处理图像
+                # Use CLIP preprocessor to process image
                 image_inputs = self.preprocess(
                     images=image, 
                     return_tensors="pt",
@@ -169,40 +169,40 @@ class KnowledgeBase:
                 image_features = self.image_model.get_image_features(**image_inputs)
                 image_vector = F.normalize(image_features, p=2, dim=1).cpu().numpy()[0]
         
-        # 计算综合向量
+        # Calculate combined vector
         if text_vector is not None and image_vector is not None:
-            # 文本和图像都存在，进行加权融合
+            # Both text and image exist, perform weighted fusion
             query_vector = (self.weight_image * image_vector + 
                            self.weight_text * text_vector)
-            # 重新归一化
+            # Re-normalize
             query_vector = query_vector / np.linalg.norm(query_vector)
         elif text_vector is not None:
-            # 只有文本
+            # Only text
             query_vector = text_vector
         elif image_vector is not None:
-            # 只有图像
+            # Only image
             query_vector = image_vector
         else:
-            # 两者都没有，返回空结果
+            # Neither exists, return empty results
             return []
         
-        # 如果知识库为空，返回空结果
+        # If knowledge base is empty, return empty results
         if len(self.data) == 0:
             return []
         
-        # 执行搜索
+        # Execute search
         distances, indices = self.index.search(
             np.array([query_vector], dtype=np.float32), 
             max(1, min(top_k, len(self.data)))
         )
         
-        # 整理搜索结果
+        # Organize search results
         results = []
         for i, idx in enumerate(indices[0]):
-            if idx == -1:  # FAISS会在结果不足时返回-1
+            if idx == -1:  # FAISS returns -1 when results are insufficient
                 continue
                 
-            # 找到对应的记忆数据
+            # Find corresponding memory data
             memory_data = None
             for item in self.data:
                 if item["id"] == idx:

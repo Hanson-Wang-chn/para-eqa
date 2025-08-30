@@ -13,30 +13,30 @@ from common.redis_client import get_redis_connection, STREAMS, GROUP_INFO, CURRE
 
 def wait_for_group_completion(redis_conn, group_id):
     """
-    等待来自Question Pool的组完成消息
+    Wait for group completion message from Question Pool
     
     Args:
-        redis_conn: Redis连接对象
-        group_id: 组ID
+        redis_conn: Redis connection object
+        group_id: Group ID
         
     Returns:
-        bool: 是否成功收到组完成消息
+        bool: Whether group completion message was successfully received
     """
     pool_to_generator_stream = STREAMS["pool_to_generator"]
     
-    # 创建消费者组
+    # Create consumer group
     group_name = "generator_group"
     try:
         redis_conn.xgroup_create(pool_to_generator_stream, group_name, id='0', mkstream=True)
     except Exception as e:
-        # 组可能已存在，忽略错误
+        # Group may already exist, ignore error
         pass
     
-    logging.info(f"[{os.getpid()}](GEN) 等待组 {group_id} 完成消息...")
+    logging.info(f"[{os.getpid()}](GEN) Waiting for group {group_id} completion message...")
     
     while True:
         try:
-            # 从流中读取消息
+            # Read messages from stream
             messages = redis_conn.xreadgroup(
                 group_name, "generator_worker", 
                 {pool_to_generator_stream: '>'}, 
@@ -44,7 +44,7 @@ def wait_for_group_completion(redis_conn, group_id):
             )
             
             if not messages:
-                # logging.info(f"[{os.getpid()}](GEN) 等待组 {group_id} 完成中...")
+                # logging.info(f"[{os.getpid()}](GEN) Waiting for group {group_id} completion...")
                 time.sleep(0.1)
                 continue
             
@@ -56,35 +56,35 @@ def wait_for_group_completion(redis_conn, group_id):
                         message_data = message.get('data', {})
                         message_group_id = message_data.get('group_id')
                         
-                        logging.info(f"[{os.getpid()}](GEN) 收到消息: {message_type}, 组ID: {message_group_id}")
+                        logging.info(f"[{os.getpid()}](GEN) Received message: {message_type}, Group ID: {message_group_id}")
                         
-                        # 确认消息已处理
+                        # Acknowledge message as processed
                         redis_conn.xack(pool_to_generator_stream, group_name, message_id)
                         
-                        # 检查消息类型和组ID
+                        # Check message type and group ID
                         if message_type == "group_completed" and message_group_id == group_id:
-                            logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 已完成处理")
+                            logging.info(f"[{os.getpid()}](GEN) Group {group_id} has completed processing")
                             return True
                     
                     except Exception as e:
-                        logging.error(f"[{os.getpid()}](GEN) 处理组完成消息时出错: {e}")
-                        # 确认消息，防止重复处理错误消息
+                        logging.error(f"[{os.getpid()}](GEN) Error processing group completion message: {e}")
+                        # Acknowledge message to prevent reprocessing error messages
                         redis_conn.xack(pool_to_generator_stream, group_name, message_id)
         
         except Exception as e:
-            logging.error(f"[{os.getpid()}](GEN) 等待组完成消息时出错: {e}")
+            logging.error(f"[{os.getpid()}](GEN) Error waiting for group completion message: {e}")
             time.sleep(1)
 
 
 def send_system_shutdown(redis_conn):
     """
-    向主进程发送系统关闭请求
+    Send system shutdown request to main process
     
     Args:
-        redis_conn: Redis连接对象
+        redis_conn: Redis connection object
         
     Returns:
-        bool: 是否成功发送关闭请求
+        bool: Whether shutdown request was successfully sent
     """
     request_id = str(uuid.uuid4())
     request = {
@@ -97,20 +97,20 @@ def send_system_shutdown(redis_conn):
     
     system_shutdown_stream = STREAMS["system_shutdown"]
     redis_conn.xadd(system_shutdown_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}](GEN) 已发送系统关闭请求: {request_id}")
+    logging.info(f"[{os.getpid()}](GEN) System shutdown request sent: {request_id}")
     
     return True
 
 
 def load_question_data(file_path):
     """
-    从YAML文件中加载问题数据
+    Load question data from YAML file
     
     Args:
-        file_path: YAML文件路径
+        file_path: YAML file path
         
     Returns:
-        dict: 包含问题组信息的字典
+        dict: Dictionary containing question group information
     """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -123,14 +123,14 @@ def load_question_data(file_path):
 
 def store_group_info(redis_conn, group_data):
     """
-    将组信息存储到Redis中
+    Store group information in Redis
     
     Args:
-        redis_conn: Redis连接对象
-        group_data: 组数据字典
+        redis_conn: Redis connection object
+        group_data: Group data dictionary
         
     Returns:
-        dict: 包含问题ID和答案的映射以及准备好的问题列表
+        dict: Dictionary containing question ID to answer mapping and prepared question lists
     """
     group_id = group_data.get('group_id') or ''
     scene = group_data.get('scene') or ''
@@ -140,20 +140,20 @@ def store_group_info(redis_conn, group_data):
     init_angle = group_data.get('init_angle') or 0.0
     floor = group_data.get('floor', 0)
     
-    # 计算问题数量
+    # Calculate number of questions
     questions_init = group_data.get('questions_init', [])
     questions_follow_up = group_data.get('questions_follow_up', [])
     num_questions_init = len(questions_init) if questions_init else 0
     num_questions_follow_up = len(questions_follow_up) if questions_follow_up else 0
     if num_questions_init == 0 and num_questions_follow_up == 0:
-        raise ValueError(f"问题组 {group_id} 必须包含至少一个初始或后续问题")
+        raise ValueError(f"Question group {group_id} must contain at least one initial or follow-up question")
     
-    # 为每个问题生成ID并映射答案
+    # Generate ID for each question and map answers
     question_ids_to_answers = {}
     processed_init_questions = []
     processed_follow_up_questions = []
     
-    # 处理初始问题
+    # Process initial questions
     if questions_init:
         for q in questions_init:
             q_id = str(uuid.uuid4())
@@ -165,7 +165,7 @@ def store_group_info(redis_conn, group_data):
                 "time": {}
             })
     
-    # 处理后续问题
+    # Process follow-up questions
     if questions_follow_up:
         for q in questions_follow_up:
             q_id = str(uuid.uuid4())
@@ -177,43 +177,43 @@ def store_group_info(redis_conn, group_data):
                 "time": {}
             })
     
-    # 将信息存入Redis
+    # Store information in Redis
     pipe = redis_conn.pipeline()
     
-    # 设置当前活跃的组ID
+    # Set current active group ID
     pipe.set(CURRENT_GROUP_ID, group_id)
     
-    # 存储基本信息
+    # Store basic information
     pipe.set(f"{GROUP_INFO['group_id']}{group_id}", group_id)
     pipe.set(f"{GROUP_INFO['scene']}{group_id}", scene)
     pipe.set(f"{GROUP_INFO['angle']}{group_id}", init_angle)
     
-    # 存储楼层信息
+    # Store floor information
     pipe.set(f"{GROUP_INFO['floor']}{group_id}", floor)
     
-    # 存储坐标信息
+    # Store coordinate information
     pts = {"x": init_x, "y": init_y, "z": init_z}
     pipe.hset(f"{GROUP_INFO['pts']}{group_id}", mapping=pts)
     
-    # 存储问题数量
+    # Store number of questions
     pipe.set(f"{GROUP_INFO['num_questions_init']}{group_id}", num_questions_init)
     pipe.set(f"{GROUP_INFO['num_questions_follow_up']}{group_id}", num_questions_follow_up)
     
-    # 存储答案映射
+    # Store answer mapping
     pipe.hset(f"{GROUP_INFO['correct_answers']}{group_id}", mapping=question_ids_to_answers)
     
-    # 清空当前组中未使用的GROUP_INFO键
+    # Clear unused GROUP_INFO keys for current group
     unused_keys = ["floor", "max_steps", "rotation", "floor_height", "scene_size"]
     for key in unused_keys:
         pipe.delete(f"{GROUP_INFO[key]}{group_id}")
     
-    # 执行所有Redis命令
+    # Execute all Redis commands
     pipe.execute()
     
-    logging.info(f"[{os.getpid()}](GEN) 已存储组信息到Redis，组ID: {group_id}，场景: {scene}")
-    logging.info(f"[{os.getpid()}](GEN) 初始问题数: {num_questions_init}，后续问题数: {num_questions_follow_up}")
+    logging.info(f"[{os.getpid()}](GEN) Group information stored in Redis, Group ID: {group_id}, Scene: {scene}")
+    logging.info(f"[{os.getpid()}](GEN) Initial questions: {num_questions_init}, Follow-up questions: {num_questions_follow_up}")
     
-    # 返回处理后的问题组
+    # Return processed question groups
     return {
         'questions_init': processed_init_questions,
         'questions_follow_up': processed_follow_up_questions
@@ -222,93 +222,93 @@ def store_group_info(redis_conn, group_data):
 
 def send_init_questions(redis_conn, questions, stream_name):
     """
-    发送初始问题组
+    Send initial question group
     
     Args:
-        redis_conn: Redis连接对象
-        questions: 问题列表
-        stream_name: 目标Stream名称
+        redis_conn: Redis connection object
+        questions: Question list
+        stream_name: Target stream name
         
     Returns:
-        int: 发送的问题数量
+        int: Number of questions sent
     """
     total_sent = 0
     
     for question in questions:
-        # 添加request时间
+        # Add request time
         if "time" not in question:
             question["time"] = {}
         question["time"]["request"] = time.time()
         
         redis_conn.xadd(stream_name, {"data": json.dumps(question)})
         total_sent += 1
-        logging.info(f"[{os.getpid()}](GEN) 已发送初始问题 {total_sent}/{len(questions)}: '{question['description'][:40]}...'")
+        logging.info(f"[{os.getpid()}](GEN) Initial question sent {total_sent}/{len(questions)}: '{question['description'][:40]}...'")
     
     return total_sent
 
 
 def send_follow_up_questions(redis_conn, questions, stream_name, interval):
     """
-    发送后续问题组，每个问题之间有间隔时间（包括第一个问题前也等待）
+    Send follow-up question group with interval between questions (including waiting before first question)
     
     Args:
-        redis_conn: Redis连接对象
-        questions: 问题列表
-        stream_name: 目标Stream名称
-        interval: 问题间隔时间（秒）
+        redis_conn: Redis connection object
+        questions: Question list
+        stream_name: Target stream name
+        interval: Interval between questions (seconds)
         
     Returns:
-        int: 发送的问题数量
+        int: Number of questions sent
     """
     total_sent = 0
     
     for i, question in enumerate(questions):
-        # 每个问题前都等待指定的间隔时间
-        logging.info(f"[{os.getpid()}](GEN) 等待 {interval} 秒后发送后续问题...")
+        # Wait for specified interval before each question
+        logging.info(f"[{os.getpid()}](GEN) Waiting {interval} seconds before sending follow-up question...")
         time.sleep(interval)
         
-        # 添加request时间
+        # Add request time
         if "time" not in question:
             question["time"] = {}
         question["time"]["request"] = time.time()
         
         redis_conn.xadd(stream_name, {"data": json.dumps(question)})
         total_sent += 1
-        logging.info(f"[{os.getpid()}](GEN) 已发送后续问题 {i+1}/{len(questions)}: '{question['description'][:40]}...'")
+        logging.info(f"[{os.getpid()}](GEN) Follow-up question sent {i+1}/{len(questions)}: '{question['description'][:40]}...'")
     
     return total_sent
 
 
 def scan_question_files(directory):
     """
-    扫描目录获取所有问题文件
+    Scan directory for all question files
     
     Args:
-        directory: 问题文件目录
+        directory: Question file directory
         
     Returns:
-        list: 问题文件路径列表
+        list: List of question file paths
     """
     if not os.path.exists(directory):
-        logging.error(f"问题数据目录不存在: {directory}")
+        logging.error(f"Question data directory does not exist: {directory}")
         return []
     
     yaml_files = glob.glob(os.path.join(directory, "*.yaml"))
     if not yaml_files:
-        logging.warning(f"在 {directory} 中没有找到问题文件 (*.yaml)")
+        logging.warning(f"No question files (*.yaml) found in {directory}")
     
     return yaml_files
 
 
 def clear_memory(redis_conn):
     """
-    向Memory Service发送清空知识库的请求
+    Send clear knowledge base request to Memory Service
     
     Args:
-        redis_conn: Redis连接对象
+        redis_conn: Redis connection object
         
     Returns:
-        bool: 操作是否成功
+        bool: Whether operation was successful
     """
     request_id = str(uuid.uuid4())
     request = {
@@ -318,20 +318,20 @@ def clear_memory(redis_conn):
     
     memory_requests_stream = STREAMS["memory_requests"]
     redis_conn.xadd(memory_requests_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}](GEN) 已向Memory Service发送清空知识库请求: {request_id}")
+    logging.info(f"[{os.getpid()}](GEN) Clear knowledge base request sent to Memory Service: {request_id}")
     
     return True
 
 
 def clear_buffer(redis_conn):
     """
-    向Question Pool Service发送清空问题缓冲区的请求
+    Send clear question buffer request to Question Pool Service
     
     Args:
-        redis_conn: Redis连接对象
+        redis_conn: Redis connection object
         
     Returns:
-        bool: 操作是否成功
+        bool: Whether operation was successful
     """
     request_id = str(uuid.uuid4())
     request = {
@@ -345,17 +345,17 @@ def clear_buffer(redis_conn):
     
     pool_requests_stream = STREAMS["pool_requests"]
     redis_conn.xadd(pool_requests_stream, {"data": json.dumps(request)})
-    logging.info(f"[{os.getpid()}](GEN) 已向Question Pool Service发送清空问题缓冲区请求: {request_id}")
+    logging.info(f"[{os.getpid()}](GEN) Clear question buffer request sent to Question Pool Service: {request_id}")
     
     return True
 
 
 def run(config: dict):
     """
-    Generator Service 的主运行函数。
-    负责按照配置的规则向系统发送问题。
+    Main run function for Generator Service.
+    Responsible for sending questions to the system according to configured rules.
     """
-    # 设置日志
+    # Setup logging
     parent_dir = config.get("output_parent_dir", "logs")
     logs_dir = os.path.join(parent_dir, "generator_logs")
     if not os.path.exists(logs_dir):
@@ -370,7 +370,7 @@ def run(config: dict):
         ],
     )
     
-    # 读取配置文件
+    # Read configuration
     config_generator = config.get("generator", {})
     question_data_path = config.get("question_data_path", "./data/benchmark")
     interval_seconds = config_generator.get("interval_seconds", 120)
@@ -379,131 +379,131 @@ def run(config: dict):
     end_group = config_generator.get("end_group", None)
     
     if enable_follow_up:
-        logging.info(f"[{os.getpid()}](GEN) 启用 follow-up 模式，后续问题将每隔 {interval_seconds} 秒发送一个")
+        logging.info(f"[{os.getpid()}](GEN) Follow-up mode enabled, follow-up questions will be sent every {interval_seconds} seconds")
     else:
-        logging.info(f"[{os.getpid()}](GEN) 禁用 follow-up 模式，所有问题将一次性发送")
+        logging.info(f"[{os.getpid()}](GEN) Follow-up mode disabled, all questions will be sent at once")
     
-    # 连接 Redis
+    # Connect to Redis
     redis_conn = get_redis_connection(config)
     stream_name = STREAMS["generator_to_parser"]
     
     logging.info(f"[{os.getpid()}](GEN) Generator service started.")
     
-    # 查找并处理所有YAML文件
+    # Find and process all YAML files
     yaml_files = scan_question_files(question_data_path)
-    yaml_files = sorted(yaml_files)  # 按文件名排序
+    yaml_files = sorted(yaml_files)  # Sort by filename
 
-    # 根据start_group和end_group选择要处理的文件
+    # Select files to process based on start_group and end_group
     total_groups = len(yaml_files)
     if total_groups == 0:
-        logging.error(f"[{os.getpid()}](GEN) 未找到问题文件，退出服务")
+        logging.error(f"[{os.getpid()}](GEN) No question files found, exiting service")
         send_system_shutdown(redis_conn)
         return
 
-    # 处理start_group和end_group参数
+    # Process start_group and end_group parameters
     if start_group is None and end_group is None:
-        # 处理所有组
+        # Process all groups
         selected_files = yaml_files
     elif start_group is None:
-        # 从头开始，到end_group结束
+        # Start from beginning, end at end_group
         if end_group >= total_groups or end_group < 0:
-            logging.warning(f"[{os.getpid()}](GEN) 配置的end_group ({end_group}) 超出了有效范围 [0, {total_groups-1}]，将调整为 {total_groups-1}")
+            logging.warning(f"[{os.getpid()}](GEN) Configured end_group ({end_group}) is out of valid range [0, {total_groups-1}], adjusting to {total_groups-1}")
             end_group = total_groups - 1
-        selected_files = yaml_files[:end_group+1]  # +1是因为切片不包含结束索引
+        selected_files = yaml_files[:end_group+1]  # +1 because slice doesn't include end index
     elif end_group is None:
-        # 从start_group开始，到最后
+        # Start from start_group, go to end
         if start_group >= total_groups or start_group < 0:
-            logging.warning(f"[{os.getpid()}](GEN) 配置的start_group ({start_group}) 超出了有效范围 [0, {total_groups-1}]，将调整为 0")
+            logging.warning(f"[{os.getpid()}](GEN) Configured start_group ({start_group}) is out of valid range [0, {total_groups-1}], adjusting to 0")
             start_group = 0
         selected_files = yaml_files[start_group:]
     else:
-        # start_group和end_group都有值
+        # Both start_group and end_group have values
         if start_group >= total_groups or start_group < 0:
-            logging.warning(f"[{os.getpid()}](GEN) 配置的start_group ({start_group}) 超出了有效范围 [0, {total_groups-1}]，将调整为 0")
+            logging.warning(f"[{os.getpid()}](GEN) Configured start_group ({start_group}) is out of valid range [0, {total_groups-1}], adjusting to 0")
             start_group = 0
         if end_group >= total_groups or end_group < 0:
-            logging.warning(f"[{os.getpid()}](GEN) 配置的end_group ({end_group}) 超出了有效范围 [0, {total_groups-1}]，将调整为 {total_groups-1}")
+            logging.warning(f"[{os.getpid()}](GEN) Configured end_group ({end_group}) is out of valid range [0, {total_groups-1}], adjusting to {total_groups-1}")
             end_group = total_groups - 1
         if start_group > end_group:
-            logging.warning(f"[{os.getpid()}](GEN) 配置的start_group ({start_group}) 大于 end_group ({end_group})，将互换它们")
+            logging.warning(f"[{os.getpid()}](GEN) Configured start_group ({start_group}) is greater than end_group ({end_group}), swapping them")
             start_group, end_group = end_group, start_group
-        selected_files = yaml_files[start_group:end_group+1]  # +1是因为切片不包含结束索引
+        selected_files = yaml_files[start_group:end_group+1]  # +1 because slice doesn't include end index
 
     yaml_files = selected_files
-    logging.info(f"[{os.getpid()}](GEN) 将处理 {len(yaml_files)} 个问题组（从索引 {start_group if start_group is not None else 0} 到 {end_group if end_group is not None else total_groups-1}）")
+    logging.info(f"[{os.getpid()}](GEN) Will process {len(yaml_files)} question groups (from index {start_group if start_group is not None else 0} to {end_group if end_group is not None else total_groups-1})")
 
     if not yaml_files:
-        logging.error(f"[{os.getpid()}](GEN) 选择的组范围内没有问题文件，退出服务")
+        logging.error(f"[{os.getpid()}](GEN) No question files in selected group range, exiting service")
         send_system_shutdown(redis_conn)
         return
     
-    logging.info(f"[{os.getpid()}](GEN) 共 {len(yaml_files)} 个问题组，开始处理")
+    logging.info(f"[{os.getpid()}](GEN) Total {len(yaml_files)} question groups, starting processing")
     
     try:
-        # 处理每一个yaml文件
+        # Process each yaml file
         for file_index, file_path in enumerate(yaml_files):
             is_last_file = file_index == len(yaml_files) - 1
-            logging.info(f"[{os.getpid()}](GEN) 处理问题文件 [{file_index+1}/{len(yaml_files)}]: {file_path}")
+            logging.info(f"[{os.getpid()}](GEN) Processing question file [{file_index+1}/{len(yaml_files)}]: {file_path}")
             
-            # 1. 清空知识库
+            # 1. Clear knowledge base
             clear_memory(redis_conn)
             
-            # 2. 清空问题缓冲区
+            # 2. Clear question buffer
             clear_buffer(redis_conn)
             
-            # 3. 加载问题数据
+            # 3. Load question data
             group_data = load_question_data(file_path)
             if not group_data:
-                logging.error(f"[{os.getpid()}](GEN) 无法加载问题数据，跳过此文件")
+                logging.error(f"[{os.getpid()}](GEN) Unable to load question data, skipping this file")
                 continue
             
             group_id = group_data.get('group_id', '')
             
-            # 4. 存储组信息到Redis并获取处理后的问题列表
+            # 4. Store group information in Redis and get processed question lists
             processed_questions = store_group_info(redis_conn, group_data)
             
             init_questions = processed_questions['questions_init']
             follow_up_questions = processed_questions['questions_follow_up']
             
-            # 根据enable_follow_up决定发送方式
+            # Decide sending method based on enable_follow_up
             if enable_follow_up:
-                # 原有逻辑：分别发送初始问题和后续问题
-                logging.info(f"[{os.getpid()}](GEN) 将立即发送 {len(init_questions)} 个初始问题")
-                logging.info(f"[{os.getpid()}](GEN) 将每隔 {interval_seconds} 秒发送 {len(follow_up_questions)} 个后续问题")
+                # Original logic: send initial and follow-up questions separately
+                logging.info(f"[{os.getpid()}](GEN) Will immediately send {len(init_questions)} initial questions")
+                logging.info(f"[{os.getpid()}](GEN) Will send {len(follow_up_questions)} follow-up questions every {interval_seconds} seconds")
                 
-                # 5. 发送初始问题
+                # 5. Send initial questions
                 init_sent = send_init_questions(redis_conn, init_questions, stream_name)
                 
-                # 6. 发送后续问题
+                # 6. Send follow-up questions
                 if follow_up_questions:
                     follow_up_sent = send_follow_up_questions(redis_conn, follow_up_questions, stream_name, interval_seconds)
-                    logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已发送完毕，共 {init_sent + follow_up_sent} 个问题")
+                    logging.info(f"[{os.getpid()}](GEN) All questions for group {group_id} have been sent, total {init_sent + follow_up_sent} questions")
                 
                 else:
-                    logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 没有后续问题，已发送 {init_sent} 个初始问题")
+                    logging.info(f"[{os.getpid()}](GEN) Group {group_id} has no follow-up questions, sent {init_sent} initial questions")
             
             else:
-                # 新逻辑：将所有问题都作为初始问题一次性发送
+                # New logic: send all questions as initial questions at once
                 all_questions = init_questions + follow_up_questions
-                logging.info(f"[{os.getpid()}](GEN) 将一次性发送所有 {len(all_questions)} 个问题")
+                logging.info(f"[{os.getpid()}](GEN) Will send all {len(all_questions)} questions at once")
                 
                 total_sent = send_init_questions(redis_conn, all_questions, stream_name)
-                logging.info(f"[{os.getpid()}](GEN) 组 {group_id} 的所有问题已一次性发送完毕，共 {total_sent} 个问题")
+                logging.info(f"[{os.getpid()}](GEN) All questions for group {group_id} have been sent at once, total {total_sent} questions")
             
-            # 7. 等待来自question_pool_service的组完成请求
+            # 7. Wait for group completion request from question_pool_service
             wait_for_group_completion(redis_conn, group_id)
             
-            # 8. 判断是否是最后一个文件
+            # 8. Check if this is the last file
             if is_last_file:
-                logging.info(f"[{os.getpid()}](GEN) 这是最后一个问题组，将发送系统关闭请求")
+                logging.info(f"[{os.getpid()}](GEN) This is the last question group, will send system shutdown request")
                 send_system_shutdown(redis_conn)
-                break  # 退出循环，不再处理其他文件
+                break  # Exit loop, no more files to process
             else:
-                logging.info(f"[{os.getpid()}](GEN) 继续处理下一个问题组")
+                logging.info(f"[{os.getpid()}](GEN) Continue processing next question group")
         
-        logging.info(f"[{os.getpid()}](GEN) 所有问题组处理完毕，总共 {len(yaml_files)} 组")
+        logging.info(f"[{os.getpid()}](GEN) All question groups processed, total {len(yaml_files)} groups")
         
-        # 保持进程运行，直到被终止
+        # Keep process running until terminated
         while True:
             time.sleep(1)
             

@@ -13,72 +13,72 @@ from utils.vlm_api import VLM_API
 
 def parse_question(desc, model_name="openai/gpt-oss-120b", prompt_parser=None, server="openrouter", base_url=None, api_key=None):
     """
-    解析问题描述，使用大模型提取urgency和scope_type
+    Parse question description, use large model to extract urgency and scope_type
     
     Args:
-        desc (str): 问题的自然语言描述
-        model_api (str): 使用的OpenAI模型名称
+        desc (str): Natural language description of the question
+        model_api (str): OpenAI model name to use
         
     Returns:
         tuple: (urgency, scope_type)
-            - urgency (float): 紧急程度，范围[0,1]
-            - scope_type (str): 范围类型，"local"或"global"
+            - urgency (float): Urgency level, range [0,1]
+            - scope_type (str): Scope type, "local" or "global"
     """
     max_retries = 3
     
     for attempt in range(max_retries):
-        # 调用大模型获取回答
+        # Call large model to get response
         vlm = VLM_API(model_name=model_name, server=server, base_url=base_url, api_key=api_key)
         prompt = prompt_parser.replace("{original_question}", desc)
         response = vlm.request_with_retry(image=None, prompt=prompt)[0]
         
-        # 提取JSON部分
+        # Extract JSON part
         json_match = re.search(r'\{.*?\}', response, re.DOTALL)
         if json_match:
             json_str = json_match.group()
         else:
             json_str = response.strip()
         
-        # 解析JSON
+        # Parse JSON
         try:
             parsed_data = json.loads(json_str)
         except json.JSONDecodeError:
-            logging.info(f"第{attempt + 1}次尝试失败，返回的不是有效JSON: {json_str}")
+            logging.info(f"Attempt {attempt + 1} failed, returned invalid JSON: {json_str}")
             valid = False
             continue
         
-        # 提取数据
+        # Extract data
         urgency = parsed_data.get('urgency')
         scope_type = parsed_data.get('scope_type')
         
-        # 验证取值范围
+        # Validate value ranges
         valid = True
         
-        # 检查urgency是否为[0,1]范围内的浮点数
+        # Check if urgency is a float within [0,1] range
         if not isinstance(urgency, (int, float)) or urgency < 0 or urgency > 1:
-            logging.info(f"Warning: urgency值不符合规则 (应为[0,1]范围内的数值): {urgency}")
+            logging.info(f"Warning: urgency value does not comply with rules (should be a numeric value within [0,1] range): {urgency}")
             valid = False
         
-        # 检查scope_type是否为["local", "global"]中的字符串
+        # Check if scope_type is a string from ["local", "global"]
         if scope_type not in ["local", "global"]:
-            logging.info(f"Warning: scope_type值不符合规则 (应为'local'或'global'): {scope_type}")
+            logging.info(f"Warning: scope_type value does not comply with rules (should be 'local' or 'global'): {scope_type}")
             valid = False
         
-        # 如果验证通过，返回结果
+        # If validation passes, return result
         if valid:
             return float(urgency), str(scope_type)
         
-        # 如果未通过验证，显示重试信息
-        logging.info(f"第{attempt + 1}次尝试失败，重新调用大模型...")
+        # If validation fails, show retry information
+        logging.info(f"Attempt {attempt + 1} failed, retrying large model call...")
     
-    # 三次尝试都失败后报错
-    raise ValueError(f"经过{max_retries}次尝试，仍无法获得符合规则的解析结果")
+    # Raise error after three failed attempts
+    raise ValueError(f"After {max_retries} attempts, still unable to obtain parsing results that comply with rules")
 
 
 def run(config: dict):
     """
-    Parser Service 的主运行函数。
-    由主入口脚本 (run_system.py) 作为独立进程启动。
+    Main run function for Parser Service.
+    Started as an independent process by the main entry script (run_system.py).
     """
     # Set up logging
     parent_dir = config.get("output_parent_dir", "logs")
@@ -109,7 +109,7 @@ def run(config: dict):
     stream_name = STREAMS["generator_to_parser"]
     group_name = "parser_group"
 
-    # 尝试创建消费者组，如果已存在则会报错，但可以安全地忽略
+    # Try to create consumer group, will error if already exists, but can be safely ignored
     try:
         redis_conn.xgroup_create(stream_name, group_name, id='0', mkstream=True)
     except Exception as e:
@@ -120,7 +120,7 @@ def run(config: dict):
     
     while True:
         try:
-            # 阻塞式地从"新问题"流中读取一条消息
+            # Blocking read one message from "new questions" stream
             messages = redis_conn.xreadgroup(group_name, "parser_worker", {stream_name: '>'}, count=1, block=None)
             
             if not messages:
@@ -139,16 +139,16 @@ def run(config: dict):
                         redis_conn.xack(stream_name, group_name, message_id)
                         continue
 
-                    # 1. 创建完整的 Question 元数据
+                    # 1. Create complete Question metadata
                     urgency, scope_type = parse_question(desc, model_name=model_name, prompt_parser=prompt_parser, server=server, base_url=base_url, api_key=api_key)
                     metadata = {
                         "id": q_id,
                         "description": desc,
                         "urgency": urgency,
                         "scope_type": scope_type,
-                        "status": "pending",  # 所有问题的初始状态
-                        "cost_estimate": -1.0, # 待Updater更新
-                        "reward_estimate": -1.0, # 待Updater更新
+                        "status": "pending",  # Initial status for all questions
+                        "cost_estimate": -1.0, # To be updated by Updater
+                        "reward_estimate": -1.0, # To be updated by Updater
                         "dependency": [],
                         "answer": "",
                         "max_steps": -1,
@@ -159,20 +159,20 @@ def run(config: dict):
                     }
                     logging.info(f"[{os.getpid()}](PAR) Question metadata: {json.dumps(metadata, indent=2, ensure_ascii=False)}")
                     
-                    # 2. 将元数据存入 Redis Hash
+                    # 2. Store metadata in Redis Hash
                     # redis_conn.hset(f"{KEY_PREFIXES['question']}{q_id}", mapping=metadata)
                     
-                    # 3. 通知 Finishing Module 服务，有新的问题需要处理
+                    # 3. Notify Finishing Module service that there's a new question to process
                     redis_conn.xadd(STREAMS["parser_to_finishing"], {"data": json.dumps(metadata)})
                     
-                    # 4. 更新统计信息
+                    # 4. Update statistics
                     redis_conn.hincrby(STATS_KEYS["parser"], "total", 1)
                     
                     logging.info(f"[{os.getpid()}](PAR) Successfully parsed question {q_id}: '{desc[:40]}...'")
 
-                    # 5. 确认消息处理完毕，从pending列表中移除
+                    # 5. Acknowledge message processing completion, remove from pending list
                     redis_conn.xack(stream_name, group_name, message_id)
 
         except Exception as e:
             logging.info(f"[{os.getpid()}](PAR) An error occurred in Parser service: {e}")
-            time.sleep(5) # 发生错误时等待一段时间再重试
+            time.sleep(5) # Wait for a while before retrying when error occurs
