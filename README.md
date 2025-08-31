@@ -21,10 +21,22 @@ conda activate para-eqa
 conda install habitat-sim headless -c conda-forge -c aihabitat
 ```
 
+- Install [PyTorch](https://pytorch.org) that suits your machine. This project has been tested on version `2.2.1`.
+
+```bash
+pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 --index-url https://download.pytorch.org/whl/cu118
+```
+
 - Install dependencies using `pip`:
 
 ```bash
-pip install requirements.txt
+pip install -r requirements.txt
+```
+
+- Install [faiss-gpu](https://github.com/facebookresearch/faiss)
+
+```bash
+conda install -c conda-forge faiss-gpu
 ```
 
 - Prepare Redis using Docker:
