@@ -61,13 +61,13 @@ stopping:
 
 updater:
   enable_cost_estimate: false
-  enable_reward_estimate: true
+  enable_reward_estimate: false
   enable_urgency: true
   enable_scope_type: true
   enable_dependency: true
 
 answering:
-  result_dir: results/answers-para-eqa
+  result_dir: results/answers-no-reward
 
 planner:
   num_workers: 8

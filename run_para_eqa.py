@@ -146,11 +146,11 @@ if __name__ == "__main__":
     
     # Parse arguments
     args_parser = argparse.ArgumentParser()
-    args_parser.add_argument("-config", "--config_file", default="config/para_eqa.yaml", type=str)
+    args_parser.add_argument("-c", "--config", default="config/para_eqa.yaml", type=str)
     args = args_parser.parse_args()
     
     # Load configuration
-    config = load_config(args.config_file)
+    config = load_config(args.config)
     
     # Set up logging
     parent_dir = config.get("logs_parent_dir", "logs")

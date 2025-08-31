@@ -8,9 +8,9 @@ save_obs: true
 save_freq: 20
 device: 'cuda'
 detector: './data/yolo11x.pt'
-use_parallel: true # whether to have group memory and finishing service
-priority_scheduling: true
-direct_answer: true
+use_parallel: false # whether to have group memory and finishing service
+priority_scheduling: false
+direct_answer: false
 
 # NOTE: The situation where use_parallel == True and use_rag == False is not allowed
 
@@ -44,7 +44,7 @@ redis:
 
 # Services
 generator:
-  enable_follow_up: true
+  enable_follow_up: false
   interval_seconds: 120
   start_group: 0
   end_group: 39
@@ -61,13 +61,13 @@ stopping:
 
 updater:
   enable_cost_estimate: false
-  enable_reward_estimate: true
-  enable_urgency: true
-  enable_scope_type: true
-  enable_dependency: true
+  enable_reward_estimate: false
+  enable_urgency: false
+  enable_scope_type: false
+  enable_dependency: false
 
 answering:
-  result_dir: results/answers-para-eqa
+  result_dir: results/answers-memory-eqa
 
 planner:
   num_workers: 8

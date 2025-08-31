@@ -9,7 +9,7 @@ save_freq: 20
 device: 'cuda'
 detector: './data/yolo11x.pt'
 use_parallel: true # whether to have group memory and finishing service
-priority_scheduling: true
+priority_scheduling: false
 direct_answer: true
 
 # NOTE: The situation where use_parallel == True and use_rag == False is not allowed
@@ -62,12 +62,12 @@ stopping:
 updater:
   enable_cost_estimate: false
   enable_reward_estimate: true
-  enable_urgency: true
-  enable_scope_type: true
-  enable_dependency: true
+  enable_urgency: false
+  enable_scope_type: false
+  enable_dependency: false
 
 answering:
-  result_dir: results/answers-para-eqa
+  result_dir: results/answers-no-priority
 
 planner:
   num_workers: 8
